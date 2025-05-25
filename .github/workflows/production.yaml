@@ -22,6 +22,14 @@ jobs:
         with:
           version: latest
 
-      - run: supabase link --project-ref $SUPABASE_PROJECT_ID
-      - run: supabase db push
-      - run: supabase functions deploy --project-ref $SUPABASE_PROJECT_ID
+      - name: Link Supabase project
+        working-directory: apps/web
+        run: supabase link --project-ref $SUPABASE_PROJECT_ID
+
+      - name: Push database migrations
+        working-directory: apps/web
+        run: supabase db push
+
+      - name: Deploy Supabase functions
+        working-directory: apps/web
+        run: supabase functions deploy --project-ref $SUPABASE_PROJECT_ID
