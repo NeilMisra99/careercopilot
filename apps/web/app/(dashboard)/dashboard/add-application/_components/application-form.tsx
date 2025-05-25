@@ -1,0 +1,187 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { toast } from "sonner";
+
+import { Button } from "@/components/ui/button";
+import { Form } from "@/components/ui/form";
+import { Separator } from "@/components/ui/separator";
+
+import { JobDetailsSection } from "./job-details-section";
+import { AdditionalInfoSection } from "./additional-info-section";
+import { UrlImportSection } from "./url-import-section";
+import { createApplicationAction } from "../_lib/actions/create-application";
+import { applicationFormSchema, type ApplicationFormData } from "../_lib/types";
+
+export function ApplicationForm() {
+  const router = useRouter();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+
+  const form = useForm<ApplicationFormData>({
+    resolver: zodResolver(applicationFormSchema),
+    defaultValues: {
+      companyName: "",
+      jobTitle: "",
+      status: "Applied" as const,
+      applicationDate: new Date().toISOString().split("T")[0], // Today's date
+      jobUrl: "",
+      location: "",
+      salary: "",
+      notes: "",
+    },
+  });
+
+  const onSubmit = async (data: ApplicationFormData) => {
+    if (isSubmitting) return;
+
+    setIsSubmitting(true);
+    try {
+      const result = await createApplicationAction(data);
+
+      if (result.error) {
+        toast.error("Failed to create application", {
+          description: result.error,
+        });
+        return;
+      }
+
+      toast.success("Application created successfully!", {
+        description: `Added ${data.jobTitle} at ${data.companyName}`,
+      });
+
+      // Redirect to board or dashboard
+      router.push("/dashboard/board");
+    } catch (error) {
+      console.error("Error creating application:", error);
+      toast.error("Failed to create application", {
+        description: "An unexpected error occurred. Please try again.",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleUrlImport = async (url: string) => {
+    if (isImporting) return;
+
+    setIsImporting(true);
+    try {
+      // Call smart URL scraping endpoint via new worker proxy structure
+      const response = await fetch(
+        `/api/worker_proxy/job-boards/scrape?url=${encodeURIComponent(url)}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to scrape job URL");
+      }
+
+      const result = await response.json();
+
+      if (result.error) {
+        toast.error("Failed to import from URL", {
+          description: result.error,
+        });
+        return;
+      }
+
+      // Populate form with scraped data
+      if (result.data) {
+        const { companyName, jobTitle, location, salary } = result.data;
+
+        // Show a brief success state
+        toast.success("Job details imported successfully!", {
+          description: "Populating form fields...",
+          duration: 2000,
+        });
+
+        // Small delay to show the success message, then populate fields
+        setTimeout(() => {
+          if (companyName) form.setValue("companyName", companyName);
+          if (jobTitle) form.setValue("jobTitle", jobTitle);
+          if (location) form.setValue("location", location);
+          if (salary) form.setValue("salary", salary);
+          form.setValue("jobUrl", url);
+
+          // Show final success message
+          toast.success("Form populated!", {
+            description: "Review and update the information as needed.",
+          });
+        }, 300);
+      }
+    } catch (error) {
+      console.error("Error importing from URL:", error);
+      toast.error("Failed to import from URL", {
+        description: "Please enter the details manually.",
+      });
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  return (
+    <div className="relative">
+      {/* Loading overlay for form submission */}
+      {isSubmitting && (
+        <div className="absolute inset-0 bg-background/50 backdrop-blur-sm z-10 flex items-center justify-center">
+          <div className="bg-background rounded-lg border p-6 shadow-lg">
+            <div className="flex items-center space-x-3">
+              <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary border-t-transparent" />
+              <span className="text-sm font-medium">
+                Creating application...
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+          {/* URL Import Section */}
+          <UrlImportSection
+            onImport={handleUrlImport}
+            isImporting={isImporting}
+          />
+
+          <Separator />
+
+          {/* Job Details Section */}
+          <JobDetailsSection form={form} />
+
+          <Separator />
+
+          {/* Additional Information */}
+          <AdditionalInfoSection form={form} />
+
+          {/* Form Actions */}
+          <div className="flex items-center justify-end space-x-4 pt-6">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => router.back()}
+              disabled={isSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              className="min-w-[120px]"
+            >
+              {isSubmitting ? "Creating..." : "Create Application"}
+            </Button>
+          </div>
+        </form>
+      </Form>
+    </div>
+  );
+}

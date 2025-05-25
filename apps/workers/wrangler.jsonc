@@ -1,0 +1,134 @@
+/**
+ * For more details on how to configure Wrangler, refer to:
+ * https://developers.cloudflare.com/workers/wrangler/configuration/
+ */
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "trackflow-api",
+	"main": "src/index.ts",
+	"compatibility_date": "2025-03-07",
+	"compatibility_flags": ["nodejs_compat"],
+	"observability": {
+		"enabled": true,
+		"head_sampling_rate": 1,
+	},
+	/**
+	 * Smart Placement
+	 * Docs: https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
+	 */
+	// "placement": { "mode": "smart" },
+
+	/**
+	 * Bindings
+	 * Bindings allow your Worker to interact with resources on the Cloudflare Developer Platform, including
+	 * databases, object storage, AI inference, real-time communication and more.
+	 * https://developers.cloudflare.com/workers/runtime-apis/bindings/
+	 */
+
+	/**
+	 * Environment Variables
+	 * https://developers.cloudflare.com/workers/wrangler/configuration/#environment-variables
+	 */
+	"vars": {
+		// Default variables that might be overridden by environments
+		// For production, SUPABASE_URL and SUPABASE_ANON_KEY should be set as secrets
+		// SUPABASE_URL and SUPABASE_ANON_KEY moved to .dev.vars for local development
+	},
+	"env": {
+		"production": {
+			// For production, SUPABASE_URL, SUPABASE_ANON_KEY (and SUPABASE_SERVICE_ROLE_KEY if used)
+			// MUST be configured as secrets using `wrangler secret put <VAR_NAME> --env production`
+			// and will be automatically available in c.env.<VAR_NAME>.
+			// No need to list them in vars here if they are secrets.
+		},
+	},
+	/**
+	 * Note: Use secrets to store sensitive data.
+	 * https://developers.cloudflare.com/workers/configuration/secrets/
+	 */
+
+	/**
+	 * Static Assets
+	 * https://developers.cloudflare.com/workers/static-assets/binding/
+	 */
+	// "assets": { "directory": "./public/", "binding": "ASSETS" },
+
+	/**
+	 * Service Bindings (communicate between multiple Workers)
+	 * https://developers.cloudflare.com/workers/wrangler/configuration/#service-bindings
+	 */
+	// "services": [{ "binding": "MY_SERVICE", "service": "my-service" }]
+
+	"hyperdrive": [
+		{
+			"binding": "HYPERDRIVE_SUPABASE",
+			"id": "your-hyperdrive-id-goes-here",
+			"localConnectionString": "postgresql://postgres:postgres@127.0.0.1:54322/postgres",
+		},
+	],
+	"kv_namespaces": [
+		// Example placeholder from PRD - F1, F3
+		// { "binding": "SESSION_CACHE_KV", "id": "your-kv-namespace-id", "preview_id": "your-kv-preview-id" },
+		// { "binding": "AI_CACHE_KV", "id": "your-ai-cache-kv-id", "preview_id": "your-ai-cache-preview-id" },
+		{
+			"binding": "TOKEN_KV",
+			"id": "d1107eaf3bdf47fabc9f377e096e1b1d",
+			"preview_id": "e8267715cd624266bfe79e8b0b62787f",
+		},
+		{
+			"binding": "EMAIL_SYNC_RATE_KV",
+			"id": "2367c0e7a9cf42599c42415fa892ea23",
+			"preview_id": "6332ff4c47af4755b234d60220513bd5",
+		},
+		{
+			"binding": "AI_RATE_LIMIT_KV",
+			"id": "44444444444444444444444444444444",
+			"preview_id": "55555555555555555555555555555555",
+		},
+		{
+			"binding": "SCRAPING_CACHE_KV",
+			"id": "cceefc7b12424d3f9b29ade11375e848",
+			"preview_id": "34437fba3764462ebc0637d0ee4b643f",
+		},
+	],
+	"r2_buckets": [
+		// Example placeholder from PRD - F6
+		// { "binding": "RESUME_BUCKET", "bucket_name": "trackflow-resumes", "preview_bucket_name": "trackflow-resumes-preview" }
+	],
+	"queues": {
+		"producers": [{ "binding": "EMAIL_PARSE_QUEUE", "queue": "email-parse-queue" }],
+		"consumers": [
+			{
+				"queue": "email-parse-queue",
+				"max_batch_size": 5,
+				"max_batch_timeout": 15,
+				"max_retries": 3,
+				"dead_letter_queue": "email-parse-dlq",
+			},
+		],
+	},
+	"browser": {
+		"binding": "BROWSER",
+	},
+	"durable_objects": {
+		"bindings": [
+			// Example from PRD - F2, F7 (if DOs are chosen for these)
+			// { "name": "USER_EMAIL_TOKEN_DO", "class_name": "UserEmailTokenDO" },
+			// { "name": "NOTIFICATIONS_DO", "class_name": "NotificationsDO" }
+		],
+	},
+	// Migrations for Durable Objects (if any are defined above)
+	// "migrations": [
+	//   { "tag": "v1", "new_classes": ["UserEmailTokenDO", "NotificationsDO"] }
+	// ],
+	"ai": {
+		"binding": "AI",
+	},
+	"analytics_engine_datasets": [
+		// Example from PRD - F3
+		// { "binding": "PRODUCT_ANALYTICS", "dataset": "trackflow_prod_analytics" }
+	],
+	"triggers": {
+		"crons": ["*/5 * * * *"],
+	},
+}
