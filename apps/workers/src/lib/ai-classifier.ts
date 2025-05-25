@@ -26,7 +26,7 @@ export async function classifyEmail(emailData: EmailToParse, aiBinding: Ai): Pro
 	const classificationPromptContent = `You are an expert at identifying job application-related emails. Analyze this email and determine if it's directly about a specific job application the recipient has already submitted.
 
 EMAIL TO ANALYZE:
-Subject: ${emailData.gmailMessage.subject || '(No subject)'}
+Subject: ${emailData.gmailMessage.subject || '(No subject provided)'}
 From: ${emailData.gmailMessage.from || '(Unknown sender)'}
 Snippet: ${emailData.gmailMessage.snippet || '(No snippet)'}
 Body: ${(emailData.gmailMessage.bodyText || emailData.gmailMessage.snippet || '(No content)').substring(0, 800)}
