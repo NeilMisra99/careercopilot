@@ -28,19 +28,6 @@
 	 * Environment Variables
 	 * https://developers.cloudflare.com/workers/wrangler/configuration/#environment-variables
 	 */
-	"vars": {
-		// Default variables that might be overridden by environments
-		// For production, SUPABASE_URL and SUPABASE_ANON_KEY should be set as secrets
-		// SUPABASE_URL and SUPABASE_ANON_KEY moved to .dev.vars for local development
-	},
-	"env": {
-		"production": {
-			"name": "trackflow-api-prod",
-			"vars": {
-				"TOKEN_BACKEND": "kv",
-			},
-		},
-	},
 	/**
 	 * Note: Use secrets to store sensitive data.
 	 * https://developers.cloudflare.com/workers/configuration/secrets/
