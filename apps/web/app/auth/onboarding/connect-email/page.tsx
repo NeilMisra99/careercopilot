@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 
 // Helper to map error codes to user-friendly messages
 function getFriendlyErrorMessage(
@@ -35,7 +35,7 @@ function getFriendlyErrorMessage(
   }
 }
 
-export default function ConnectEmailPage() {
+function ConnectEmailContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
@@ -230,5 +230,19 @@ export default function ConnectEmailPage() {
         </button>
       </main>
     </div>
+  );
+}
+
+export default function ConnectEmailPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center min-h-screen">
+          Loading...
+        </div>
+      }
+    >
+      <ConnectEmailContent />
+    </Suspense>
   );
 }
