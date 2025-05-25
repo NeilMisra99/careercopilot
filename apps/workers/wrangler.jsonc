@@ -36,10 +36,19 @@
 	},
 	"env": {
 		"production": {
-			// For production, SUPABASE_URL, SUPABASE_ANON_KEY (and SUPABASE_SERVICE_ROLE_KEY if used)
-			// MUST be configured as secrets using `wrangler secret put <VAR_NAME> --env production`
-			// and will be automatically available in c.env.<VAR_NAME>.
-			// No need to list them in vars here if they are secrets.
+			"name": "trackflow-api-prod",
+			"triggers": {
+				"crons": ["*/5 * * * *"],
+			},
+			"hyperdrive": [
+				{
+					"binding": "HYPERDRIVE_SUPABASE",
+					"id": "your-production-hyperdrive-id-goes-here",
+				},
+			],
+			"vars": {
+				"TOKEN_BACKEND": "kv",
+			},
 		},
 	},
 	/**
