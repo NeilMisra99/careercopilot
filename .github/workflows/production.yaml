@@ -29,7 +29,3 @@ jobs:
       - name: Push database migrations
         working-directory: apps/web
         run: supabase db push
-
-      - name: Deploy Supabase functions
-        working-directory: apps/web
-        run: supabase functions deploy --project-ref $SUPABASE_PROJECT_ID
