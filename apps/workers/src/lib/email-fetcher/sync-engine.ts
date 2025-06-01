@@ -19,9 +19,11 @@ export async function syncGmailIntegration(
 	options: SyncOptions = {},
 ): Promise<void> {
 	const { forceSync = false, maxMessages = INITIAL_FETCH_MAX_MESSAGES, maxDays = INITIAL_FETCH_MAX_DAYS } = options;
+	const syncId = `${integration.user_id}-${Date.now()}`;
+	const startTime = Date.now();
 
 	console.log(
-		`[sync-engine] === PROCESSING INTEGRATION START: User ID ${integration.user_id}, Email: ${integration.email_address}, Integration ID: ${integration.id} ${forceSync ? '(FORCE SYNC)' : ''} ===`,
+		`[SYNC:${syncId}] === PROCESSING INTEGRATION START: User ID ${integration.user_id}, Email: ${integration.email_address}, Integration ID: ${integration.id} ${forceSync ? '(FORCE SYNC)' : ''} ===`,
 	);
 
 	// Mark sync as in progress IMMEDIATELY when we start
@@ -30,7 +32,7 @@ export async function syncGmailIntegration(
 		SET sync_in_progress = TRUE, last_sync_started_at = NOW()
 		WHERE id = ${integration.id}
 	`;
-	console.log(`[sync-engine] Marked integration ${integration.id} as sync in progress`);
+	console.log(`[SYNC:${syncId}] Marked integration ${integration.id} as sync in progress`);
 
 	let syncSummary = {
 		emails_processed: 0,
@@ -50,16 +52,14 @@ export async function syncGmailIntegration(
 	`;
 
 	try {
+		// Get valid access token
 		const accessToken = await getValidGmailAccessToken(env, integration, cryptoKey, db, tokenRepository);
-
 		if (!accessToken) {
-			console.warn(
-				`[sync-engine] Skipping user ${integration.user_id} (Integration ID: ${integration.id}) due to missing or invalid access token.`,
-			);
-			syncSummary.error = 'Failed to obtain valid access token';
-			return;
+			console.error(`[SYNC:${syncId}] Failed to get valid access token`);
+			throw new Error('Failed to get valid access token');
 		}
-		console.log(`[sync-engine] Successfully obtained valid Gmail access token for integration ID ${integration.id}.`);
+
+		console.log(`[SYNC:${syncId}] Got valid access token, fetching messages`);
 
 		let processedApplications: QueueMessage[] = [];
 		let latestHistoryIdProcessed = integration.last_history_id;
@@ -69,11 +69,11 @@ export async function syncGmailIntegration(
 
 		if (!integration.last_history_id) {
 			syncType = forceSync ? 'FORCE SYNC (INITIAL - NO HISTORY)' : 'INITIAL SYNC';
-			console.log(`[sync-engine] Starting ${syncType} for integration ID ${integration.id} (Email: ${integration.email_address})`);
+			console.log(`[SYNC:${syncId}] Starting ${syncType} for integration ID ${integration.id} (Email: ${integration.email_address})`);
 		} else if (forceSync) {
 			syncType = 'FORCE SYNC (INCREMENTAL)';
 			console.log(
-				`[sync-engine] Starting ${syncType} for integration ID ${integration.id} (Email: ${integration.email_address}) from historyId: ${integration.last_history_id}`,
+				`[SYNC:${syncId}] Starting ${syncType} for integration ID ${integration.id} (Email: ${integration.email_address}) from historyId: ${integration.last_history_id}`,
 			);
 		} else {
 			syncType = 'INCREMENTAL SYNC';
@@ -98,9 +98,11 @@ export async function syncGmailIntegration(
 				listUrl.searchParams.append('labelIds', 'INBOX');
 				if (nextPageToken) listUrl.searchParams.append('pageToken', nextPageToken);
 
-				console.log(`[sync-engine] ${syncType}: Fetching message list. URL: ${listUrl.toString()}`);
+				console.log(`[SYNC:${syncId}] ${syncType}: Fetching message list. URL: ${listUrl.toString()}`);
 				const listResponse = await fetch(listUrl.toString(), { headers: { Authorization: `Bearer ${accessToken}` } });
-				console.log(`[sync-engine] ${syncType}: Message list response status: ${listResponse.status} for integration ID ${integration.id}`);
+				console.log(
+					`[SYNC:${syncId}] ${syncType}: Message list response status: ${listResponse.status} for integration ID ${integration.id}`,
+				);
 
 				if (!listResponse.ok) {
 					let caughtError: any = {};
@@ -109,7 +111,7 @@ export async function syncGmailIntegration(
 					} catch {}
 					const errorData: FetchErrorData = typeof caughtError === 'object' && caughtError !== null ? caughtError : {};
 					console.error(
-						`[sync-engine] ${syncType}: Gmail API error (messages.list) for ${integration.email_address} (ID: ${integration.id}): ${listResponse.status}`,
+						`[SYNC:${syncId}] ${syncType}: Gmail API error (messages.list) for ${integration.email_address} (ID: ${integration.id}): ${listResponse.status}`,
 						errorData,
 					);
 					const errorMessage =
@@ -127,11 +129,13 @@ export async function syncGmailIntegration(
 				} = await listResponse.json();
 
 				console.log(
-					`[sync-engine] ${syncType}: List result for integration ID ${integration.id}: ${listResult.messages?.length || 0} messages, nextPageToken: ${!!listResult.nextPageToken}`,
+					`[SYNC:${syncId}] ${syncType}: List result for integration ID ${integration.id}: ${listResult.messages?.length || 0} messages, nextPageToken: ${!!listResult.nextPageToken}`,
 				);
 
 				if (listResult.messages && listResult.messages.length > 0) {
-					console.log(`[sync-engine] ${syncType}: Processing ${listResult.messages.length} messages for integration ID ${integration.id}.`);
+					console.log(
+						`[SYNC:${syncId}] ${syncType}: Processing ${listResult.messages.length} messages for integration ID ${integration.id}.`,
+					);
 
 					for (const msgMeta of listResult.messages) {
 						if (fetchedMessageIds.has(msgMeta.id)) continue;
@@ -139,11 +143,11 @@ export async function syncGmailIntegration(
 						// Fetch full message details including body
 						const messageDetailUrl = `${GMAIL_API_BASE_URL}/me/messages/${msgMeta.id}?format=full`;
 						console.log(
-							`[sync-engine] ${syncType}: Fetching full message details. URL: ${messageDetailUrl} for integration ID ${integration.id}`,
+							`[SYNC:${syncId}] ${syncType}: Fetching full message details. URL: ${messageDetailUrl} for integration ID ${integration.id}`,
 						);
 						const messageDetailResponse = await fetch(messageDetailUrl, { headers: { Authorization: `Bearer ${accessToken}` } });
 						console.log(
-							`[sync-engine] ${syncType}: Message detail response status: ${messageDetailResponse.status} for message ID ${msgMeta.id}, integration ID ${integration.id}`,
+							`[SYNC:${syncId}] ${syncType}: Message detail response status: ${messageDetailResponse.status} for message ID ${msgMeta.id}, integration ID ${integration.id}`,
 						);
 
 						if (!messageDetailResponse.ok) {
@@ -152,7 +156,7 @@ export async function syncGmailIntegration(
 								errorData = await messageDetailResponse.json();
 							} catch {}
 							console.warn(
-								`[sync-engine] ${syncType}: Failed to fetch details for message ID ${msgMeta.id} for ${integration.email_address}. Status: ${messageDetailResponse.status}`,
+								`[SYNC:${syncId}] ${syncType}: Failed to fetch details for message ID ${msgMeta.id} for ${integration.email_address}. Status: ${messageDetailResponse.status}`,
 								errorData,
 							);
 							continue;
@@ -160,7 +164,7 @@ export async function syncGmailIntegration(
 
 						const fullMsg: GmailApiMessage = await messageDetailResponse.json();
 						console.log(
-							`[sync-engine] ${syncType}: Received full message for ID ${fullMsg.id}, historyId ${fullMsg.historyId}, integration ID ${integration.id}.`,
+							`[SYNC:${syncId}] ${syncType}: Received full message for ID ${fullMsg.id}, historyId ${fullMsg.historyId}, integration ID ${integration.id}.`,
 						);
 
 						let { text: bodyText, html: bodyHtml } = await extractBodyParts(fullMsg.payload, fullMsg.id, accessToken);
@@ -168,7 +172,7 @@ export async function syncGmailIntegration(
 						// 🚀 BREAKTHROUGH: NO TRUNCATION - KEEP FULL EMAIL CONTENT FOR AI!
 						const totalBodyLength = (bodyText?.length || 0) + (bodyHtml?.length || 0);
 						console.log(
-							`[sync-engine] 🌟 FULL EMAIL PROCESSING: Email ${fullMsg.id} body length: ${totalBodyLength} characters (text: ${bodyText?.length || 0}, html: ${bodyHtml?.length || 0}) - PROCESSING WITH COMPLETE CONTENT!`,
+							`[SYNC:${syncId}] 🌟 FULL EMAIL PROCESSING: Email ${fullMsg.id} body length: ${totalBodyLength} characters (text: ${bodyText?.length || 0}, html: ${bodyHtml?.length || 0}) - PROCESSING WITH COMPLETE CONTENT!`,
 						);
 
 						const messageDataForAI: GmailMessageData = {
@@ -184,7 +188,7 @@ export async function syncGmailIntegration(
 						};
 
 						console.log(
-							`[sync-engine] ${syncType}: Starting AI-first processing for email ${fullMsg.id}. Integration ID: ${integration.id}`,
+							`[SYNC:${syncId}] ${syncType}: Starting AI-first processing for email ${fullMsg.id}. Integration ID: ${integration.id}`,
 						);
 
 						// 🧠 REVOLUTIONARY AI-FIRST PROCESSING WITH FULL EMAIL CONTENT
@@ -194,7 +198,7 @@ export async function syncGmailIntegration(
 						aiProcessedCount++;
 
 						if (aiProcessingResult) {
-							console.log(`[sync-engine] ✅ AI processing successful for email ${fullMsg.id} - creating structured queue message`);
+							console.log(`[SYNC:${syncId}] ✅ AI processing successful for email ${fullMsg.id} - creating structured queue message`);
 
 							// Create lightweight structured queue message (no full email content!)
 							const structuredQueueMessage: QueueMessage = {
@@ -215,10 +219,10 @@ export async function syncGmailIntegration(
 
 							processedApplications.push(structuredQueueMessage);
 							console.log(
-								`[sync-engine] ${syncType}: Prepared structured application data for email ${fullMsg.id}. Integration ID: ${integration.id}`,
+								`[SYNC:${syncId}] ${syncType}: Prepared structured application data for email ${fullMsg.id}. Integration ID: ${integration.id}`,
 							);
 						} else {
-							console.log(`[sync-engine] 📧 Email ${fullMsg.id} not job-related or AI processing failed - skipping queue`);
+							console.log(`[SYNC:${syncId}] 📧 Email ${fullMsg.id} not job-related or AI processing failed - skipping queue`);
 						}
 
 						latestHistoryIdProcessed = fullMsg.historyId;
@@ -230,10 +234,10 @@ export async function syncGmailIntegration(
 								const messagesForBatch = batchToSend.map((msg) => ({ body: msg }));
 								await env.EMAIL_PARSE_QUEUE.sendBatch(messagesForBatch);
 								console.log(
-									`[sync-engine] ${syncType}: Sent batch of ${batchToSend.length} structured applications to queue for integration ${integration.id}`,
+									`[SYNC:${syncId}] ${syncType}: Sent batch of ${batchToSend.length} structured applications to queue for integration ${integration.id}`,
 								);
 							} catch (batchError: any) {
-								console.error(`[sync-engine] ${syncType}: Failed to send application batch:`, batchError);
+								console.error(`[SYNC:${syncId}] ${syncType}: Failed to send application batch:`, batchError);
 								processedApplications.push(...batchToSend);
 							}
 						}
@@ -261,7 +265,7 @@ export async function syncGmailIntegration(
 						// Log progress every 10 emails to avoid spam
 						if (messagesFetchedCount % 10 === 0) {
 							console.log(
-								`[sync-engine] ${syncType}: Progress update - ${messagesFetchedCount} emails processed, ${aiProcessedCount} analyzed by AI, ${processedApplications.length} applications found for integration ${integration.id}`,
+								`[SYNC:${syncId}] ${syncType}: Progress update - ${messagesFetchedCount} emails processed, ${aiProcessedCount} analyzed by AI, ${processedApplications.length} applications found for integration ${integration.id}`,
 							);
 						}
 
@@ -285,12 +289,12 @@ export async function syncGmailIntegration(
 			}
 
 			console.log(
-				`[sync-engine] ${syncType} for ${integration.email_address} (ID: ${integration.id}) processed ${messagesFetchedCount} emails, ${aiProcessedCount} analyzed by AI, ${processedApplications.length} applications found. Latest historyId: ${latestHistoryIdProcessed}`,
+				`[SYNC:${syncId}] ${syncType} for ${integration.email_address} (ID: ${integration.id}) processed ${messagesFetchedCount} emails, ${aiProcessedCount} analyzed by AI, ${processedApplications.length} applications found. Latest historyId: ${latestHistoryIdProcessed}`,
 			);
 		} else {
 			// Similar AI-first processing for incremental sync...
 			console.log(
-				`[sync-engine] Starting INCREMENTAL SYNC for integration ID ${integration.id} (Email: ${integration.email_address}), from historyId: ${integration.last_history_id}`,
+				`[SYNC:${syncId}] Starting INCREMENTAL SYNC for integration ID ${integration.id} (Email: ${integration.email_address}), from historyId: ${integration.last_history_id}`,
 			);
 			// [Incremental sync implementation with AI-first processing would follow similar pattern]
 		}
@@ -298,23 +302,23 @@ export async function syncGmailIntegration(
 		// Send any remaining processed applications to queue
 		if (processedApplications.length > 0) {
 			console.log(
-				`[sync-engine] Sending ${processedApplications.length} remaining structured applications to EMAIL_PARSE_QUEUE for integration ID ${integration.id}.`,
+				`[SYNC:${syncId}] Sending ${processedApplications.length} remaining structured applications to EMAIL_PARSE_QUEUE for integration ID ${integration.id}.`,
 			);
 
 			const queueBatchSize = 5;
 			for (let i = 0; i < processedApplications.length; i += queueBatchSize) {
 				const batchToSend = processedApplications.slice(i, i + queueBatchSize);
 				console.log(
-					`[sync-engine] Sending final batch of ${batchToSend.length} structured applications to EMAIL_PARSE_QUEUE for integration ID ${integration.id}.`,
+					`[SYNC:${syncId}] Sending final batch of ${batchToSend.length} structured applications to EMAIL_PARSE_QUEUE for integration ID ${integration.id}.`,
 				);
 				const messagesForBatch = batchToSend.map((msg) => ({ body: msg }));
 				await env.EMAIL_PARSE_QUEUE.sendBatch(messagesForBatch);
 				console.log(
-					`[sync-engine] Successfully sent final batch of ${batchToSend.length} structured applications to EMAIL_PARSE_QUEUE for integration ID ${integration.id}.`,
+					`[SYNC:${syncId}] Successfully sent final batch of ${batchToSend.length} structured applications to EMAIL_PARSE_QUEUE for integration ID ${integration.id}.`,
 				);
 			}
 			console.log(
-				`[sync-engine] 🎉 BREAKTHROUGH COMPLETE: Successfully sent all ${processedApplications.length} AI-processed applications to EMAIL_PARSE_QUEUE for integration ID ${integration.id}.`,
+				`[SYNC:${syncId}] 🎉 BREAKTHROUGH COMPLETE: Successfully sent all ${processedApplications.length} AI-processed applications to EMAIL_PARSE_QUEUE for integration ID ${integration.id}.`,
 			);
 		}
 
@@ -345,7 +349,7 @@ export async function syncGmailIntegration(
 		`;
 	} catch (syncError: any) {
 		console.error(
-			`[sync-engine] Error during AI-first sync for integration ID ${integration.id} (${integration.email_address}): ${syncError.message}`,
+			`[SYNC:${syncId}] Error during AI-first sync for integration ID ${integration.id} (${integration.email_address}): ${syncError.message}`,
 			syncError.stack,
 		);
 		syncSummary.error = syncError.message;
@@ -360,10 +364,10 @@ export async function syncGmailIntegration(
 				last_sync_summary = ${db.json(syncSummary)}
 			WHERE id = ${integration.id}
 		`;
-		console.log(`[sync-engine] Marked integration ID ${integration.id} as error in DB due to sync error.`);
+		console.log(`[SYNC:${syncId}] Marked integration ID ${integration.id} as error in DB due to sync error.`);
 	}
 
 	console.log(
-		`[sync-engine] === PROCESSING INTEGRATION END: User ID ${integration.user_id}, Email: ${integration.email_address}, Integration ID: ${integration.id} ===`,
+		`[SYNC:${syncId}] === PROCESSING INTEGRATION END: User ID ${integration.user_id}, Email: ${integration.email_address}, Integration ID: ${integration.id} ===`,
 	);
 }

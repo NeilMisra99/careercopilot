@@ -276,7 +276,10 @@ export async function handleEmailParseQueueBatch(
 	env: QueueConsumerEnv,
 	ctx: ExecutionContext,
 ): Promise<void> {
-	console.log(`[queue-consumer] Queue consumer invoked for queue: ${batch.queue}. Batch size: ${batch.messages.length}`);
+	const batchId = `batch-${Date.now()}`;
+	const batchSize = batch.messages.length;
+
+	console.log(`[QUEUE:${batchId}] Processing batch with ${batchSize} messages`);
 
 	if (!env.AI) {
 		console.error('[queue-consumer] AI binding not available. Retrying all messages in batch.');
@@ -288,7 +291,19 @@ export async function handleEmailParseQueueBatch(
 	const sortedMessages = sortMessagesByDate(batch.messages);
 	console.log(`[queue-consumer] Processing ${sortedMessages.length} messages in chronological order (newest first)`);
 
-	const db = initializeDatabase(env);
+	// Initialize database connection
+	let db: postgres.Sql;
+	try {
+		db = initializeDatabase(env);
+		console.log(`[QUEUE:${batchId}] Database connection established`);
+	} catch (error: any) {
+		console.error(`[QUEUE:${batchId}] Failed to initialize database:`, {
+			message: error?.message,
+			timeout: error?.message?.includes('timeout') || error?.code === 'CONNECT_TIMEOUT',
+		});
+		batch.retryAll();
+		return;
+	}
 
 	for (const message of sortedMessages) {
 		console.log(`[queue-consumer] Processing message ID: ${message.id}`);

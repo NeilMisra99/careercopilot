@@ -47,17 +47,35 @@ export function setupSupabaseAuth() {
  * Setup Hyperdrive database middleware
  */
 export function setupHyperdrive() {
-	return async (c: Context<Env>, next: Next) => {
-		if (!c.env.HYPERDRIVE_SUPABASE) {
-			console.error('Hyperdrive binding HYPERDRIVE_SUPABASE not found.');
-			return c.json({ error: 'Database not configured' }, 500);
-		}
-		try {
-			const sql = postgres(c.env.HYPERDRIVE_SUPABASE.connectionString);
-			c.set('db', sql);
-		} catch (err: any) {
-			console.error('Failed to connect to Hyperdrive:', err.message);
-			return c.json({ error: 'Database connection error', details: err.message }, 500);
+	return async (c: Context, next: Next) => {
+		if (c.env.HYPERDRIVE_SUPABASE) {
+			// Get the Hyperdrive connection string (postgres://....)
+			const connectionString = c.env.HYPERDRIVE_SUPABASE.connectionString;
+
+			const options: postgres.Options<Record<string, postgres.PostgresType>> = {
+				max: 3, // Lower for transaction pooler
+				fetch_types: false,
+				prepare: false, // Disable prepared statements for transaction pooler
+				connect_timeout: 10, // Longer timeout for pooler
+				idle_timeout: 20, // Reasonable for short-lived Workers
+				max_lifetime: 5 * 60, // 5 minutes for transaction pooler
+			};
+
+			// Don't enforce SSL on localhost/127.0.0.1 (local dev)
+			if (!connectionString.includes('127.0.0.1') && !connectionString.includes('localhost')) {
+				options.ssl = 'require';
+			}
+
+			console.log('Setting up Hyperdrive for Supabase Transaction Pooler:', {
+				max: options.max,
+				prepare: options.prepare,
+				connect_timeout: options.connect_timeout,
+			});
+
+			const db = postgres(connectionString, options);
+			c.set('db', db);
+		} else {
+			console.warn('HYPERDRIVE_SUPABASE binding not available');
 		}
 		await next();
 	};

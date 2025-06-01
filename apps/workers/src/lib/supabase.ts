@@ -40,9 +40,12 @@ export function getHyperdriveNonPooled(connectionString: string): postgres.Sql {
 	}
 
 	const options: postgres.Options<Record<string, postgres.PostgresType>> = {
-		connect_timeout: 5, // 5 seconds, as per recommendation
-		idle_timeout: 15, // 15 seconds (converted from 15_000 ms in recommendation)
-		max_lifetime: 10 * 60, // 10 minutes (converted from 10 * 60_000 ms)
+		max: 3, // Lower for transaction pooler to avoid overwhelming it
+		fetch_types: false, // Avoid additional round-trip if not using array types
+		prepare: false, // Disable prepared statements for transaction pooler
+		connect_timeout: 10, // Slightly longer for pooler connection establishment
+		idle_timeout: 20, // Shorter idle timeout for transaction pooler
+		max_lifetime: 5 * 60, // Shorter lifetime for transaction pooler (5 minutes)
 		// SSL options will be set conditionally below
 	};
 
@@ -59,6 +62,31 @@ export function getHyperdriveNonPooled(connectionString: string): postgres.Sql {
 		// By not setting options.ssl, postgres.js will attempt a plain connection if the server doesn't force SSL.
 	}
 
-	// console.log("Creating non-pooled Hyperdrive connection for worker with options:", options);
-	return postgres(connectionString, options);
+	console.log('Creating Hyperdrive connection optimized for Supabase Transaction Pooler:', {
+		max: options.max,
+		fetch_types: options.fetch_types,
+		prepare: options.prepare,
+		connect_timeout: options.connect_timeout,
+	});
+
+	const sql = postgres(connectionString, options);
+
+	// Add connection event logging for debugging
+	sql.listen('connect', () => {
+		console.log('[DB] Successfully connected to Hyperdrive');
+	});
+
+	sql.listen('disconnect', () => {
+		console.log('[DB] Disconnected from Hyperdrive');
+	});
+
+	sql.listen('error', (error: any) => {
+		console.error('[DB] Hyperdrive connection error:', {
+			message: error?.message || error,
+			code: error?.code,
+			timeout: error?.message?.includes('timeout') || error?.code === 'CONNECT_TIMEOUT',
+		});
+	});
+
+	return sql;
 }
