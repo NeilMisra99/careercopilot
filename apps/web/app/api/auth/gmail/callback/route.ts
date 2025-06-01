@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "edge";
@@ -37,26 +38,24 @@ export async function GET(request: NextRequest) {
 
   try {
     // Get the user's session to pass cookies to worker
+    const cookieStore = await cookies();
     const supabase = await createClient();
     const {
-      data: { session },
-      error: sessionError,
-    } = await supabase.auth.getSession();
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
 
-    if (sessionError || !session) {
+    if (userError || !user) {
       console.error(
         `[Gmail Callback] User not authenticated:`,
-        sessionError?.message,
+        userError?.message,
       );
       return NextResponse.redirect(
         `${requestUrl.origin}/auth/login?error=session_expired_oauth`,
       );
     }
 
-    console.log(`[Gmail Callback] User authenticated: ${session.user.id}`);
-
-    // Get cookies to pass to worker
-    const cookieHeader = request.headers.get("cookie") || "";
+    console.log(`[Gmail Callback] User authenticated: ${user.id}`);
 
     // Exchange the OAuth code via worker
     console.log(`[Gmail Callback] Calling worker to exchange OAuth code`);
@@ -66,7 +65,7 @@ export async function GET(request: NextRequest) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Cookie: cookieHeader, // Pass session cookies to worker
+          Cookie: cookieStore.toString(), // Pass session cookies to worker
         },
         body: JSON.stringify({
           code,
@@ -89,7 +88,7 @@ export async function GET(request: NextRequest) {
     }
 
     console.log(
-      `[Gmail Callback] OAuth exchange successful for user ${session.user.id}`,
+      `[Gmail Callback] OAuth exchange successful for user ${user.id}`,
     );
     console.log(
       `[Gmail Callback] Integrated email: ${exchangeResult.userEmail}`,
