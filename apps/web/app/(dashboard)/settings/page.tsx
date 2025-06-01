@@ -26,7 +26,6 @@ export default function SettingsPage() {
         });
       }
     } catch (error) {
-      console.error("Sign out error:", error);
       toast.error("Network error", {
         description: "Failed to sign out. Please try again.",
       });

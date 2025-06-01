@@ -2,7 +2,9 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { cookies } from "next/headers";
-import { revalidateTag } from "next/cache";
+import { revalidateTag, revalidatePath } from "next/cache";
+import { CACHE_TAGS } from "@/lib/cache";
+import { getWorkerUrl } from "@/lib/worker-utils";
 
 export interface FailedEmail {
   id: string;
@@ -56,18 +58,15 @@ export async function getFailedEmailsAction(): Promise<FailedEmailsResponse> {
       };
     }
 
-    // Call worker API for failed emails
+    // Call worker directly
     const cookieStore = await cookies();
     const token = cookieStore.toString();
 
-    const response = await fetch(`/api/worker_proxy/gmail/failed-emails`, {
+    const workerUrl = getWorkerUrl();
+    const response = await fetch(`${workerUrl}/api/gmail/failed-emails`, {
       headers: {
         Cookie: token,
         "Content-Type": "application/json",
-      },
-      next: {
-        revalidate: 60, // Cache for 1 minute
-        tags: ["failed-emails"],
       },
     });
 
@@ -87,7 +86,6 @@ export async function getFailedEmailsAction(): Promise<FailedEmailsResponse> {
       message: result.message,
     };
   } catch (error) {
-    console.error("Error in getFailedEmailsAction:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",
@@ -122,12 +120,13 @@ export async function submitManualCorrectionAction(
       };
     }
 
-    // Call worker API to process failed email manually
+    // Call worker directly
     const cookieStore = await cookies();
     const token = cookieStore.toString();
 
+    const workerUrl = getWorkerUrl();
     const response = await fetch(
-      `/api/worker_proxy/gmail/process-failed-email`,
+      `${workerUrl}/api/gmail/process-failed-email`,
       {
         method: "POST",
         headers: {
@@ -149,10 +148,16 @@ export async function submitManualCorrectionAction(
 
     const result = await response.json();
 
-    // Revalidate relevant caches
-    revalidateTag("applications");
+    // Revalidate all relevant caches
+    revalidateTag("applications-data");
     revalidateTag("applications-board");
     revalidateTag("failed-emails");
+    revalidateTag("dashboard-data");
+    revalidateTag("board-data");
+
+    // Revalidate pages to reflect changes
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/board");
 
     return {
       success: result.success,
@@ -160,7 +165,6 @@ export async function submitManualCorrectionAction(
       applicationId: result.application?.id,
     };
   } catch (error) {
-    console.error("Error in submitManualCorrectionAction:", error);
     return {
       success: false,
       message: "Failed to process email",

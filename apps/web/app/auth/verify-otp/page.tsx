@@ -1,5 +1,7 @@
 import { VerifyOtpForm } from "@/components/auth/verify-otp-form";
 import { Suspense } from "react";
+import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
 
 interface VerifyOtpPageProps {
   searchParams: Promise<{
@@ -24,7 +26,20 @@ async function VerifyOtpContent(props: VerifyOtpPageProps) {
   return <VerifyOtpForm email={email} />;
 }
 
-export default function VerifyOtpPage({ searchParams }: VerifyOtpPageProps) {
+export default async function VerifyOtpPage({
+  searchParams,
+}: VerifyOtpPageProps) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  // If user is already logged in, redirect to dashboard
+  if (user) {
+    redirect("/dashboard");
+  }
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen py-2 bg-background">
       <Suspense

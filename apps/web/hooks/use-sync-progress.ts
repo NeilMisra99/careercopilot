@@ -36,6 +36,11 @@ export function useSyncProgress(userId?: string) {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
+  // Enhanced setSyncState with logging
+  const setSyncStateWithLogging = (newState: SyncState, reason: string) => {
+    setSyncState(newState);
+  };
+
   useEffect(() => {
     if (!userId) {
       setLoading(false);
@@ -69,7 +74,6 @@ export function useSyncProgress(userId?: string) {
             try {
               parsedSummary = JSON.parse(parsedSummary);
             } catch (e) {
-              console.error("Failed to parse realtime JSON summary:", e);
               parsedSummary = null;
             }
           }
@@ -98,19 +102,6 @@ export function useSyncProgress(userId?: string) {
             !syncState.lastCompleted ||
             (lastCompleted &&
               syncState.lastCompleted !== integration.last_sync_completed_at);
-
-          console.log("[SYNC PROGRESS] Realtime update received:", {
-            wasInProgress,
-            isNowComplete,
-            isRecentlyCompleted,
-            hasntHandledThisCompletion,
-            lastCompleted: lastCompleted?.toISOString(),
-            syncState_lastCompleted: syncState.lastCompleted,
-            integration_lastCompleted: integration.last_sync_completed_at,
-            currentSyncState: syncState,
-            integration_sync_in_progress: integration.sync_in_progress,
-            summary: integration.last_sync_summary,
-          });
 
           // Enhanced completion detection:
           // 1. We witnessed the sync completion (wasInProgress && isNowComplete)
@@ -141,55 +132,19 @@ export function useSyncProgress(userId?: string) {
               reason = "recently completed sync detected";
             }
 
-            console.log(
-              `[SYNC PROGRESS] 🎉 Sync completion detected (${reason})! Starting cache revalidation...`
-            );
             // Sync just completed - revalidate cache (router refresh not needed)
             setTimeout(async () => {
               try {
-                console.log(
-                  "[SYNC PROGRESS] Calling revalidateSyncDataAction..."
-                );
                 const revalidationResult = await revalidateSyncDataAction();
-                console.log(
-                  "[SYNC PROGRESS] Revalidation result:",
-                  revalidationResult
-                );
-                console.log(
-                  "[SYNC PROGRESS] Cache revalidation completed - fresh data will be fetched automatically"
-                );
               } catch (error) {
-                console.error(
-                  "[SYNC PROGRESS] Error revalidating cache after sync:",
-                  error
-                );
-                console.log(
-                  "[SYNC PROGRESS] Falling back to router refresh..."
-                );
                 // Fallback to router refresh if revalidation fails
                 router.refresh();
               }
             }, 500); // Small delay to ensure DB writes are complete
           } else {
-            console.log("[SYNC PROGRESS] Sync completion NOT detected:", {
-              wasInProgress,
-              isNowComplete,
-              isRecentlyCompleted,
-              hasntHandledThisCompletion,
-              syncJustFinished,
-              reason: !wasInProgress
-                ? "wasn't in progress initially"
-                : !isNowComplete
-                  ? "still in progress"
-                  : !isRecentlyCompleted
-                    ? "not recently completed"
-                    : !hasntHandledThisCompletion
-                      ? "already handled this completion"
-                      : "unknown",
-            });
           }
 
-          setSyncState(newState);
+          setSyncStateWithLogging(newState, "realtime update");
         }
       )
       .subscribe();
@@ -213,7 +168,7 @@ export function useSyncProgress(userId?: string) {
           hasIntegration: false,
           lastCompleted: null,
         };
-        setSyncState(newState);
+        setSyncStateWithLogging(newState, "initial fetch error");
       } else if (data) {
         // Parse the JSON summary if it's a string
         let parsedSummary = data.last_sync_summary;
@@ -221,7 +176,6 @@ export function useSyncProgress(userId?: string) {
           try {
             parsedSummary = JSON.parse(parsedSummary);
           } catch (e) {
-            console.error("Failed to parse initial JSON summary:", e);
             parsedSummary = null;
           }
         }
@@ -234,13 +188,6 @@ export function useSyncProgress(userId?: string) {
           hasIntegration: true,
         };
 
-        console.log("[SYNC PROGRESS] Initial state loaded:", {
-          newState,
-          rawData: data,
-          sync_in_progress_value: data.sync_in_progress,
-          sync_in_progress_type: typeof data.sync_in_progress,
-        });
-
         // Check if this is a recently completed sync on page load
         const lastCompleted = data.last_sync_completed_at
           ? new Date(data.last_sync_completed_at)
@@ -250,31 +197,17 @@ export function useSyncProgress(userId?: string) {
         const syncJustFinished = !data.sync_in_progress && isRecentlyCompleted;
 
         if (syncJustFinished) {
-          console.log(
-            "[SYNC PROGRESS] 🎉 Recently completed sync detected on page load! Triggering cache revalidation..."
-          );
           setTimeout(async () => {
             try {
               const revalidationResult = await revalidateSyncDataAction();
-              console.log(
-                "[SYNC PROGRESS] Page load revalidation result:",
-                revalidationResult
-              );
-              console.log(
-                "[SYNC PROGRESS] Page load cache revalidation completed"
-              );
             } catch (error) {
-              console.error(
-                "[SYNC PROGRESS] Error revalidating cache on page load:",
-                error
-              );
               // Fallback to router refresh if revalidation fails
               router.refresh();
             }
           }, 1000); // Slightly longer delay for page load
         }
 
-        setSyncState(newState);
+        setSyncStateWithLogging(newState, "initial fetch success");
       } else {
         const newState = {
           inProgress: false,
@@ -283,7 +216,7 @@ export function useSyncProgress(userId?: string) {
           hasIntegration: false,
           lastCompleted: null,
         };
-        setSyncState(newState);
+        setSyncStateWithLogging(newState, "initial fetch no data");
       }
     };
 

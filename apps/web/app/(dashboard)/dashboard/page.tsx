@@ -1,6 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { cookies } from "next/headers";
 import { DashboardWithRealtime } from "./_components/dashboard-with-realtime";
+import { workerClient } from "@/lib/worker-client";
+import { redirect } from "next/navigation";
+import { unstable_cache } from "next/cache";
+import { CACHE_TAGS, CACHE_CONFIG } from "@/lib/cache";
 
 // Interfaces for Gmail data, aligned with worker response
 interface EmailMessage {
@@ -39,188 +43,341 @@ interface ApplicationsApiResponse {
   details?: string;
 }
 
-interface AISuggestion {
+interface PendingApplication {
   id: string;
-  suggested_company_name: string;
-  suggested_role: string;
-  suggested_status: string;
-  suggestion_type: string;
-  suggestion_lifecycle_status: string;
-  raw_email_data?: {
-    email_id?: string;
-    email_thread_id?: string;
-    email_subject?: string;
-    email_from?: string;
-    email_date?: string;
-    email_snippet?: string;
-  };
-  suggestion_details?: {
-    previous_status?: string;
-    suggested_status?: string;
-  };
-  created_at: string;
+  company_name: string;
+  role: string;
+  status: string;
+  applied_at: string;
+  ai_suggested: boolean;
+  ai_confidence: number;
+  ai_reasoning: string;
+  needs_user_review: boolean;
+  source_email_id?: string;
+  source_thread_id?: string;
+  job_url?: string;
+  location?: string;
+  salary_range?: string;
+  notes?: string;
 }
 
 // Helper function to parse error responses from the worker
 async function parseWorkerErrorResponse(
   response: Response
 ): Promise<GmailMessagesApiResponse> {
-  let errorData: { error?: string; message?: string; details?: string } = {};
   try {
-    errorData = await response.json();
-  } catch {
-    // If JSON parsing fails, use statusText
-    errorData = { error: response.statusText };
-  }
-
-  const error =
-    errorData.error ||
-    errorData.message ||
-    `HTTP ${response.status}: ${response.statusText}`;
-
-  return {
-    error,
-    details: errorData.details,
-  };
-}
-
-async function getGmailMessages(
-  accessToken: string
-): Promise<GmailMessagesApiResponse> {
-  try {
-    const response = await fetch(`/api/worker_proxy/gmail/messages`, {
-      headers: {
-        Cookie: accessToken,
-        "Content-Type": "application/json",
-      },
-      next: {
-        revalidate: 600, // Cache for 10 minutes
-        tags: ["gmail-messages"], // Add cache tag
-      },
-    });
-
-    if (!response.ok) {
-      return await parseWorkerErrorResponse(response);
+    const text = await response.text();
+    if (text.startsWith("<!DOCTYPE")) {
+      return {
+        error: "Worker returned HTML instead of JSON",
+        details: `Status: ${response.status}. This usually indicates a routing or configuration issue.`,
+      };
     }
-
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error("Error fetching Gmail messages:", error);
+    const errorData = JSON.parse(text);
     return {
-      error: "Network error while fetching emails.",
-      details: error instanceof Error ? error.message : "Unknown error",
+      error: errorData.error || "Unknown worker error",
+      details: errorData.details || errorData.message || response.statusText,
+    };
+  } catch (parseError) {
+    return {
+      error: "Failed to parse worker error response",
+      details: `Status: ${response.status}, StatusText: ${response.statusText}`,
     };
   }
 }
+
+// Cached Gmail messages fetcher - cookies moved outside
+const getCachedGmailMessages = unstable_cache(
+  async (cookieString: string): Promise<GmailMessagesApiResponse> => {
+    try {
+      const result = await workerClient.getGmailMessages(cookieString);
+
+      if (result.error) {
+        return {
+          error: result.error,
+          details: result.details,
+        };
+      }
+
+      // The Worker returns messages and integratedGmailAddress directly
+      const gmailResponse = result as any;
+      const messages = gmailResponse.messages || [];
+      const integratedGmailAddress = gmailResponse.integratedGmailAddress;
+
+      return {
+        messages,
+        integratedGmailAddress,
+      };
+    } catch (error: any) {
+      return {
+        error: "Failed to fetch Gmail messages",
+        details: error.message,
+      };
+    }
+  },
+  [CACHE_TAGS.GMAIL_MESSAGES],
+  {
+    tags: [CACHE_TAGS.GMAIL_MESSAGES, CACHE_TAGS.DASHBOARD_DATA],
+    revalidate: CACHE_CONFIG.MEDIUM.revalidate,
+  }
+);
+
+async function getGmailMessages(
+  cookieString: string
+): Promise<GmailMessagesApiResponse> {
+  return getCachedGmailMessages(cookieString);
+}
+
+// Cached applications data fetcher - cookies moved outside
+const getCachedApplicationsData = unstable_cache(
+  async (cookieString: string): Promise<ApplicationsApiResponse> => {
+    try {
+      const result = await workerClient.getApplications(cookieString);
+
+      if (result.error) {
+        return {
+          error: result.error,
+          details: result.details,
+        };
+      }
+
+      // Worker returns { data: [...] } for applications
+      const applications = result.data || [];
+
+      return { data: applications };
+    } catch (error: any) {
+      return {
+        error: "Failed to fetch applications",
+        details: error.message,
+      };
+    }
+  },
+  [CACHE_TAGS.APPLICATIONS_DATA],
+  {
+    tags: [CACHE_TAGS.APPLICATIONS_DATA, CACHE_TAGS.DASHBOARD_DATA],
+    revalidate: CACHE_CONFIG.MEDIUM.revalidate,
+  }
+);
 
 // Function to fetch applications data from Cloudflare Worker
 async function getApplicationsData(
-  accessToken: string
+  cookieString: string
 ): Promise<ApplicationsApiResponse> {
-  console.log(
-    "[DASHBOARD DATA] Fetching applications data...",
-    new Date().toISOString()
-  );
-
-  try {
-    const response = await fetch(`/api/worker_proxy/applications`, {
-      headers: {
-        Cookie: accessToken,
-        "Content-Type": "application/json",
-      },
-      next: {
-        revalidate: 300, // Cache for 5 minutes
-        tags: ["applications"], // Add cache tag
-      },
-    });
-
-    if (!response.ok) {
-      let errorData: { error?: string; message?: string; details?: string } =
-        {};
-      try {
-        errorData = await response.json();
-      } catch {
-        errorData = { error: response.statusText };
-      }
-
-      const error =
-        errorData.error ||
-        errorData.message ||
-        `HTTP ${response.status}: ${response.statusText}`;
-
-      return {
-        error,
-        details: errorData.details,
-      };
-    }
-
-    const data = await response.json();
-    console.log("[DASHBOARD DATA] Applications data fetched successfully:", {
-      applicationCount: data.data?.length || 0,
-      timestamp: new Date().toISOString(),
-    });
-    return data;
-  } catch (error) {
-    console.error("[DASHBOARD DATA] Error fetching applications:", error);
-    return {
-      error: "Network error while fetching applications.",
-      details: error instanceof Error ? error.message : "Unknown error",
-    };
-  }
+  return getCachedApplicationsData(cookieString);
 }
 
-// Function to fetch AI suggestions from Cloudflare Worker
-async function getSuggestionsData(accessToken: string): Promise<{
-  data?: AISuggestion[];
+// Cached pending applications data fetcher - cookies moved outside
+const getCachedPendingApplicationsData = unstable_cache(
+  async (
+    cookieString: string
+  ): Promise<{
+    data?: PendingApplication[];
+    error?: string;
+    details?: string;
+  }> => {
+    try {
+      const result = await workerClient.getPendingApplications(cookieString);
+
+      if (result.error) {
+        return {
+          error: result.error,
+          details: result.details,
+        };
+      }
+
+      // Worker returns { data: [...] } for pending applications
+      const pendingApplications = result.data || [];
+
+      return { data: pendingApplications };
+    } catch (error: any) {
+      return {
+        error: "Failed to fetch pending applications",
+        details: error.message,
+      };
+    }
+  },
+  [CACHE_TAGS.PENDING_APPLICATIONS],
+  {
+    tags: [CACHE_TAGS.PENDING_APPLICATIONS, CACHE_TAGS.DASHBOARD_DATA],
+    revalidate: CACHE_CONFIG.SHORT.revalidate,
+  }
+);
+
+// Function to fetch pending applications from Cloudflare Worker
+async function getPendingApplicationsData(cookieString: string): Promise<{
+  data?: PendingApplication[];
   error?: string;
   details?: string;
 }> {
-  try {
-    const response = await fetch(`/api/worker_proxy/suggestions`, {
-      headers: {
-        Cookie: accessToken,
-        "Content-Type": "application/json",
-      },
-      next: {
-        revalidate: 300, // Cache for 5 minutes
-        tags: ["suggestions"], // Add cache tag
-      },
-    });
-
-    if (!response.ok) {
-      let errorData: { error?: string; message?: string; details?: string } =
-        {};
-      try {
-        errorData = await response.json();
-      } catch {
-        errorData = { error: response.statusText };
-      }
-
-      const error =
-        errorData.error ||
-        errorData.message ||
-        `HTTP ${response.status}: ${response.statusText}`;
-
-      return {
-        error,
-        details: errorData.details,
-      };
-    }
-
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error("Error fetching suggestions:", error);
-    return {
-      error: "Network error while fetching suggestions.",
-      details: error instanceof Error ? error.message : "Unknown error",
-    };
-  }
+  return getCachedPendingApplicationsData(cookieString);
 }
 
-// Update getDashboardData to accept nullable token
-async function getDashboardData(accessToken: string): Promise<{
+// Cached dashboard data aggregator - cookies moved outside
+const getCachedDashboardData = unstable_cache(
+  async (
+    cookieString: string
+  ): Promise<{
+    totalApplications: number;
+    interviewsScheduled: number;
+    offersReceived: number;
+    recentActivity: Array<{
+      id: string;
+      type:
+        | "application_created"
+        | "status_update"
+        | "interview_scheduled"
+        | "email_sync"
+        | "offer_received"
+        | "application_rejected";
+      title: string;
+      description: string;
+      timestamp: string;
+      metadata?: {
+        company?: string;
+        role?: string;
+        previousStatus?: string;
+        newStatus?: string;
+        interviewDate?: string;
+        interviewType?: string;
+        location?: string;
+        salary?: string;
+        emailCount?: number;
+        applicationsFound?: number;
+      };
+    }>;
+    rawApplications: Application[];
+    rawPendingApplications: PendingApplication[];
+    errors: {
+      applications?: string;
+      pendingApplications?: string;
+    };
+  }> => {
+    console.log("FRESH DATA - Dashboard data fetched from API");
+
+    const [applicationsResult, pendingApplicationsResult] = await Promise.all([
+      getApplicationsData(cookieString),
+      getPendingApplicationsData(cookieString),
+    ]);
+
+    const applications = applicationsResult.data || [];
+    const pendingApplications = pendingApplicationsResult.data || [];
+
+    // Calculate metrics
+    const totalApplications = applications.length + pendingApplications.length;
+    const interviewsScheduled = applications.filter(
+      (app) => app.status === "Interviewing"
+    ).length;
+    const offersReceived = applications.filter(
+      (app) => app.status === "Offer"
+    ).length;
+
+    // Create recent activity feed
+    const recentActivity: Array<{
+      id: string;
+      type:
+        | "application_created"
+        | "status_update"
+        | "interview_scheduled"
+        | "email_sync"
+        | "offer_received"
+        | "application_rejected";
+      title: string;
+      description: string;
+      timestamp: string;
+      metadata?: {
+        company?: string;
+        role?: string;
+        previousStatus?: string;
+        newStatus?: string;
+        interviewDate?: string;
+        interviewType?: string;
+        location?: string;
+        salary?: string;
+        emailCount?: number;
+        applicationsFound?: number;
+      };
+    }> = [];
+
+    // Add application events to recent activity
+    [...applications, ...pendingApplications]
+      .sort(
+        (a, b) =>
+          new Date(b.applied_at).getTime() - new Date(a.applied_at).getTime()
+      )
+      .slice(0, 10)
+      .forEach((app) => {
+        const baseActivity = {
+          id: `app-${app.id}`,
+          timestamp: app.applied_at,
+          metadata: {
+            company: app.company_name,
+            role: app.role,
+          },
+        };
+
+        if (app.status === "Offer") {
+          recentActivity.push({
+            ...baseActivity,
+            type: "offer_received",
+            title: "Offer Received",
+            description: `Received an offer from ${app.company_name} for ${app.role}`,
+          });
+        } else if (app.status === "Rejected") {
+          recentActivity.push({
+            ...baseActivity,
+            type: "application_rejected",
+            title: "Application Update",
+            description: `Application to ${app.company_name} was not successful`,
+          });
+        } else if (app.status === "Interviewing") {
+          recentActivity.push({
+            ...baseActivity,
+            type: "interview_scheduled",
+            title: "Interview Scheduled",
+            description: `Interview scheduled with ${app.company_name}`,
+          });
+        } else {
+          recentActivity.push({
+            ...baseActivity,
+            type: "application_created",
+            title: "New Application",
+            description: `Applied to ${app.company_name} for ${app.role}`,
+          });
+        }
+      });
+
+    // Sort by timestamp (most recent first)
+    recentActivity.sort(
+      (a, b) =>
+        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    );
+
+    const errors: { applications?: string; pendingApplications?: string } = {};
+    if (applicationsResult.error) {
+      errors.applications = applicationsResult.error;
+    }
+    if (pendingApplicationsResult.error) {
+      errors.pendingApplications = pendingApplicationsResult.error;
+    }
+
+    return {
+      totalApplications,
+      interviewsScheduled,
+      offersReceived,
+      recentActivity,
+      rawApplications: applications,
+      rawPendingApplications: pendingApplications,
+      errors,
+    };
+  },
+  [CACHE_TAGS.DASHBOARD_DATA],
+  {
+    tags: [CACHE_TAGS.DASHBOARD_DATA],
+    revalidate: CACHE_CONFIG.MEDIUM.revalidate,
+  }
+);
+
+async function getDashboardData(cookieString: string): Promise<{
   totalApplications: number;
   interviewsScheduled: number;
   offersReceived: number;
@@ -250,195 +407,41 @@ async function getDashboardData(accessToken: string): Promise<{
     };
   }>;
   rawApplications: Application[];
-  rawSuggestions: AISuggestion[];
+  rawPendingApplications: PendingApplication[];
   errors: {
     applications?: string;
-    suggestions?: string;
+    pendingApplications?: string;
   };
 }> {
-  console.log(
-    "[DASHBOARD DATA] Starting getDashboardData...",
-    new Date().toISOString()
-  );
-
-  const [applicationsResult, suggestionsResult] = await Promise.all([
-    getApplicationsData(accessToken),
-    getSuggestionsData(accessToken),
-  ]);
-
-  const applications = applicationsResult.data || [];
-  const suggestions = suggestionsResult.data || [];
-
-  const totalApplications = applications.length;
-  const interviewsScheduled = applications.filter((app) =>
-    ["Screening", "Interviewing"].includes(app.status)
-  ).length;
-  const offersReceived = applications.filter(
-    (app) => app.status === "Offer"
-  ).length;
-
-  // Generate meaningful recent activity from applications only (no AI suggestions)
-  const recentActivity: Array<{
-    id: string;
-    type:
-      | "application_created"
-      | "status_update"
-      | "interview_scheduled"
-      | "email_sync"
-      | "offer_received"
-      | "application_rejected";
-    title: string;
-    description: string;
-    timestamp: string;
-    metadata?: {
-      company?: string;
-      role?: string;
-      previousStatus?: string;
-      newStatus?: string;
-      interviewDate?: string;
-      interviewType?: string;
-      location?: string;
-      salary?: string;
-      emailCount?: number;
-      applicationsFound?: number;
-    };
-  }> = [];
-
-  // Sort applications by most recent first
-  const sortedApplications = applications.sort(
-    (a, b) =>
-      new Date(b.applied_at).getTime() - new Date(a.applied_at).getTime()
-  );
-
-  // Add recent applications with detailed activity data
-  sortedApplications.slice(0, 8).forEach((app) => {
-    // Determine activity type based on status
-    let activityType:
-      | "application_created"
-      | "status_update"
-      | "interview_scheduled"
-      | "email_sync"
-      | "offer_received"
-      | "application_rejected";
-    let title: string;
-    let description: string;
-
-    switch (app.status) {
-      case "Applied":
-        activityType = "application_created";
-        title = "New application detected";
-        description = `Applied to ${app.role} position`;
-        break;
-      case "Screening":
-        activityType = "status_update";
-        title = "Application under review";
-        description = `Your application is being reviewed`;
-        break;
-      case "Interviewing":
-        activityType = "interview_scheduled";
-        title = "Interview process started";
-        description = `Interview process initiated for ${app.role}`;
-        break;
-      case "Offer":
-        activityType = "offer_received";
-        title = "Job offer received";
-        description = `Congratulations! You received an offer`;
-        break;
-      case "Rejected":
-        activityType = "application_rejected";
-        title = "Application not selected";
-        description = `Application was not selected for ${app.role}`;
-        break;
-      default:
-        activityType = "status_update";
-        title = "Application status updated";
-        description = `Status changed to ${app.status}`;
-    }
-
-    recentActivity.push({
-      id: `app-${app.id}`,
-      type: activityType,
-      title,
-      description,
-      timestamp: app.applied_at,
-      metadata: {
-        company: app.company_name,
-        role: app.role,
-        newStatus: app.status,
-      },
-    });
-  });
-
-  console.log("[DASHBOARD DATA] getDashboardData completed:", {
-    totalApplications,
-    timestamp: new Date().toISOString(),
-    hasErrors: !!(applicationsResult.error || suggestionsResult.error),
-  });
-
-  return {
-    totalApplications,
-    interviewsScheduled,
-    offersReceived,
-    recentActivity: recentActivity.slice(0, 6), // Limit to 6 most recent items
-    rawApplications: applications,
-    rawSuggestions: suggestions,
-    errors: {
-      applications: applicationsResult.error,
-      suggestions: suggestionsResult.error,
-    },
-  };
+  return getCachedDashboardData(cookieString);
 }
 
 export default async function DashboardPage() {
-  console.log(
-    "[DASHBOARD PAGE] DashboardPage rendering started...",
-    new Date().toISOString()
-  );
-
+  // Get cookies outside of cached functions
+  const cookieStore = await cookies();
+  const cookieString = cookieStore.toString();
   const supabase = await createClient();
 
   const {
     data: { user },
-    error: userError,
+    error,
   } = await supabase.auth.getUser();
 
-  if (userError || !user) {
-    console.error("Dashboard: Authentication error:", userError);
-    // Redirect is handled by middleware
-    return null;
+  if (error || !user) {
+    redirect("/auth/login");
   }
 
-  // Get the cookies for API authentication
-  const cookieStore = await cookies();
-  const accessToken = cookieStore.toString();
-
-  // Fetch initial data for the dashboard
-  console.log(
-    "[DASHBOARD PAGE] Fetching dashboard and Gmail data...",
-    new Date().toISOString()
-  );
   const [dashboardData, gmailData] = await Promise.all([
-    getDashboardData(accessToken),
-    getGmailMessages(accessToken),
+    getDashboardData(cookieString),
+    getGmailMessages(cookieString),
   ]);
-
-  console.log(
-    "[DASHBOARD PAGE] Data fetched, rendering DashboardWithRealtime...",
-    {
-      totalApplications: dashboardData.totalApplications,
-      timestamp: new Date().toISOString(),
-    }
-  );
 
   return (
     <DashboardWithRealtime
-      user={{
-        id: user.id,
-        email: user.email,
-      }}
+      user={user}
       initialData={dashboardData}
       gmailData={gmailData}
-      integrationEmail={gmailData?.integratedGmailAddress || null}
+      integrationEmail={gmailData.integratedGmailAddress}
     />
   );
 }

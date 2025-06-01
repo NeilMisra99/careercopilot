@@ -2,7 +2,16 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { cookies } from "next/headers";
+import {
+  revalidateGmailData,
+  revalidateApplicationData,
+  revalidateAllCacheAndPages,
+} from "@/lib/cache";
+import { getWorkerUrl } from "@/lib/worker-utils";
 import { revalidateTag } from "next/cache";
+import { CACHE_TAGS } from "@/lib/cache";
+import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 
 interface SyncResponse {
   success: boolean;
@@ -46,49 +55,54 @@ export async function getSyncStatusAction(): Promise<SyncStatusResponse> {
     } = await supabase.auth.getUser();
 
     if (userError || !user) {
-      console.error(
-        "User not authenticated for sync status action:",
-        userError
-      );
       return {
         success: false,
-        error: "Authentication required",
+        error: "User not authenticated",
+      };
+    }
+
+    const workerUrl = getWorkerUrl();
+    if (!workerUrl) {
+      return {
+        success: false,
+        error: "Worker URL not configured",
       };
     }
 
     const cookieStore = await cookies();
-    const token = cookieStore.toString();
-
-    const response = await fetch(`/api/worker_proxy/gmail/sync-status`, {
+    const response = await fetch(`${workerUrl}/api/gmail/sync-status`, {
       method: "GET",
       headers: {
-        Cookie: token, // Pass Supabase JWT cookies
+        Cookie: cookieStore.toString(),
         "Content-Type": "application/json",
       },
     });
 
-    const data = await response.json();
-
     if (!response.ok) {
-      console.error("Worker sync status error:", response.status, data);
+      const errorText = await response.text();
       return {
         success: false,
-        error: data.message || "Failed to get sync status",
+        error: `Failed to get sync status: ${response.status}`,
+      };
+    }
+
+    const result = await response.json();
+
+    if (result.error) {
+      return {
+        success: false,
+        error: result.error,
       };
     }
 
     return {
       success: true,
-      data: data,
+      data: result,
     };
-  } catch (error: unknown) {
-    console.error(
-      "Error in sync status action:",
-      error instanceof Error ? error.message : "Unknown error"
-    );
+  } catch (error: any) {
     return {
       success: false,
-      error: "Network error while checking sync status",
+      error: "Unexpected error occurred",
     };
   }
 }
@@ -102,70 +116,73 @@ export async function syncGmailNowAction(): Promise<SyncResponse> {
     } = await supabase.auth.getUser();
 
     if (userError || !user) {
-      console.error("User not authenticated for Gmail sync action:", userError);
       return {
         success: false,
-        message: "Authentication required",
-        error: "Please log in to sync your emails.",
+        message: "User not authenticated",
+        error: "Authentication required",
+      };
+    }
+
+    const workerUrl = getWorkerUrl();
+    if (!workerUrl) {
+      return {
+        success: false,
+        message: "Configuration error",
+        error: "Worker URL not configured",
       };
     }
 
     const cookieStore = await cookies();
-    const token = cookieStore.toString();
-
-    const response = await fetch(`/api/worker_proxy/sync/gmail`, {
+    const response = await fetch(`${workerUrl}/api/gmail/sync-now`, {
       method: "POST",
       headers: {
-        Cookie: token, // Pass Supabase JWT cookies
+        Cookie: cookieStore.toString(),
         "Content-Type": "application/json",
       },
     });
 
-    const data = await response.json();
-
     if (!response.ok) {
-      console.error("Worker sync error:", response.status, data);
+      const errorText = await response.text();
 
       if (response.status === 429) {
         return {
           success: false,
           message: "Rate limit exceeded",
-          error: data.message || "Please wait before trying again.",
-        };
-      } else if (response.status === 404) {
-        return {
-          success: false,
-          message: "Gmail not connected",
-          error: data.message || "Please connect your Gmail account first.",
-        };
-      } else {
-        return {
-          success: false,
-          message: "Sync failed",
-          error: data.message || "An unexpected error occurred.",
+          error:
+            "You can only sync once every 5 minutes. Please wait before trying again.",
         };
       }
+
+      return {
+        success: false,
+        message: "Sync request failed",
+        error: `HTTP ${response.status}: ${errorText}`,
+      };
     }
 
-    // Revalidate cache tags for dashboard data
-    revalidateTag("applications");
-    revalidateTag("gmail-messages");
+    const result = await response.json();
 
-    console.log("Gmail sync initiated successfully for user:", user.id);
+    if (!result.queued && result.error) {
+      return {
+        success: false,
+        message: result.message || "Sync failed",
+        error: result.error,
+      };
+    }
+
+    // Gmail sync initiated successfully - revalidate related data
+    revalidateGmailData();
+    revalidateApplicationData();
 
     return {
       success: true,
-      message: "Emails synced! Your emails are being processed.",
+      message: result.message || "Gmail sync initiated successfully",
     };
-  } catch (error: unknown) {
-    console.error(
-      "Error in Gmail sync action:",
-      error instanceof Error ? error.message : "Unknown error"
-    );
+  } catch (error: any) {
     return {
       success: false,
-      message: "Network error",
-      error: "Failed to connect to the server. Please try again.",
+      message: "Unexpected error occurred",
+      error: error.message,
     };
   }
 }
@@ -174,27 +191,11 @@ export async function revalidateSyncDataAction(): Promise<{
   success: boolean;
 }> {
   try {
-    console.log("[SYNC REVALIDATION] Starting cache revalidation...");
+    // Revalidate all relevant cache data
+    revalidateAllCacheAndPages();
 
-    // Revalidate all cache tags related to sync data
-    console.log("[SYNC REVALIDATION] Revalidating 'applications' tag...");
-    revalidateTag("applications");
-
-    console.log("[SYNC REVALIDATION] Revalidating 'applications-board' tag...");
-    revalidateTag("applications-board");
-
-    console.log("[SYNC REVALIDATION] Revalidating 'suggestions' tag...");
-    revalidateTag("suggestions");
-
-    console.log("[SYNC REVALIDATION] Revalidating 'gmail-messages' tag...");
-    revalidateTag("gmail-messages");
-
-    console.log(
-      "[SYNC REVALIDATION] Cache revalidation completed successfully"
-    );
     return { success: true };
-  } catch (error) {
-    console.error("[SYNC REVALIDATION] Error revalidating sync data:", error);
+  } catch (error: any) {
     return { success: false };
   }
 }

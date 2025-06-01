@@ -30,7 +30,6 @@ export function SignOutButton() {
           toast.error(result.message || "Sign out failed. Please try again.");
         }
       } catch (error) {
-        console.error("Sign Out client error:", error);
         toast.error("An unexpected error occurred during sign out.");
       }
     });

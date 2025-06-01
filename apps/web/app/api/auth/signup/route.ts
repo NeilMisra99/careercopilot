@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
           { status: 409 }
         );
       }
-      console.error("Supabase Sign Up Error:", signUpError);
+
       return NextResponse.json(
         { error: `Authentication error: ${signUpError.message}` },
         { status: 500 }
@@ -104,9 +104,6 @@ export async function POST(request: NextRequest) {
       // This case implies that email confirmations are OFF (auto-confirm) in Supabase project settings.
       // This is not the desired flow for OTP, but we handle it by informing the client.
       // The client should ideally not allow login without OTP, so this path means misconfiguration.
-      console.warn(
-        "User signed up and session created immediately - auto-confirmation might be ON."
-      );
       return NextResponse.json<SignUpApiResponse>(
         {
           message:
@@ -119,13 +116,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Fallback for unexpected scenarios
-    console.error("Unexpected signUpData structure:", signUpData);
     return NextResponse.json(
       { error: "An unexpected error occurred during user registration setup." },
       { status: 500 }
     );
   } catch (error: unknown) {
-    console.error("Registration API Error:", error);
     let errorMessage = "An unexpected error occurred during registration.";
     if (error instanceof Error) {
       errorMessage = error.message;

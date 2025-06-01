@@ -3,6 +3,7 @@
 import { ReactNode } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { Badge } from "@/components/ui/badge";
+import { motion } from "framer-motion";
 
 interface ApplicationColumnProps {
   id: string;
@@ -11,6 +12,7 @@ interface ApplicationColumnProps {
   icon?: ReactNode;
   count?: number;
   className?: string;
+  index?: number;
 }
 
 export function ApplicationColumn({
@@ -20,36 +22,48 @@ export function ApplicationColumn({
   icon,
   count = 0,
   className = "",
+  index = 0,
 }: ApplicationColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id,
   });
 
   return (
-    <div
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, delay: index * 0.1 }}
       ref={setNodeRef}
-      className={`flex flex-col h-full relative ${
-        isOver ? "bg-primary/5" : ""
+      className={`flex flex-col h-full relative transition-all duration-300 ${
+        isOver ? "bg-primary/5 ring-2 ring-primary/20 ring-offset-2" : ""
       } ${className}`}
     >
       {/* Column header */}
-      <div className="flex items-center justify-between py-2 mb-2 flex-shrink-0 backdrop-blur-sm bg-transparent z-10">
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: index * 0.1 + 0.2 }}
+        whileHover={{ scale: 1.02, transition: { duration: 0.2 } }}
+        className="flex items-center justify-between py-3 px-3 mb-4 flex-shrink-0 bg-white/80 dark:bg-slate-800/50 backdrop-blur-sm border border-slate-200/50 dark:border-slate-700/50 rounded-xl shadow-sm"
+      >
         <div className="flex items-center space-x-2">
-          {icon}
-          <h3 className="font-medium text-sm">{title}</h3>
+          {icon && <div className="flex-shrink-0">{icon}</div>}
+          <h3 className="font-semibold text-sm text-foreground/90">{title}</h3>
         </div>
-        <Badge variant="outline" className="font-normal">
+        <Badge
+          variant="secondary"
+          className="font-medium text-xs bg-muted/70 text-muted-foreground"
+        >
           {count}
         </Badge>
-      </div>
+      </motion.div>
 
       {/* Column content */}
-      <div className="space-y-3 flex-1 min-h-0 overflow-y-auto pr-2 pt-1">
-        {children}
+      <div className="flex-1 min-h-0 px-3 pb-3">
+        <div className="h-full overflow-y-auto scrollbar-thin scrollbar-thumb-border/40 scrollbar-track-transparent">
+          {children}
+        </div>
       </div>
-
-      {/* Vertical separator on the right */}
-      <div className="absolute right-0 top-0 bottom-0 w-px bg-border/40 h-full" />
-    </div>
+    </motion.div>
   );
 }

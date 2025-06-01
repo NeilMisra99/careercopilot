@@ -15,6 +15,7 @@ import { AdditionalInfoSection } from "./additional-info-section";
 import { UrlImportSection } from "./url-import-section";
 import { createApplicationAction } from "../_lib/actions/create-application";
 import { applicationFormSchema, type ApplicationFormData } from "../_lib/types";
+import { formatDateToLocalString } from "@/components/ui/date-picker";
 
 export function ApplicationForm() {
   const router = useRouter();
@@ -27,7 +28,7 @@ export function ApplicationForm() {
       companyName: "",
       jobTitle: "",
       status: "Applied" as const,
-      applicationDate: new Date().toISOString().split("T")[0], // Today's date
+      applicationDate: formatDateToLocalString(new Date()),
       jobUrl: "",
       location: "",
       salary: "",
@@ -56,7 +57,6 @@ export function ApplicationForm() {
       // Redirect to board or dashboard
       router.push("/dashboard/board");
     } catch (error) {
-      console.error("Error creating application:", error);
       toast.error("Failed to create application", {
         description: "An unexpected error occurred. Please try again.",
       });
@@ -97,11 +97,30 @@ export function ApplicationForm() {
       // Populate form with scraped data
       if (result.data) {
         const { companyName, jobTitle, location, salary } = result.data;
+        const extractionMethod = result.extractionMethod || "traditional";
 
-        // Show a brief success state
-        toast.success("Job details imported successfully!", {
-          description: "Populating form fields...",
-          duration: 2000,
+        // Count populated fields for better feedback
+        const populatedFields = [
+          companyName && "Company Name",
+          jobTitle && "Job Title",
+          location && "Location",
+          salary && "Salary",
+        ].filter(Boolean);
+
+        // Create method-specific success message
+        let methodDescription = "";
+        if (extractionMethod === "hybrid") {
+          methodDescription = "✨ Enhanced with AI for better accuracy";
+        } else if (extractionMethod === "ai-enhanced") {
+          methodDescription = "🤖 Powered by AI extraction";
+        } else {
+          methodDescription = "🔍 Traditional web scraping";
+        }
+
+        // Show a brief success state with extraction method info
+        toast.success(result.message || "Job details imported successfully!", {
+          description: `${methodDescription} • ${populatedFields.length} fields found`,
+          duration: 2500,
         });
 
         // Small delay to show the success message, then populate fields
@@ -112,14 +131,19 @@ export function ApplicationForm() {
           if (salary) form.setValue("salary", salary);
           form.setValue("jobUrl", url);
 
-          // Show final success message
+          // Show final success message with populated fields
+          const fieldsText =
+            populatedFields.length > 0
+              ? `Populated: ${populatedFields.join(", ")}`
+              : "Review and update the information as needed.";
+
           toast.success("Form populated!", {
-            description: "Review and update the information as needed.",
+            description: fieldsText,
+            duration: 3000,
           });
         }, 300);
       }
     } catch (error) {
-      console.error("Error importing from URL:", error);
       toast.error("Failed to import from URL", {
         description: "Please enter the details manually.",
       });

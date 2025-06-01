@@ -43,6 +43,7 @@ import type {
   ManualCorrectionRequest,
 } from "../../_lib/actions/failed-email-actions";
 import { submitManualCorrectionAction } from "../../_lib/actions/failed-email-actions";
+import { motion } from "framer-motion";
 
 // Interface for applications data
 interface Application {
@@ -69,11 +70,13 @@ interface KanbanBoardProps {
     Withdrawn: Application[];
   };
   failedEmails: FailedEmail[];
+  onApplicationUpdated?: () => void;
 }
 
 export function KanbanBoard({
   applicationsByStatus,
   failedEmails,
+  onApplicationUpdated,
 }: KanbanBoardProps) {
   const router = useRouter();
   const [appsByStatus, setAppsByStatus] = useState(applicationsByStatus);
@@ -125,11 +128,10 @@ export function KanbanBoard({
 
   async function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
-    console.log("[KanbanBoard] handleDragEnd triggered", { active, over });
+
     setActiveDraggedItem(null);
 
     if (!over) {
-      console.log("[KanbanBoard] No 'over' element, exiting drag end.");
       return;
     }
 
@@ -139,18 +141,7 @@ export function KanbanBoard({
     const activeContainerKey = findContainer(activeId);
     const overContainerKey = findContainer(overId);
 
-    console.log("[KanbanBoard] Drag End Details:", {
-      activeId,
-      overId,
-      activeContainerKey,
-      overContainerKey,
-    });
-
     if (!activeContainerKey || !overContainerKey) {
-      console.error(
-        "[KanbanBoard] Could not find container for active or over item",
-        { activeContainerKey, overContainerKey }
-      );
       return;
     }
 
@@ -164,9 +155,6 @@ export function KanbanBoard({
       );
 
       if (!appToDrag) {
-        console.error(
-          `[KanbanBoard] Critical error: Could not find app with ID ${activeId} in column ${oldStatus} before optimistic update.`
-        );
         toast.error("Drag error", {
           description:
             "Could not identify the dragged application. Please refresh.",
@@ -189,18 +177,10 @@ export function KanbanBoard({
 
         if (activeItemIndex === -1) {
           // This shouldn't happen if appToDrag was found, but good for safety
-          console.log(
-            "[KanbanBoard] Dragged item not found in source container during state update (should have been caught earlier).",
-            { activeId, oldStatus }
-          );
           return prev; // Should not proceed if appToDrag was not found initially
         }
 
         const itemBeingMoved = sourceItems[activeItemIndex];
-        console.log(
-          "[KanbanBoard] Item being moved (for state update):",
-          itemBeingMoved
-        );
 
         newAppsState[oldStatus] = sourceItems.filter(
           (item) => item.id !== activeId
@@ -232,27 +212,17 @@ export function KanbanBoard({
       });
 
       // Now use 'draggedAppForAction' which was defined *before* setAppsByStatus
-      console.log(
-        `[KanbanBoard] Attempting to update status via Server Action for app ID: ${draggedAppForAction.id} to new status: ${newStatus}`
-      );
       const { error } = await updateApplicationStatusServerAction(
         draggedAppForAction.id,
         newStatus
       );
 
       if (error) {
-        console.error(
-          "[KanbanBoard] Error updating application status (Server Action):",
-          error
-        );
         toast.error("Error updating status", {
           description: error.message || "An unexpected error occurred",
         });
         setAppsByStatus(originalAppsByStatus); // Revert optimistic update
       } else {
-        console.log(
-          `[KanbanBoard] Status updated successfully for app ID: ${draggedAppForAction.id}. New status: ${newStatus}. Refreshing router.`
-        );
         toast.success("Status updated", {
           description: `Moved ${draggedAppForAction.company_name} to ${newStatus}`,
         });
@@ -260,9 +230,6 @@ export function KanbanBoard({
       }
     } else if (activeId !== overId) {
       const columnKey = activeContainerKey as keyof typeof appsByStatus;
-      console.log(
-        `[KanbanBoard] Reordering item ID: ${activeId} within column: ${columnKey} over item ID: ${overId}`
-      );
       setAppsByStatus((prev) => {
         const itemsInColumn = [...(prev[columnKey] || [])];
         const oldIndex = itemsInColumn.findIndex(
@@ -286,19 +253,10 @@ export function KanbanBoard({
         order_in_column: index,
       }));
 
-      console.log(
-        `[KanbanBoard] Attempting to update order for column: ${columnKey}`,
-        orderUpdates
-      );
-
       const { error: orderError } =
         await updateApplicationOrderServerAction(orderUpdates);
 
       if (orderError) {
-        console.error(
-          `[KanbanBoard] Error updating application order for column ${columnKey}:`,
-          orderError
-        );
         toast.error("Error updating order", {
           description:
             orderError.message ||
@@ -308,9 +266,6 @@ export function KanbanBoard({
         // This would require storing the state before the optimistic update for this specific case too.
         // For now, we'll rely on router.refresh() to eventually correct if needed, or user to retry.
       } else {
-        console.log(
-          `[KanbanBoard] Application order updated successfully for column ${columnKey}. Refreshing router.`
-        );
         toast.success("Order updated", {
           description: `Applications in ${columnKey} reordered.`,
         });
@@ -348,7 +303,6 @@ export function KanbanBoard({
         });
       }
     } catch (err) {
-      console.error("Error submitting correction:", err);
       toast.error("Network error", {
         description: "Failed to submit correction. Please try again.",
       });
@@ -435,34 +389,61 @@ export function KanbanBoard({
     >
       <div className="h-full flex flex-col">
         <ScrollArea className="flex-1 min-h-0 max-h-full">
-          <div className="flex pl-2 pr-16 gap-2 h-[calc(100vh-200px)]">
-            {columns.map((column) => (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.4 }}
+            className="flex pl-6 pr-6 gap-4 h-[calc(100vh-200px)] py-4"
+          >
+            {columns.map((column, index) => (
               <ApplicationColumn
                 key={column.id}
                 id={column.id}
                 title={column.title}
                 icon={column.icon}
                 count={column.count}
-                className="min-w-[320px] w-[320px] snap-center h-full"
+                index={index}
+                className={`min-w-[340px] w-[340px] snap-center h-full ${
+                  index !== columns.length - 1
+                    ? "border-r border-border/30"
+                    : ""
+                }`}
               >
                 {column.isFailedEmails ? (
                   // Failed emails column - not draggable
-                  <div>
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.4, delay: index * 0.1 + 0.3 }}
+                    className="space-y-3"
+                  >
                     {failedEmailsState.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center h-24 text-center text-muted-foreground/60 text-xs p-4">
-                        <p>No failed emails</p>
+                      <div className="flex flex-col items-center justify-center h-32 text-center text-muted-foreground/60 text-sm p-6 bg-white/50 dark:bg-gray-800/30 rounded-xl border border-dashed border-border/50">
+                        <AlertCircle className="h-8 w-8 mb-2 text-muted-foreground/40" />
+                        <p className="font-medium">No failed emails</p>
+                        <p className="text-xs text-muted-foreground/50 mt-1">
+                          All emails processed successfully
+                        </p>
                       </div>
                     ) : (
-                      failedEmailsState.map((failedEmail) => (
-                        <div key={failedEmail.id} className="mb-3">
+                      failedEmailsState.map((failedEmail, emailIndex) => (
+                        <motion.div
+                          key={failedEmail.id}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{
+                            duration: 0.3,
+                            delay: index * 0.1 + 0.4 + emailIndex * 0.05,
+                          }}
+                        >
                           <FailedEmailCard
                             failedEmail={failedEmail}
                             onClick={handleFailedEmailClick}
                           />
-                        </div>
+                        </motion.div>
                       ))
                     )}
-                  </div>
+                  </motion.div>
                 ) : (
                   <SortableContext
                     items={appsByStatus[
@@ -470,29 +451,52 @@ export function KanbanBoard({
                     ].map((app) => app.id)}
                     strategy={verticalListSortingStrategy}
                   >
-                    {appsByStatus[column.id as keyof typeof appsByStatus]
-                      .length === 0 ? (
-                      <div className="flex flex-col items-center justify-center h-24 text-center text-muted-foreground/60 text-xs p-4">
-                        <p>No applications</p>
-                      </div>
-                    ) : (
-                      appsByStatus[column.id as keyof typeof appsByStatus].map(
-                        (application) => (
-                          <ApplicationCard
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ duration: 0.4, delay: index * 0.1 + 0.3 }}
+                      className="space-y-3"
+                    >
+                      {appsByStatus[column.id as keyof typeof appsByStatus]
+                        .length === 0 ? (
+                        <div className="flex flex-col items-center justify-center h-32 text-center text-muted-foreground/60 text-sm p-6 bg-white/50 dark:bg-gray-800/30 rounded-xl border border-dashed border-border/50">
+                          {column.icon && (
+                            <div className="mb-2 opacity-40">{column.icon}</div>
+                          )}
+                          <p className="font-medium">No applications</p>
+                          <p className="text-xs text-muted-foreground/50 mt-1">
+                            Drag cards here
+                          </p>
+                        </div>
+                      ) : (
+                        appsByStatus[
+                          column.id as keyof typeof appsByStatus
+                        ].map((application, appIndex) => (
+                          <motion.div
                             key={application.id}
-                            application={application}
-                            color={column.color}
-                            bgColor={column.bgColor}
-                          />
-                        )
-                      )
-                    )}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{
+                              duration: 0.3,
+                              delay: index * 0.1 + 0.4 + appIndex * 0.05,
+                            }}
+                          >
+                            <ApplicationCard
+                              application={application}
+                              color={column.color}
+                              bgColor={column.bgColor}
+                              onApplicationUpdated={onApplicationUpdated}
+                            />
+                          </motion.div>
+                        ))
+                      )}
+                    </motion.div>
                   </SortableContext>
                 )}
               </ApplicationColumn>
             ))}
-          </div>
-          <ScrollBar orientation="horizontal" className="h-1.5" />
+          </motion.div>
+          <ScrollBar orientation="horizontal" className="h-2 bg-border/20" />
         </ScrollArea>
         <DragOverlay>
           {activeDraggedItem ? (
@@ -506,6 +510,7 @@ export function KanbanBoard({
                 columns.find((col) => col.id === activeDraggedItem.status)
                   ?.bgColor || "bg-primary/5"
               }
+              onApplicationUpdated={onApplicationUpdated}
             />
           ) : null}
         </DragOverlay>

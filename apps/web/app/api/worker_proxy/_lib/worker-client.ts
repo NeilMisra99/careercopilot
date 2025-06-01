@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { cookies } from "next/headers";
-
-const WORKER_URL = process.env.WORKER_URL || "http://localhost:8787";
+import { getWorkerUrl } from "@/lib/worker-utils";
 
 interface WorkerRequestOptions {
   endpoint: string;
@@ -32,7 +31,7 @@ export async function makeWorkerRequest(
     }
 
     // Build the worker URL
-    let workerUrl = `${WORKER_URL}${endpoint}`;
+    let workerUrl = `${getWorkerUrl()}${endpoint}`;
 
     // Add query parameters if provided
     if (params) {
@@ -66,9 +65,6 @@ export async function makeWorkerRequest(
 
     if (!workerResponse.ok) {
       const errorText = await workerResponse.text();
-      console.error(
-        `Worker request failed: ${workerResponse.status} ${errorText}`
-      );
 
       return NextResponse.json(
         { error: "Worker request failed", details: errorText },
@@ -79,7 +75,6 @@ export async function makeWorkerRequest(
     const responseData = await workerResponse.json();
     return NextResponse.json(responseData);
   } catch (error) {
-    console.error("Error in worker request:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

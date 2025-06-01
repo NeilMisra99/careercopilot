@@ -1,18 +1,37 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSyncProgress } from "@/hooks/use-sync-progress";
 import { SyncProgressView } from "./sync-progress-view";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Inbox, Kanban, Clock, Plus } from "lucide-react";
+import {
+  Inbox,
+  Kanban,
+  Plus,
+  Mail,
+  CheckCircle,
+  Briefcase,
+  Calendar,
+  Trophy,
+  ExternalLink,
+  RefreshCw,
+} from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { AISuggestionsReview } from "./ai-suggestions-review";
+import { PendingApplicationsReview } from "./pending-applications-review";
 import { SyncControl } from "./sync-control";
 import { ActivitySheet } from "./activity-sheet";
-import { FirstTimeSyncBanner } from "./first-time-sync-banner";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+  TooltipProvider,
+} from "@/components/ui/tooltip";
+import { toast } from "sonner";
+import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
 
 interface Application {
   id: string;
@@ -24,24 +43,22 @@ interface Application {
   source_thread_id?: string;
 }
 
-interface AISuggestion {
+interface PendingApplication {
   id: string;
-  suggested_company_name: string;
-  suggested_role: string;
-  suggested_status: string;
-  suggestion_type: string;
-  suggestion_lifecycle_status: string;
-  raw_email_data?: {
-    email_subject?: string;
-    email_from?: string;
-    email_date?: string;
-    email_snippet?: string;
-  };
-  suggestion_details?: {
-    previous_status?: string;
-    suggested_status?: string;
-  };
-  created_at: string;
+  company_name: string;
+  role: string;
+  status: string;
+  applied_at: string;
+  ai_suggested: boolean;
+  ai_confidence: number;
+  ai_reasoning: string;
+  needs_user_review: boolean;
+  source_email_id?: string;
+  source_thread_id?: string;
+  job_url?: string;
+  location?: string;
+  salary_range?: string;
+  notes?: string;
 }
 
 interface DashboardWithRealtimeProps {
@@ -79,10 +96,10 @@ interface DashboardWithRealtimeProps {
       };
     }>;
     rawApplications: Application[];
-    rawSuggestions: AISuggestion[];
+    rawPendingApplications: PendingApplication[];
     errors: {
       applications?: string;
-      suggestions?: string;
+      pendingApplications?: string;
     };
   };
   gmailData?: {
@@ -104,25 +121,115 @@ export function DashboardWithRealtime({
   integrationEmail,
 }: DashboardWithRealtimeProps) {
   const { syncState, loading } = useSyncProgress(user.id);
-  const [suggestions, setSuggestions] = useState<AISuggestion[]>(
-    initialData?.rawSuggestions || []
-  );
+  const [pendingApplications, setPendingApplications] = useState<
+    PendingApplication[]
+  >(initialData?.rawPendingApplications || []);
+  const [reviewingApplications, setReviewingApplications] = useState<
+    Set<string>
+  >(new Set());
+  const router = useRouter();
 
-  const handleSuggestionUpdate = (
-    suggestionId: string,
-    action: "confirm" | "reject"
+  const handleApplicationReview = async (
+    applicationId: string,
+    action: "approve" | "delete"
   ) => {
-    setSuggestions((prev) =>
-      prev.map((s) =>
-        s.id === suggestionId
-          ? {
-              ...s,
-              suggestion_lifecycle_status:
-                action === "confirm" ? "Confirmed" : "Rejected",
-            }
-          : s
-      )
+    // Prevent multiple clicks
+    if (reviewingApplications.has(applicationId)) return;
+
+    // Add to reviewing set
+    setReviewingApplications((prev) => new Set(prev).add(applicationId));
+
+    // Store original state for rollback
+    const originalApplications = [...pendingApplications];
+
+    // Optimistic update
+    setPendingApplications((prev) =>
+      prev.filter((app) => app.id !== applicationId)
     );
+
+    // Show loading toast
+    const toastId = toast.loading(
+      action === "approve"
+        ? "Approving application..."
+        : "Deleting application...",
+      {
+        description:
+          action === "approve"
+            ? "Moving to your applications board"
+            : "Removing from pending list",
+      }
+    );
+
+    try {
+      // Call the worker API to review the application
+      const response = await fetch(
+        `/api/worker_proxy/applications/${applicationId}/review`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ action }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Failed to ${action} application`);
+      }
+
+      const result = await response.json();
+
+      // Success toast
+      toast.success(
+        action === "approve" ? "Application approved!" : "Application deleted!",
+        {
+          id: toastId,
+          description:
+            action === "approve"
+              ? "Added to your applications board. You can view it in Board View."
+              : "Successfully removed from pending list.",
+          action:
+            action === "approve"
+              ? {
+                  label: "View Board",
+                  onClick: () => (window.location.href = "/dashboard/board"),
+                }
+              : undefined,
+        }
+      );
+
+      // Trigger a refresh for both approve and delete actions
+      // This ensures the data is synchronized across all views
+      router.refresh();
+    } catch (error: any) {
+      // Rollback optimistic update
+      setPendingApplications(originalApplications);
+
+      // Error toast
+      toast.error(
+        action === "approve"
+          ? "Failed to approve application"
+          : "Failed to delete application",
+        {
+          id: toastId,
+          description:
+            error.message ||
+            "Please try again or contact support if the problem persists.",
+          action: {
+            label: "Retry",
+            onClick: () => handleApplicationReview(applicationId, action),
+          },
+        }
+      );
+    } finally {
+      // Remove from reviewing set
+      setReviewingApplications((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(applicationId);
+        return newSet;
+      });
+    }
   };
 
   const getInitials = (email?: string) => {
@@ -156,10 +263,10 @@ export function DashboardWithRealtime({
         <div className="container mx-auto px-6 py-8 max-w-7xl h-full flex flex-col">
           <div className="flex justify-between items-center mb-12 flex-shrink-0">
             <div>
-              <h1 className="text-4xl font-bold tracking-tight text-stone-900 dark:text-stone-100">
+              <h1 className="text-4xl font-bold tracking-tight text-foreground">
                 Dashboard
               </h1>
-              <p className="text-lg text-stone-600 dark:text-stone-400 mt-2">
+              <p className="text-lg text-muted-foreground mt-2">
                 Syncing your job applications...
               </p>
             </div>
@@ -196,209 +303,363 @@ export function DashboardWithRealtime({
         <div className="container mx-auto px-6 py-8 max-w-7xl h-full flex flex-col">
           <div className="flex justify-between items-center mb-12 flex-shrink-0">
             <div>
-              <h1 className="text-4xl font-bold tracking-tight text-stone-900 dark:text-stone-100">
+              <h1 className="text-4xl font-bold tracking-tight text-foreground">
                 Dashboard
               </h1>
-              <p className="text-lg text-stone-600 dark:text-stone-400 mt-2">
+              <p className="text-lg text-muted-foreground mt-2">
                 Get started by connecting your Gmail account
               </p>
             </div>
-            <div className="flex items-center space-x-3">
-              <Button asChild variant="outline" size="lg" className="gap-2">
+            <div className="flex items-center gap-3">
+              <Button
+                asChild
+                variant="outline"
+                size="default"
+                className="gap-2"
+              >
                 <Link href="/dashboard/board">
-                  <Kanban className="h-5 w-5" />
-                  <span>Board View</span>
+                  <Kanban className="h-4 w-4" />
+                  Board View
                 </Link>
               </Button>
             </div>
           </div>
 
           <div className="flex items-center justify-center flex-1">
-            <FirstTimeSyncBanner integrationEmail={integrationEmail} />
+            <Card className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30 max-w-2xl mx-auto">
+              <CardContent className="p-8">
+                <div className="text-center space-y-6">
+                  <div className="flex justify-center">
+                    <div className="h-16 w-16 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
+                      <Mail className="h-8 w-8 text-blue-600" />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <h2 className="text-2xl font-semibold text-foreground">
+                      Connect Your Gmail
+                    </h2>
+                    <p className="text-muted-foreground">
+                      Connect your Gmail account to automatically track job
+                      applications from your emails.
+                    </p>
+                  </div>
+
+                  <Button
+                    asChild
+                    size="lg"
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    <Link href="/auth/onboarding/connect-email">
+                      <Mail className="mr-2 h-5 w-5" />
+                      Connect Gmail Account
+                    </Link>
+                  </Button>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-6 text-sm text-muted-foreground">
+                    <div className="flex items-center justify-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                      <span>Auto-detect applications</span>
+                    </div>
+                    <div className="flex items-center justify-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                      <span>Track interview invites</span>
+                    </div>
+                    <div className="flex items-center justify-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                      <span>Monitor responses</span>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </div>
     );
   }
 
+  // Main dashboard content
+  const totalApplications = initialData?.totalApplications || 0;
+  const interviewsScheduled = initialData?.interviewsScheduled || 0;
+  const offersReceived = initialData?.offersReceived || 0;
+
   // Show regular dashboard with data
   return (
-    <div className="h-full overflow-auto">
-      <div className="container mx-auto px-6 py-8 max-w-7xl h-full flex flex-col">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-12 flex-shrink-0">
-          <div>
-            <h1 className="text-4xl font-bold tracking-tight text-stone-900 dark:text-stone-100">
-              Dashboard
-            </h1>
-            <p className="text-lg text-stone-600 dark:text-stone-400 mt-2">
-              Track your job applications and stay organized
-            </p>
-          </div>
-          <div className="flex items-center space-x-3">
-            <Button asChild>
-              <Link href="/dashboard/add-application">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Application
-              </Link>
-            </Button>
-            <ActivitySheet activities={initialData?.recentActivity || []} />
-            <SyncControl />
-            <Button asChild variant="outline" size="lg" className="gap-2">
-              <Link href="/dashboard/board">
-                <Kanban className="h-5 w-5" />
-                <span>Board View</span>
-              </Link>
-            </Button>
-          </div>
-        </div>
-
-        {/* Application Statistics Row */}
-        <section className="mb-8 flex-shrink-0">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card className="bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 shadow-sm hover:shadow-md transition-all duration-300">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base font-medium text-stone-600 dark:text-stone-300 flex items-center gap-2">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                  Total Applications
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <div className="text-3xl font-bold text-stone-900 dark:text-stone-100 mb-2">
-                  {initialData?.totalApplications || 0}
-                </div>
-                <p className="text-sm text-stone-500 dark:text-stone-400">
-                  Applications tracked across all stages
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 shadow-sm hover:shadow-md transition-all duration-300">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base font-medium text-stone-600 dark:text-stone-300 flex items-center gap-2">
-                  <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-                  Interviews Scheduled
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <div className="text-3xl font-bold text-stone-900 dark:text-stone-100 mb-2">
-                  {initialData?.interviewsScheduled || 0}
-                </div>
-                <p className="text-sm text-stone-500 dark:text-stone-400">
-                  Active interviews and screenings
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 shadow-sm hover:shadow-md transition-all duration-300">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base font-medium text-stone-600 dark:text-stone-300 flex items-center gap-2">
-                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  Offers Received
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <div className="text-3xl font-bold text-stone-900 dark:text-stone-100 mb-2">
-                  {initialData?.offersReceived || 0}
-                </div>
-                <p className="text-sm text-stone-500 dark:text-stone-400">
-                  Outstanding offers to review
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-        </section>
-
-        {/* Main Content Grid - Side by Side Layout */}
-        <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Recent Emails - Left Side (2/3 width) */}
-          <div
-            className={`min-h-0 ${suggestions && suggestions.length > 0 ? "lg:col-span-2" : "lg:col-span-3"}`}
+    <TooltipProvider>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.5 }}
+        className="min-h-screen w-full bg-white dark:bg-gradient-to-br dark:from-slate-950 dark:via-slate-900 dark:to-zinc-950"
+      >
+        <div className="flex-1 p-8 overflow-auto">
+          {/* Header */}
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.1 }}
+            className="flex justify-between items-center mb-12 flex-shrink-0"
           >
-            <Card className="bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 shadow-sm flex flex-col min-h-0 h-full">
-              <CardHeader className="pb-4 flex-shrink-0">
-                <CardTitle className="text-lg font-semibold flex items-center gap-3 text-stone-900 dark:text-stone-100">
-                  <div className="w-6 h-6 bg-blue-50 dark:bg-blue-900/50 rounded-lg flex items-center justify-center">
-                    <Inbox className="h-3 w-3 text-blue-600 dark:text-blue-400" />
-                  </div>
-                  Recent Emails
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="flex-1 min-h-0">
-                <ScrollArea className="h-full">
-                  {gmailData?.messages && gmailData.messages.length > 0 ? (
-                    <div className="space-y-3">
-                      {gmailData.messages.slice(0, 15).map((msg) => (
-                        <div
-                          key={msg.id}
-                          className="flex items-start space-x-3 p-3 rounded-lg bg-stone-50 dark:bg-stone-700/50 hover:bg-stone-100 dark:hover:bg-stone-700 transition-colors border border-stone-100 dark:border-stone-600"
-                        >
-                          <Avatar className="h-8 w-8 flex-shrink-0">
-                            <AvatarFallback className="text-xs bg-gradient-to-br from-blue-500 to-purple-600 text-white font-medium">
-                              {getInitials(msg.from)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="space-y-1 flex-1 min-w-0">
-                            <div className="flex items-start justify-between gap-2">
-                              <p className="text-sm font-medium leading-none text-stone-900 dark:text-stone-100 line-clamp-1">
-                                {msg.subject || "No subject"}
-                              </p>
-                              <span className="text-xs text-stone-400 dark:text-stone-500 flex-shrink-0">
-                                {msg.from?.split("<")[1]?.replace(">", "") ||
-                                  msg.from?.split("@")[1] ||
-                                  ""}
-                              </span>
-                            </div>
-                            <p className="text-xs text-stone-600 dark:text-stone-300 font-medium">
-                              From:{" "}
-                              {msg.from?.split("<")[0]?.trim() || msg.from}
-                            </p>
-                            <p className="text-xs text-stone-500 dark:text-stone-400 line-clamp-2 leading-relaxed">
-                              {msg.snippet}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center h-full text-center">
-                      <Inbox className="h-12 w-12 text-stone-400 mb-3" />
-                      <h3 className="text-base font-medium text-stone-600 dark:text-stone-300 mb-1">
-                        No recent emails
-                      </h3>
-                      <p className="text-sm text-stone-500 dark:text-stone-400">
-                        Your recent emails will appear here once Gmail is synced
-                      </p>
-                    </div>
-                  )}
-                </ScrollArea>
-              </CardContent>
-            </Card>
-          </div>
+            <div>
+              <h1 className="text-4xl font-bold tracking-tight text-foreground">
+                Dashboard
+              </h1>
+              <p className="text-lg text-muted-foreground mt-2">
+                Track your job applications and stay organized
+              </p>
+            </div>
+            <div className="flex items-center gap-8">
+              <div className="flex items-center gap-3">
+                <Button asChild size="default" className="gap-2">
+                  <Link href="/dashboard/add-application">
+                    <Plus className="h-4 w-4" />
+                    Add Application
+                  </Link>
+                </Button>
 
-          {/* AI Suggestions - Right Side (1/3 width) */}
-          {suggestions && suggestions.length > 0 && (
-            <div className="lg:col-span-1 min-h-0">
-              <Card className="bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 shadow-sm flex flex-col min-h-0 h-full">
-                <CardHeader className="pb-4 flex-shrink-0">
-                  <CardTitle className="text-lg font-semibold flex items-center gap-3 text-stone-900 dark:text-stone-100">
-                    <div className="w-6 h-6 bg-amber-50 dark:bg-amber-900/50 rounded-lg flex items-center justify-center">
-                      <Clock className="h-3 w-3 text-amber-600 dark:text-amber-400" />
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      asChild
+                      variant="outline"
+                      size="default"
+                      className="gap-2"
+                    >
+                      <Link href="/dashboard/board">
+                        <Kanban className="h-4 w-4" />
+                        Board View
+                      </Link>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Switch to Kanban board view</p>
+                  </TooltipContent>
+                </Tooltip>
+
+                <SyncControl />
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Application Statistics Row */}
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="mb-8 flex-shrink-0"
+          >
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.3 }}
+                whileHover={{ y: -2, transition: { duration: 0.2 } }}
+              >
+                <Card className="bg-white dark:bg-slate-800/90 border-l-4 border-l-blue-500 border-r-slate-200/80 border-t-slate-200/80 border-b-slate-200/80 dark:border-r-slate-700/60 dark:border-t-slate-700/60 dark:border-b-slate-700/60 hover:border-l-blue-600 hover:shadow-lg transition-all duration-300 rounded-xl group relative overflow-hidden">
+                  <CardHeader className="pb-3 relative z-10">
+                    <CardTitle className="text-base font-medium text-slate-700 dark:text-slate-300 flex items-center gap-3 group-hover:text-slate-800 dark:group-hover:text-slate-200 transition-colors">
+                      <div className="w-7 h-7 bg-blue-500 rounded-lg flex items-center justify-center shadow-lg shadow-blue-500/25">
+                        <Briefcase className="h-4 w-4 text-white" />
+                      </div>
+                      Total Applications
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="relative z-10">
+                    <div className="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-1">
+                      {totalApplications}
                     </div>
-                    AI Suggestions
+                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                      Applications tracked across all stages
+                    </p>
+                  </CardContent>
+                </Card>
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.4 }}
+                whileHover={{ y: -2, transition: { duration: 0.2 } }}
+              >
+                <Card className="bg-white dark:bg-slate-800/90 border-l-4 border-l-amber-500 border-r-slate-200/80 border-t-slate-200/80 border-b-slate-200/80 dark:border-r-slate-700/60 dark:border-t-slate-700/60 dark:border-b-slate-700/60 hover:border-l-amber-600 hover:shadow-lg transition-all duration-300 rounded-xl group relative overflow-hidden">
+                  <CardHeader className="pb-3 relative z-10">
+                    <CardTitle className="text-base font-medium text-slate-700 dark:text-slate-300 flex items-center gap-3 group-hover:text-slate-800 dark:group-hover:text-slate-200 transition-colors">
+                      <div className="w-7 h-7 bg-amber-500 rounded-lg flex items-center justify-center shadow-lg shadow-amber-500/25">
+                        <Calendar className="h-4 w-4 text-white" />
+                      </div>
+                      Interviews Scheduled
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="relative z-10">
+                    <div className="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-1">
+                      {interviewsScheduled}
+                    </div>
+                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                      Active interviews and screenings
+                    </p>
+                  </CardContent>
+                </Card>
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.5 }}
+                whileHover={{ y: -2, transition: { duration: 0.2 } }}
+              >
+                <Card className="bg-white dark:bg-slate-800/90 border-l-4 border-l-emerald-500 border-r-slate-200/80 border-t-slate-200/80 border-b-slate-200/80 dark:border-r-slate-700/60 dark:border-t-slate-700/60 dark:border-b-slate-700/60 hover:border-l-emerald-600 hover:shadow-lg transition-all duration-300 rounded-xl group relative overflow-hidden">
+                  <CardHeader className="pb-3 relative z-10">
+                    <CardTitle className="text-base font-medium text-slate-700 dark:text-slate-300 flex items-center gap-3 group-hover:text-slate-800 dark:group-hover:text-slate-200 transition-colors">
+                      <div className="w-7 h-7 bg-emerald-500 rounded-lg flex items-center justify-center shadow-lg shadow-emerald-500/25">
+                        <Trophy className="h-4 w-4 text-white" />
+                      </div>
+                      Offers Received
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="relative z-10">
+                    <div className="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-1">
+                      {offersReceived}
+                    </div>
+                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                      Outstanding offers to review
+                    </p>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            </div>
+          </motion.section>
+
+          {/* Main Content Grid */}
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.6 }}
+            className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1 min-h-0"
+          >
+            {/* Recent Emails Section */}
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.6, delay: 0.7 }}
+            >
+              <Card className="bg-white/70 dark:bg-slate-800/70 backdrop-blur-md border border-slate-200/20 dark:border-slate-700/40 hover:border-slate-300/30 dark:hover:border-slate-600/50 transition-all duration-300 rounded-xl h-[600px] relative overflow-hidden">
+                <CardHeader className="pb-6 bg-gradient-to-b from-fuchsia-100/80 via-fuchsia-50/40 via-50% to-transparent dark:from-fuchsia-700/40 dark:via-fuchsia-800/15 dark:via-50% dark:to-transparent">
+                  <CardTitle className="text-base font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                    <div className="w-6 h-6 bg-fuchsia-500 rounded-lg flex items-center justify-center">
+                      <Mail className="h-3 w-3 text-white" />
+                    </div>
+                    Recent Emails
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="flex-1 min-h-0">
-                  <AISuggestionsReview
-                    suggestions={suggestions}
-                    onSuggestionUpdate={handleSuggestionUpdate}
+                <CardContent className="py-3 h-[calc(600px-80px)]">
+                  <ScrollArea className="h-full">
+                    <div className="space-y-0 px-3">
+                      {gmailData?.messages && gmailData.messages.length > 0 ? (
+                        gmailData.messages.slice(0, 8).map((message, index) => (
+                          <motion.div
+                            key={`${message.id}-${index}`}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{
+                              duration: 0.4,
+                              delay: 0.8 + index * 0.05,
+                            }}
+                            className="hover:bg-blue-50/70 dark:hover:bg-slate-700/30 py-3 px-2 rounded-md transition-colors duration-150 group"
+                          >
+                            <div className="flex justify-between items-start mb-2">
+                              <h4 className="text-sm font-medium text-slate-900 dark:text-slate-100 leading-relaxed pr-3 flex-1 min-w-0">
+                                {message.subject || "No Subject"}
+                              </h4>
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                <span className="text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                                  {message.from
+                                    ?.split("<")[0]
+                                    ?.trim()
+                                    .slice(0, 20) || "Unknown"}
+                                </span>
+                                {message.id && (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-5 w-5 p-0 text-slate-500 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-opacity"
+                                        onClick={() => {
+                                          // Use the authuser parameter to specify which Gmail account to use
+                                          const gmailUrl =
+                                            integrationEmail ||
+                                            gmailData?.integratedGmailAddress
+                                              ? `https://mail.google.com/mail/?authuser=${encodeURIComponent(integrationEmail || gmailData?.integratedGmailAddress || "")}#inbox/${message.id}`
+                                              : `https://mail.google.com/mail/u/0/#inbox/${message.id}`;
+                                          window.open(gmailUrl, "_blank");
+                                        }}
+                                      >
+                                        <ExternalLink className="h-3 w-3" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>Open email in Gmail</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                )}
+                              </div>
+                            </div>
+                            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed line-clamp-2 pr-2">
+                              {message.snippet || "No preview available"}
+                            </p>
+                            {index <
+                              (gmailData?.messages?.slice(0, 8).length || 0) -
+                                1 && (
+                              <div className="mx-2 mt-3 border-b border-slate-300/60 dark:border-slate-700/40"></div>
+                            )}
+                          </motion.div>
+                        ))
+                      ) : (
+                        <div className="text-center py-6 text-slate-500 dark:text-slate-400">
+                          <Mail className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                          <p className="text-sm">No recent emails found</p>
+                          <p className="text-xs mt-1">
+                            {gmailData?.integratedGmailAddress
+                              ? "Check your email connection"
+                              : "Connect your email to see recent messages"}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* Applications to Review Section */}
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.6, delay: 0.8 }}
+            >
+              <Card className="bg-white/70 dark:bg-slate-800/70 backdrop-blur-md border border-slate-200/20 dark:border-slate-700/40 hover:border-slate-300/30 dark:hover:border-slate-600/50 transition-all duration-300 rounded-xl h-[600px] relative overflow-hidden">
+                <CardHeader className="pb-6 bg-gradient-to-b from-violet-100/80 via-violet-50/40 via-50% to-transparent dark:from-violet-700/40 dark:via-violet-800/15 dark:via-50% dark:to-transparent">
+                  <CardTitle className="text-base font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                    <div className="w-6 h-6 bg-violet-500 rounded-lg flex items-center justify-center">
+                      <CheckCircle className="h-3 w-3 text-white" />
+                    </div>
+                    Applications to Review
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="py-3 h-[calc(600px-80px)]">
+                  <PendingApplicationsReview
+                    applications={pendingApplications}
+                    onApplicationReview={handleApplicationReview}
+                    integrationEmail={integrationEmail}
+                    reviewingApplications={reviewingApplications}
                   />
                 </CardContent>
               </Card>
-            </div>
-          )}
+            </motion.div>
+          </motion.section>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </TooltipProvider>
   );
 }

@@ -68,7 +68,7 @@ export function UrlImportSection({
 
           <p className="text-sm text-muted-foreground">
             Paste a job posting URL to automatically extract company name, job
-            title, and other details.
+            title, and other details using smart web scraping enhanced with AI.
           </p>
 
           <div className="space-y-3">
@@ -93,12 +93,12 @@ export function UrlImportSection({
                 {isImporting ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Importing...
+                    Extracting...
                   </>
                 ) : (
                   <>
-                    <Link className="h-4 w-4 mr-2" />
-                    Import
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Smart Import
                   </>
                 )}
               </Button>
@@ -111,19 +111,35 @@ export function UrlImportSection({
             )}
           </div>
 
-          <div className="border-t pt-3">
-            <p className="text-xs text-muted-foreground mb-2">
-              Supported job boards and career sites:
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {supportedSites.map((site) => (
-                <span
-                  key={site}
-                  className="inline-flex items-center px-2 py-1 text-xs bg-secondary text-secondary-foreground rounded-md"
-                >
-                  {site}
-                </span>
-              ))}
+          <div className="border-t pt-3 space-y-3">
+            <div>
+              <p className="text-xs text-muted-foreground mb-2">
+                🤖 Smart extraction features:
+              </p>
+              <div className="text-xs text-muted-foreground space-y-1">
+                <div>• Traditional web scraping for known job boards</div>
+                <div>• AI-enhanced extraction for complex or custom sites</div>
+                <div>
+                  • Automatic fallback to AI when traditional methods are
+                  incomplete
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <p className="text-xs text-muted-foreground mb-2">
+                Supported job boards and career sites:
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {supportedSites.map((site) => (
+                  <span
+                    key={site}
+                    className="inline-flex items-center px-2 py-1 text-xs bg-secondary text-secondary-foreground rounded-md"
+                  >
+                    {site}
+                  </span>
+                ))}
+              </div>
             </div>
           </div>
         </div>

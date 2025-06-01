@@ -36,7 +36,6 @@ export function FailedEmailReview() {
 
       setFailedEmails(result.data || []);
     } catch (err) {
-      console.error("Error loading failed emails:", err);
       setError("Network error while loading failed emails");
     } finally {
       setLoading(false);
@@ -78,7 +77,6 @@ export function FailedEmailReview() {
         });
       }
     } catch (err) {
-      console.error("Error submitting correction:", err);
       toast.error("Network error", {
         description: "Failed to submit correction. Please try again.",
       });

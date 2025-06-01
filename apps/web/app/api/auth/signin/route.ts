@@ -35,7 +35,6 @@ export async function POST(request: NextRequest) {
     });
 
     if (error) {
-      console.error("Supabase Sign In Error:", error);
       // Default to a generic message to avoid leaking too much info
       let errorMessage = "Invalid login credentials. Please try again.";
       let status = 401; // Unauthorized
@@ -59,7 +58,6 @@ export async function POST(request: NextRequest) {
       status: 302,
     });
   } catch (error: unknown) {
-    console.error("Sign In API Error:", error);
     let errorMessage = "An unexpected error occurred during sign-in.";
     if (error instanceof Error) {
       errorMessage = error.message;

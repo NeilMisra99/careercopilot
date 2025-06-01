@@ -5,6 +5,7 @@ export const applicationFormSchema = z.object({
   companyName: z.string().min(1, "Company name is required"),
   jobTitle: z.string().min(1, "Job title is required"),
   status: z.enum([
+    "Pending Review",
     "Wishlist",
     "Applied",
     "Screening",

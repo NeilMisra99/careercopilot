@@ -86,7 +86,6 @@ export function SyncControl({ className }: SyncControlProps) {
         }
       } catch (err) {
         setError("Network error");
-        console.error("Error checking sync status:", err);
       }
     };
 
@@ -145,7 +144,6 @@ export function SyncControl({ className }: SyncControlProps) {
       // Close popover after successful sync start
       setIsPopoverOpen(false);
     } catch (error) {
-      console.error("Sync error:", error);
       toast.error("Network error", {
         id: toastId,
         description: "Failed to connect to the server. Please try again.",
@@ -229,7 +227,7 @@ export function SyncControl({ className }: SyncControlProps) {
       <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
         {/* Unified sync control button */}
         <PopoverTrigger asChild>
-          <Button size="sm" variant={getVariant()} className="gap-2">
+          <Button size="default" variant={getVariant()} className="gap-2">
             {getStatusIcon()}
             <span>{getButtonText()}</span>
             <ChevronDown className="h-3 w-3 opacity-60" />

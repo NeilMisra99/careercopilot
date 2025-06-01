@@ -12,4 +12,6 @@
 *.mdc
 !README.md
 
+*.txt
+
 

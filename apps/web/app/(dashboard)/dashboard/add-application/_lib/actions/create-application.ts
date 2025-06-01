@@ -1,6 +1,11 @@
 "use server";
 
-import { type ApplicationFormData } from "../types";
+import { redirect } from "next/navigation";
+import { ApplicationFormData } from "../types";
+import { getWorkerUrl } from "@/lib/worker-utils";
+import { cookies } from "next/headers";
+import { revalidateTag, revalidatePath } from "next/cache";
+import { CACHE_TAGS } from "@/lib/cache";
 
 interface CreateApplicationResult {
   success?: boolean;
@@ -23,13 +28,20 @@ export async function createApplicationAction(
   formData: ApplicationFormData
 ): Promise<CreateApplicationResult> {
   try {
-    // Get the base URL for API calls (works both in dev and production)
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+    const workerUrl = getWorkerUrl();
+    if (!workerUrl) {
+      return {
+        success: false,
+        error: "Worker URL not configured",
+      };
+    }
 
-    const response = await fetch(`${baseUrl}/api/worker_proxy/applications`, {
+    const cookieStore = await cookies();
+    const response = await fetch(`${workerUrl}/api/applications`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        Cookie: cookieStore.toString(),
       },
       body: JSON.stringify({
         companyName: formData.companyName,
@@ -44,30 +56,39 @@ export async function createApplicationAction(
     });
 
     if (!response.ok) {
-      const errorData = await response
-        .json()
-        .catch(() => ({ error: "Unknown error" }));
+      const errorText = await response.text();
       return {
-        error: errorData.error || "Failed to create application",
+        success: false,
+        error: `Failed to create application: ${response.status}`,
       };
     }
 
     const result = await response.json();
 
-    if (result.error) {
+    if (!result.success) {
       return {
-        error: result.error,
+        success: false,
+        error: result.error || "Unknown error from worker",
       };
     }
 
+    if (result.success && result.data) {
+      // Revalidate relevant data and redirect
+      revalidateTag(CACHE_TAGS.APPLICATIONS_DATA);
+      revalidateTag(CACHE_TAGS.DASHBOARD_DATA);
+      revalidatePath("/dashboard");
+      revalidatePath("/dashboard/board");
+
+      redirect("/dashboard/board");
+    } else {
+      return {
+        error: result.error || "Failed to create application",
+      };
+    }
+  } catch (error: any) {
     return {
-      success: true,
-      data: result.data,
-    };
-  } catch (error) {
-    console.error("Error in createApplicationAction:", error);
-    return {
-      error: "An unexpected error occurred while creating the application",
+      success: false,
+      error: "Unexpected error occurred",
     };
   }
 }

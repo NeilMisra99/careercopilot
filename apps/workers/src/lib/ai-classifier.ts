@@ -18,10 +18,51 @@ export type JobEmailClassification = z.infer<typeof JobEmailClassificationSchema
 // Manually created JSON schema - REMOVED as generateObject uses Zod schema directly
 // const JobEmailClassificationJsonSchema = { ... };
 
+// Helper function to clean HTML content for classification (simpler version)
+function cleanHtmlContentForClassifier(html: string): string {
+	try {
+		// Basic HTML cleaning for classification - less aggressive than full extraction
+		let cleaned = html
+			.replace(/=\r?\n/g, '') // Remove soft line breaks
+			.replace(/=([0-9A-F]{2})/g, (match, hex) => String.fromCharCode(parseInt(hex, 16))) // Decode =XX
+			.replace(/=3D/g, '=') // Common quoted-printable sequences
+			.replace(/=20/g, ' ')
+			.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '') // Remove style blocks
+			.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '') // Remove script blocks
+			.replace(/<[^>]+>/g, ' ') // Remove all HTML tags
+			.replace(/&nbsp;/g, ' ') // Convert HTML entities
+			.replace(/&amp;/g, '&')
+			.replace(/&lt;/g, '<')
+			.replace(/&gt;/g, '>')
+			.replace(/\s+/g, ' ') // Multiple spaces to single space
+			.trim();
+
+		return cleaned;
+	} catch (error) {
+		console.warn(`[ai-classifier] Error cleaning HTML:`, error);
+		return html;
+	}
+}
+
 export async function classifyEmail(emailData: EmailToParse, aiBinding: Ai): Promise<JobEmailClassification | null> {
 	// Return type changed to include null for errors
 	const workersai = createWorkersAI({ binding: aiBinding as any });
 	const model = workersai('@cf/meta/llama-3.1-8b-instruct-fast' as any); // Consistent model name
+
+	// Safety check: Ensure gmailMessage exists
+	if (!emailData.gmailMessage || typeof emailData.gmailMessage !== 'object') {
+		console.error('[ai-classifier] Error: gmailMessage is missing or invalid');
+		return null;
+	}
+
+	// Use text content if available, otherwise clean HTML content
+	let emailContent = emailData.gmailMessage.bodyText;
+	if (!emailContent && emailData.gmailMessage.bodyHtml) {
+		emailContent = cleanHtmlContentForClassifier(emailData.gmailMessage.bodyHtml);
+	}
+	if (!emailContent) {
+		emailContent = emailData.gmailMessage.snippet || '(No content)';
+	}
 
 	const classificationPromptContent = `You are an expert at identifying job application-related emails. Analyze this email and determine if it's directly about a specific job application the recipient has already submitted.
 
@@ -29,7 +70,7 @@ EMAIL TO ANALYZE:
 Subject: ${emailData.gmailMessage.subject || '(No subject provided)'}
 From: ${emailData.gmailMessage.from || '(Unknown sender)'}
 Snippet: ${emailData.gmailMessage.snippet || '(No snippet)'}
-Body: ${(emailData.gmailMessage.bodyText || emailData.gmailMessage.snippet || '(No content)').substring(0, 800)}
+Body: ${emailContent.substring(0, 800)}
 
 CLASSIFICATION RULES:
 ✅ TRUE - Email is job application related if:

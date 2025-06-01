@@ -1,16 +1,19 @@
+import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { KanbanBoard } from "./_components/kanban-board";
+import { BoardPageWrapper } from "./_components/board-page-wrapper";
 import {
   getFailedEmailsAction,
   type FailedEmail,
 } from "../_lib/actions/failed-email-actions";
+import { getWorkerUrl } from "@/lib/worker-utils";
+import { unstable_cache } from "next/cache";
+import { CACHE_TAGS, CACHE_CONFIG } from "@/lib/cache";
+import { workerClient } from "@/lib/worker-client";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { LayoutDashboard, Plus } from "lucide-react";
-// TODO: Enable when component is ready
-// import { BoardWithRealtime } from "./_components/board-with-realtime";
+import { ArrowLeft } from "lucide-react";
 
 // Interface for applications data
 interface Application {
@@ -26,98 +29,77 @@ interface Application {
   order_in_column?: number;
 }
 
-async function getApplicationsForBoard(): Promise<Application[]> {
-  const cookieStore = await cookies();
-  const token = cookieStore.toString();
+// Cached applications fetcher for board - cookies moved outside
+const getCachedApplicationsForBoard = unstable_cache(
+  async (cookieString: string): Promise<Application[]> => {
+    try {
+      const result = await workerClient.getApplications(cookieString);
 
-  const workerBaseUrl =
-    process.env.NEXT_PUBLIC_WORKER_BASE_URL || "http://localhost:8787";
-
-  if (!workerBaseUrl) {
-    console.error("Board: NEXT_PUBLIC_WORKER_BASE_URL is not set.");
-    throw new Error("Worker service is not configured (missing base URL).");
-  }
-
-  try {
-    const response = await fetch(`${workerBaseUrl}/api/applications`, {
-      headers: {
-        Cookie: token,
-        "Content-Type": "application/json",
-      },
-      next: {
-        revalidate: 3600, // Cache for 1 hour
-        tags: ["applications-board"], // Add cache tag
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch applications: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    // Ensure data is sorted by order_in_column, then by applied_at
-    const applications: Application[] = data.data || [];
-    applications.sort((a, b) => {
-      const orderA = a.order_in_column ?? 0;
-      const orderB = b.order_in_column ?? 0;
-      if (orderA !== orderB) {
-        return orderA - orderB;
+      if (result.error) {
+        return [];
       }
-      // Secondary sort by applied_at (descending) if order_in_column is the same
-      return (
-        new Date(b.applied_at).getTime() - new Date(a.applied_at).getTime()
-      );
-    });
-    return applications;
-  } catch (error) {
-    console.error("Error fetching applications for board:", error);
-    throw error;
-  }
-}
 
-async function getFailedEmailsForBoard(): Promise<FailedEmail[]> {
-  try {
-    const result = await getFailedEmailsAction();
-    if (result.success) {
-      return result.data || [];
-    } else {
-      console.error("Error fetching failed emails for board:", result.error);
+      const applications = result.data || [];
+
+      return applications;
+    } catch (error: any) {
       return [];
     }
-  } catch (error) {
-    console.error("Error fetching failed emails for board:", error);
-    return [];
+  },
+  [CACHE_TAGS.APPLICATIONS_BOARD],
+  {
+    tags: [CACHE_TAGS.APPLICATIONS_BOARD, CACHE_TAGS.BOARD_DATA],
+    revalidate: CACHE_CONFIG.MEDIUM.revalidate,
   }
+);
+
+async function getApplicationsForBoard(
+  cookieString: string
+): Promise<Application[]> {
+  return getCachedApplicationsForBoard(cookieString);
+}
+
+// Cached failed emails fetcher for board - cookies moved outside
+const getCachedFailedEmailsForBoard = unstable_cache(
+  async (cookieString: string): Promise<FailedEmail[]> => {
+    try {
+      const result = await workerClient.getFailedEmails(cookieString);
+
+      if (result.error) {
+        return [];
+      }
+
+      const failedEmails = result.failedEmails || [];
+
+      return failedEmails;
+    } catch (error: any) {
+      return [];
+    }
+  },
+  [CACHE_TAGS.FAILED_EMAILS],
+  {
+    tags: [CACHE_TAGS.FAILED_EMAILS, CACHE_TAGS.BOARD_DATA],
+    revalidate: CACHE_CONFIG.LONG.revalidate,
+  }
+);
+
+async function getFailedEmailsForBoard(
+  cookieString: string
+): Promise<FailedEmail[]> {
+  return getCachedFailedEmailsForBoard(cookieString);
 }
 
 export default async function BoardPage() {
-  const supabase = await createClient();
+  // Get cookies outside of cached functions
+  const cookieStore = await cookies();
+  const cookieString = cookieStore.toString();
 
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
+  const [applications, failedEmails] = await Promise.all([
+    getApplicationsForBoard(cookieString),
+    getFailedEmailsForBoard(cookieString),
+  ]);
 
-  if (userError || !user) {
-    redirect(
-      "/auth/login?error=session_error&details=Could not retrieve session."
-    );
-  }
-
-  // Fetch applications and failed emails data
-  let applications: Application[] = [];
-  let failedEmails: FailedEmail[] = [];
-  try {
-    [applications, failedEmails] = await Promise.all([
-      getApplicationsForBoard(),
-      getFailedEmailsForBoard(),
-    ]);
-  } catch (error) {
-    console.error("Error loading board data:", error);
-    // We'll handle this in the UI rather than redirecting
-  }
-
-  // Group applications by status
+  // Group applications by status for kanban board
   const applicationsByStatus = {
     Wishlist: applications.filter((app) => app.status === "Wishlist"),
     Applied: applications.filter((app) => app.status === "Applied"),
@@ -129,44 +111,9 @@ export default async function BoardPage() {
   };
 
   return (
-    <div className="flex flex-col h-full space-y-4 p-6 pb-8">
-      <div className="flex justify-between items-center flex-shrink-0">
-        <h1 className="text-2xl font-bold">Application Board</h1>
-        <div className="flex items-center gap-3">
-          <Button asChild>
-            <Link href="/dashboard/add-application">
-              <Plus className="h-4 w-4 mr-2" />
-              Add Application
-            </Link>
-          </Button>
-          <Button asChild variant="outline" size="sm" className="gap-2">
-            <Link href="/dashboard">
-              <LayoutDashboard className="h-4 w-4" />
-              <span>Dashboard View</span>
-            </Link>
-          </Button>
-        </div>
-      </div>
-
-      {/* Realtime sync handling */}
-      {/* <BoardWithRealtime /> */}
-
-      {applications.length === 0 && failedEmails.length === 0 ? (
-        <div className="flex flex-col items-center justify-center p-8 text-center flex-1 rounded-lg border-2 border-dashed border-muted">
-          <h2 className="text-lg font-medium mb-2">No applications yet</h2>
-          <p className="text-muted-foreground mb-4">
-            Your applications will appear here after connecting Gmail and
-            scanning your emails for job-related messages.
-          </p>
-        </div>
-      ) : (
-        <div className="flex-1 min-h-0">
-          <KanbanBoard
-            applicationsByStatus={applicationsByStatus}
-            failedEmails={failedEmails}
-          />
-        </div>
-      )}
-    </div>
+    <BoardPageWrapper
+      applicationsByStatus={applicationsByStatus}
+      failedEmails={failedEmails}
+    />
   );
 }

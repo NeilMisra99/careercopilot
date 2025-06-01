@@ -15,6 +15,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DatePicker,
+  parseDateFromLocalString,
+  formatDateToLocalString,
+} from "@/components/ui/date-picker";
 
 import { type ApplicationFormData } from "../_lib/types";
 
@@ -23,6 +28,7 @@ interface JobDetailsSectionProps {
 }
 
 const statusOptions = [
+  { value: "Pending Review", label: "Pending Review" },
   { value: "Wishlist", label: "Wishlist" },
   { value: "Applied", label: "Applied" },
   { value: "Screening", label: "Screening" },
@@ -110,7 +116,13 @@ export function JobDetailsSection({ form }: JobDetailsSectionProps) {
             <FormItem>
               <FormLabel>Application Date *</FormLabel>
               <FormControl>
-                <Input type="date" {...field} />
+                <DatePicker
+                  date={parseDateFromLocalString(field.value)}
+                  onDateChange={(date) => {
+                    field.onChange(date ? formatDateToLocalString(date) : "");
+                  }}
+                  placeholder="Select application date"
+                />
               </FormControl>
               <FormMessage />
             </FormItem>

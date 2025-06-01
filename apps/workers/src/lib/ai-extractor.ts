@@ -2,7 +2,7 @@ import { createWorkersAI } from 'workers-ai-provider';
 import { generateText } from 'ai';
 import { z } from 'zod';
 import type { Ai } from '@cloudflare/workers-types';
-import type { EmailToParse, AIParsedApplicationStatus } from './types';
+import type { EmailToParse } from './types';
 
 const AIParsedApplicationStatusEnum = z.enum([
 	'Applied',
@@ -25,6 +25,12 @@ export const AIParsedDataSchema = z.object({
 export type AIParsedDataFromExtractor = z.infer<typeof AIParsedDataSchema>;
 
 function createAIExtractionPrompt(emailData: EmailToParse): string {
+	// Safety check: Ensure gmailMessage exists
+	if (!emailData.gmailMessage || typeof emailData.gmailMessage !== 'object') {
+		console.error('[ai-extractor] Error: gmailMessage is missing or invalid');
+		return 'Error: Invalid email data structure';
+	}
+
 	const { subject, snippet, from, date, bodyText } = emailData.gmailMessage;
 
 	return `You are an expert at extracting job application data from emails. Extract the company name, job title, and application status from this job-related email.
@@ -41,30 +47,54 @@ EXTRACTION GUIDELINES:
 COMPANY NAME:
 - Look for company names in the email signature, "from" address, or body text
 - Clean up formatting: "Coalition, Inc." not "Coalition Inc"
-- If from a job board, look for the actual company mentioned in the job description
-- Common patterns: "Thank you for applying to [Company]", "Team at [Company]", "[Company] Careers"
-- Avoid: job board names (LinkedIn, Indeed, etc.) unless they're the actual employer
+- If from a job board, look for the actual company name in the body, not the job board name
 
 JOB TITLE:
-- Look for specific role titles mentioned in the email
-- Common patterns: "for the [Role] position", "your application for [Role]", "[Role] at [Company]"
-- Keep original formatting: "Senior Frontend Engineer", "Data Scientist - ML"
-- If multiple roles mentioned, pick the one the email is primarily about
-- Use null if no specific role is mentioned
+- Extract the specific role title as mentioned in the email
+- Include relevant qualifiers: "Senior Software Engineer" not just "Software Engineer"
+- If multiple roles mentioned, extract the specific one this email relates to
 
-STATUS:
-- Applied: Confirmation emails, "thank you for applying"
-- Screening: "We're reviewing your application", "under review"
-- Interviewing: "interview", "next round", "schedule a call"
-- Offer Extended: "pleased to offer", "job offer", "we'd like to extend"
-- Rejected: "unfortunately", "not moving forward", "other candidates"
-- Withdrawn: if the candidate withdrew
-- On Hold: "on hold", "paused", "will contact you later"
+APPLICATION STATUS CLASSIFICATION (CRITICAL):
+- **Applied**: Initial confirmations, "thank you for applying", "we received your application"
+- **Screening**: "reviewing your application", "under review", "being considered", "in review process"
+- **Interviewing**: "schedule an interview", "next step is an interview", "interview invitation"
+- **Offer**: "pleased to offer", "job offer", "we would like to extend an offer"
+- **Rejected**: ANY of these patterns indicate rejection:
+  * "decided to progress/proceed with other candidates" ← ALWAYS REJECTION
+  * "decided to progress with other candidates" ← ALWAYS REJECTION
+  * "have decided to progress with other candidates" ← ALWAYS REJECTION
+  * "not moving forward", "will not be moving forward"
+  * "unfortunately", "we regret", "sorry to inform"
+  * "after careful consideration" + negative outcome
+  * "chosen another candidate", "selected another applicant"
+  * "do not match", "not a fit", "different direction"
+  * "application was unsuccessful", "not successful this time"
+  * "position has been filled", "role has been filled"
+  * Any phrase indicating the candidate was not selected
+  * Any email that indicates they decided on OTHER candidates = rejection
+- **Withdrawn**: Candidate withdrew their application
+
+IMPORTANT ANALYSIS RULES:
+1. **Context Matters**: If email content appears truncated (contains "... [truncated] ..."), be extra careful about status classification
+2. **Decision Language**: Phrases like "decided to progress with other candidates" or "chosen another candidate" are ALWAYS rejections, regardless of other content
+3. **Temporal Clues**: Past tense often indicates completed decisions ("has been reviewed" = decision made, likely screening or rejection)
+4. **Emotional Indicators**: "Unfortunately", "regret", "sorry" typically precede negative news
+5. **Positive vs Negative**: "Pleased" and "excited" indicate positive outcomes; "unfortunately" and "regret" indicate negative
 
 IMPORTANT: 
 - Extract exact names/titles as they appear in the email
 - Be conservative - use null if uncertain
 - Company name is REQUIRED - if you can't find it clearly, the email might not be job-related
+- For MULTI-LANGUAGE emails: Look for rejection/status signals in ALL languages present
+- Rejection signals can appear in English, French, or other languages - check the entire email content
+- **Pay special attention to decision-making language that indicates finality**
+
+IMPORTANT STATUS DISTINCTION:
+- Future tense (confirmation): "will review", "will be in touch" = Applied
+- Past tense (action completed): "was viewed", "has been reviewed" = Screening 
+- Present tense (ongoing): "are reviewing", "currently reviewing" = Screening
+- **Decision language**: "decided", "chosen", "selected" = Final outcome (offer/rejection)
+- Pay attention to progression: if email indicates viewing/reviewing has happened or is happening, status is likely Screening or beyond
 
 Return ONLY valid JSON wrapped in <json>...</json> tags.
 
@@ -72,8 +102,16 @@ EXAMPLE OUTPUTS:
 
 <json>
 {
+  "companyName": "Amazon",
+  "jobTitle": "Front-End Engineer, GenAI",
+  "status": "Rejected"
+}
+</json>
+
+<json>
+{
   "companyName": "Stripe",
-  "jobTitle": "Senior Software Engineer",
+  "jobTitle": "Senior Software Engineer", 
   "status": "Applied"
 }
 </json>
@@ -82,15 +120,7 @@ EXAMPLE OUTPUTS:
 {
   "companyName": "Anthropic",
   "jobTitle": "AI Safety Researcher",
-  "status": "Interviewing"
-}
-</json>
-
-<json>
-{
-  "companyName": "OpenAI",
-  "jobTitle": null,
-  "status": "Rejected"
+  "status": "Screening"
 }
 </json>
 
@@ -98,8 +128,14 @@ Now extract data from the email above:`;
 }
 
 export async function extractEmailData(emailData: EmailToParse, aiBinding: Ai): Promise<AIParsedDataFromExtractor | null> {
+	// Safety check: Ensure emailData is valid
+	if (!emailData.gmailMessage || typeof emailData.gmailMessage !== 'object') {
+		console.error('[ai-extractor] Error: Invalid emailData structure - gmailMessage is missing');
+		return null;
+	}
+
 	const workersai = createWorkersAI({ binding: aiBinding as any });
-	const model = workersai('@cf/meta/llama-3.1-8b-instruct-fp8' as any);
+	const model = workersai('@cf/meta/llama-3.3-70b-instruct-fp8-fast' as any);
 
 	const extractionPrompt = createAIExtractionPrompt(emailData);
 	console.log(
