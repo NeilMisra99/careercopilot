@@ -136,20 +136,26 @@ export async function handleGmailOAuthCallback(c: Context<Env>) {
 		}
 
 		const backendType = c.env.TOKEN_BACKEND || 'supabase';
+		console.log(`[OAuth Callback] Using backend type: ${backendType}`);
+		console.log(`[OAuth Callback] About to store integration data for user ${user.id} (${userEmail})`);
 
 		if (backendType === 'kv') {
 			// When tokens are stored in KV we still want a metadata row, but without the token columns.
-			await db`
+			console.log(`[OAuth Callback] Inserting metadata row for KV backend`);
+			const insertResult = await db`
 				INSERT INTO user_email_integrations (user_id, provider, email_address, sync_status, updated_at, created_at)
 				VALUES (${user.id}, 'gmail', ${userEmail}, 'active', NOW(), NOW())
 				ON CONFLICT (user_id, provider, email_address) DO UPDATE SET
 					email_address = EXCLUDED.email_address,
 					sync_status = 'active',
-					updated_at = NOW();
+					updated_at = NOW()
+				RETURNING id, user_id, provider, email_address, sync_status;
 			`;
+			console.log(`[OAuth Callback] Database insert result:`, insertResult);
 		} else {
 			// Supabase backend → tokens live in this table too.
-			await db`
+			console.log(`[OAuth Callback] Inserting full row for Supabase backend`);
+			const insertResult = await db`
 				INSERT INTO user_email_integrations (
 					user_id,
 					provider,
@@ -178,12 +184,24 @@ export async function handleGmailOAuthCallback(c: Context<Env>) {
 					access_token_expires_at = EXCLUDED.access_token_expires_at,
 					scopes = EXCLUDED.scopes,
 					sync_status = 'active',
-					updated_at = NOW();
+					updated_at = NOW()
+				RETURNING id, user_id, provider, email_address, sync_status;
 			`;
+			console.log(`[OAuth Callback] Database insert result:`, insertResult);
 		}
 
+		// Verify the integration was created by checking the database
+		console.log(`[OAuth Callback] Verifying integration was created...`);
+		const verifyResult = await db<any[]>`
+			SELECT id, user_id, provider, email_address, sync_status, created_at, updated_at
+			FROM user_email_integrations 
+			WHERE user_id = ${user.id} AND provider = 'gmail' AND email_address = ${userEmail}
+			LIMIT 1;
+		`;
+		console.log(`[OAuth Callback] Verification query result:`, verifyResult);
+
 		console.log(`Gmail OAuth integration completed successfully for user ${user.id} (${userEmail})`);
-		return c.redirect(`${appBaseUrl}/setup`, 302);
+		return c.redirect(`${appBaseUrl}/setup?gmail_connected=true`, 302);
 	} catch (error: any) {
 		console.error('Error in Gmail OAuth callback:', error.message, error.stack);
 		return c.redirect(`${appBaseUrl}/auth/onboarding/connect-email?error=server_error`, 302);
@@ -411,14 +429,29 @@ export async function initiateGmailSync(c: Context<Env>) {
 		}
 
 		// Check if user has active Gmail integration
+		console.log(`[Gmail Sync] Looking for Gmail integration for user: ${user.id}`);
 		const integrations = await db<any[]>`
 			SELECT id, email_address, sync_status, sync_in_progress,
 				last_sync_started_at, last_sync_completed_at, last_sync_summary,
-				last_history_synced_at, first_sync_completed
+				last_history_synced_at, first_sync_completed, created_at, updated_at
 			FROM user_email_integrations 
 			WHERE user_id = ${user.id} AND provider = 'gmail' AND sync_status = 'active'
 			LIMIT 1;
 		`;
+
+		console.log(`[Gmail Sync] Query result - found ${integrations?.length || 0} integrations`);
+		if (integrations && integrations.length > 0) {
+			console.log(`[Gmail Sync] Integration details:`, integrations[0]);
+		}
+
+		// Also check for any Gmail integrations regardless of sync_status for debugging
+		const allIntegrations = await db<any[]>`
+			SELECT id, email_address, sync_status, sync_in_progress, created_at, updated_at
+			FROM user_email_integrations 
+			WHERE user_id = ${user.id} AND provider = 'gmail'
+			ORDER BY created_at DESC;
+		`;
+		console.log(`[Gmail Sync] All Gmail integrations for user (regardless of status):`, allIntegrations);
 
 		if (!integrations || integrations.length === 0) {
 			console.log(`No active Gmail integration found for user ${user.id}`);
