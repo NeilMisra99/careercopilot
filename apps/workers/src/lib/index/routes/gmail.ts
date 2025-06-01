@@ -94,6 +94,10 @@ export async function handleGmailOAuthCallback(c: Context<Env>) {
 		const refreshToken = tokenDataFromGoogle.refresh_token;
 		const expiresIn = tokenDataFromGoogle.expires_in;
 
+		console.log(`[OAuth Callback] Token exchange successful for user ${user.id}`);
+		console.log(`[OAuth Callback] Access token present: ${!!accessToken}`);
+		console.log(`[OAuth Callback] Refresh token present: ${!!refreshToken}`);
+
 		if (!refreshToken) {
 			console.warn('Refresh token not received from Google.');
 			return c.redirect(`${appBaseUrl}/auth/onboarding/connect-email?error=no_refresh_token`, 302);
@@ -110,6 +114,9 @@ export async function handleGmailOAuthCallback(c: Context<Env>) {
 		}
 
 		const userEmail = userInfo.email;
+		console.log(`[OAuth Callback] User email from Google: ${userEmail}`);
+		console.log(`[OAuth Callback] User ID from Supabase: ${user.id}`);
+
 		const encryptionKey = await getKeyMaterial(c.env.TOKEN_ENCRYPTION_KEY);
 		const { encryptToken } = await import('../../crypto');
 
@@ -117,6 +124,10 @@ export async function handleGmailOAuthCallback(c: Context<Env>) {
 		const encryptedAccessToken = await encryptToken(accessToken, encryptionKey);
 		const accessTokenExpiresAt = new Date(Date.now() + (expiresIn || 3599) * 1000).toISOString();
 		const scopes = tokenDataFromGoogle.scope ? tokenDataFromGoogle.scope.split(' ') : null;
+
+		console.log(`[OAuth Callback] Tokens encrypted successfully`);
+		console.log(`[OAuth Callback] Access token expires at: ${accessTokenExpiresAt}`);
+		console.log(`[OAuth Callback] Scopes: ${scopes ? scopes.join(', ') : 'none'}`);
 
 		const newAuthTokenData: TokenData = {
 			refreshTokenEncrypted: encryptedRefreshToken,
@@ -126,85 +137,107 @@ export async function handleGmailOAuthCallback(c: Context<Env>) {
 		};
 
 		const tokenRepository = c.var.tokenRepository;
-		await tokenRepository.put(user.id, 'gmail', newAuthTokenData);
+		console.log(`[OAuth Callback] Token repository type: ${tokenRepository.constructor.name}`);
+
+		try {
+			await tokenRepository.put(user.id, 'gmail', newAuthTokenData);
+			console.log(`[OAuth Callback] Tokens stored in repository successfully`);
+		} catch (tokenError) {
+			console.error(`[OAuth Callback] Failed to store tokens in repository:`, tokenError);
+			throw new Error(`Token storage failed: ${tokenError instanceof Error ? tokenError.message : 'Unknown error'}`);
+		}
 
 		// Store metadata in Supabase
 		const db = c.var.db;
+		console.log(`[OAuth Callback] Database connection available: ${!!db}`);
+
 		if (!db) {
 			console.error('Database not available during OAuth callback for metadata write.');
 			return c.redirect(`${appBaseUrl}/auth/onboarding/connect-email?error=db_unavailable_metadata`, 302);
 		}
 
 		const backendType = c.env.TOKEN_BACKEND || 'supabase';
-		console.log(`[OAuth Callback] Using backend type: ${backendType}`);
-		console.log(`[OAuth Callback] About to store integration data for user ${user.id} (${userEmail})`);
+		console.log(`[OAuth Callback] Token backend type: ${backendType}`);
 
-		if (backendType === 'kv') {
-			// When tokens are stored in KV we still want a metadata row, but without the token columns.
-			console.log(`[OAuth Callback] Inserting metadata row for KV backend`);
-			const insertResult = await db`
-				INSERT INTO user_email_integrations (user_id, provider, email_address, sync_status, updated_at, created_at)
-				VALUES (${user.id}, 'gmail', ${userEmail}, 'active', NOW(), NOW())
-				ON CONFLICT (user_id, provider, email_address) DO UPDATE SET
-					email_address = EXCLUDED.email_address,
-					sync_status = 'active',
-					updated_at = NOW()
-				RETURNING id, user_id, provider, email_address, sync_status;
+		try {
+			if (backendType === 'kv') {
+				console.log(`[OAuth Callback] Inserting metadata for KV backend...`);
+				// When tokens are stored in KV we still want a metadata row, but without the token columns.
+				const result = await db`
+					INSERT INTO user_email_integrations (user_id, provider, email_address, sync_status, updated_at, created_at)
+					VALUES (${user.id}, 'gmail', ${userEmail}, 'active', NOW(), NOW())
+					ON CONFLICT (user_id, provider, email_address) DO UPDATE SET
+						email_address = EXCLUDED.email_address,
+						sync_status = 'active',
+						updated_at = NOW()
+					RETURNING id, user_id, email_address, sync_status;
+				`;
+				console.log(`[OAuth Callback] KV metadata insertion result:`, result);
+			} else {
+				console.log(`[OAuth Callback] Inserting full data for Supabase backend...`);
+				// Supabase backend → tokens live in this table too.
+				const result = await db`
+					INSERT INTO user_email_integrations (
+						user_id,
+						provider,
+						email_address,
+						refresh_token_encrypted,
+						access_token_encrypted,
+						access_token_expires_at,
+						scopes,
+						sync_status,
+						updated_at,
+						created_at
+					) VALUES (
+						${user.id},
+						'gmail',
+						${userEmail},
+						${encryptedRefreshToken},
+						${encryptedAccessToken},
+						${accessTokenExpiresAt},
+						${scopes ? JSON.stringify(scopes) : null},
+						'active',
+						NOW(),
+						NOW()
+					) ON CONFLICT (user_id, provider, email_address) DO UPDATE SET
+						refresh_token_encrypted = EXCLUDED.refresh_token_encrypted,
+						access_token_encrypted = EXCLUDED.access_token_encrypted,
+						access_token_expires_at = EXCLUDED.access_token_expires_at,
+						scopes = EXCLUDED.scopes,
+						sync_status = 'active',
+						updated_at = NOW()
+					RETURNING id, user_id, email_address, sync_status;
+				`;
+				console.log(`[OAuth Callback] Supabase metadata insertion result:`, result);
+			}
+
+			// Verify the insertion by querying the record
+			const verificationResult = await db`
+				SELECT id, user_id, provider, email_address, sync_status, created_at, updated_at
+				FROM user_email_integrations 
+				WHERE user_id = ${user.id} AND provider = 'gmail' AND email_address = ${userEmail};
 			`;
-			console.log(`[OAuth Callback] Database insert result:`, insertResult);
-		} else {
-			// Supabase backend → tokens live in this table too.
-			console.log(`[OAuth Callback] Inserting full row for Supabase backend`);
-			const insertResult = await db`
-				INSERT INTO user_email_integrations (
-					user_id,
-					provider,
-					email_address,
-					refresh_token_encrypted,
-					access_token_encrypted,
-					access_token_expires_at,
-					scopes,
-					sync_status,
-					updated_at,
-					created_at
-				) VALUES (
-					${user.id},
-					'gmail',
-					${userEmail},
-					${encryptedRefreshToken},
-					${encryptedAccessToken},
-					${accessTokenExpiresAt},
-					${scopes ? JSON.stringify(scopes) : null},
-					'active',
-					NOW(),
-					NOW()
-				) ON CONFLICT (user_id, provider, email_address) DO UPDATE SET
-					refresh_token_encrypted = EXCLUDED.refresh_token_encrypted,
-					access_token_encrypted = EXCLUDED.access_token_encrypted,
-					access_token_expires_at = EXCLUDED.access_token_expires_at,
-					scopes = EXCLUDED.scopes,
-					sync_status = 'active',
-					updated_at = NOW()
-				RETURNING id, user_id, provider, email_address, sync_status;
-			`;
-			console.log(`[OAuth Callback] Database insert result:`, insertResult);
+			console.log(`[OAuth Callback] Verification query result:`, verificationResult);
+		} catch (dbError) {
+			console.error(`[OAuth Callback] Database operation failed:`, dbError);
+			console.error(`[OAuth Callback] Error details:`, {
+				message: dbError instanceof Error ? dbError.message : 'Unknown error',
+				stack: dbError instanceof Error ? dbError.stack : undefined,
+				userId: user.id,
+				userEmail: userEmail,
+				backendType: backendType,
+			});
+			throw new Error(`Database operation failed: ${dbError instanceof Error ? dbError.message : 'Unknown error'}`);
 		}
 
-		// Verify the integration was created by checking the database
-		console.log(`[OAuth Callback] Verifying integration was created...`);
-		const verifyResult = await db<any[]>`
-			SELECT id, user_id, provider, email_address, sync_status, created_at, updated_at
-			FROM user_email_integrations 
-			WHERE user_id = ${user.id} AND provider = 'gmail' AND email_address = ${userEmail}
-			LIMIT 1;
-		`;
-		console.log(`[OAuth Callback] Verification query result:`, verifyResult);
-
 		console.log(`Gmail OAuth integration completed successfully for user ${user.id} (${userEmail})`);
-		return c.redirect(`${appBaseUrl}/setup?gmail_connected=true`, 302);
+		return c.redirect(`${appBaseUrl}/setup`, 302);
 	} catch (error: any) {
 		console.error('Error in Gmail OAuth callback:', error.message, error.stack);
-		return c.redirect(`${appBaseUrl}/auth/onboarding/connect-email?error=server_error`, 302);
+		return c.redirect(
+			`${appBaseUrl}/auth/onboarding/connect-email?error=server_error&details=${encodeURIComponent(error.message || 'Unknown error')}`,
+			302,
+		);
 	}
 }
 
@@ -429,29 +462,14 @@ export async function initiateGmailSync(c: Context<Env>) {
 		}
 
 		// Check if user has active Gmail integration
-		console.log(`[Gmail Sync] Looking for Gmail integration for user: ${user.id}`);
 		const integrations = await db<any[]>`
 			SELECT id, email_address, sync_status, sync_in_progress,
 				last_sync_started_at, last_sync_completed_at, last_sync_summary,
-				last_history_synced_at, first_sync_completed, created_at, updated_at
+				last_history_synced_at, first_sync_completed
 			FROM user_email_integrations 
 			WHERE user_id = ${user.id} AND provider = 'gmail' AND sync_status = 'active'
 			LIMIT 1;
 		`;
-
-		console.log(`[Gmail Sync] Query result - found ${integrations?.length || 0} integrations`);
-		if (integrations && integrations.length > 0) {
-			console.log(`[Gmail Sync] Integration details:`, integrations[0]);
-		}
-
-		// Also check for any Gmail integrations regardless of sync_status for debugging
-		const allIntegrations = await db<any[]>`
-			SELECT id, email_address, sync_status, sync_in_progress, created_at, updated_at
-			FROM user_email_integrations 
-			WHERE user_id = ${user.id} AND provider = 'gmail'
-			ORDER BY created_at DESC;
-		`;
-		console.log(`[Gmail Sync] All Gmail integrations for user (regardless of status):`, allIntegrations);
 
 		if (!integrations || integrations.length === 0) {
 			console.log(`No active Gmail integration found for user ${user.id}`);
