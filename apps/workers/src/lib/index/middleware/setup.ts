@@ -16,7 +16,7 @@ export function setupCors() {
 		origin: (origin) => {
 			const allowedOrigins = [
 				'http://localhost:3000',
-				'https://your-nextjs-app.vercel.app', // Replace with your actual Vercel URL
+				'https://trackflow-web.vercel.app', // Your actual Vercel domain
 			];
 			if (allowedOrigins.includes(origin)) {
 				return origin;
@@ -53,7 +53,11 @@ export function setupHyperdrive() {
 			return c.json({ error: 'Database not configured' }, 500);
 		}
 		try {
-			const sql = postgres(c.env.HYPERDRIVE_SUPABASE.connectionString);
+			// Essential configuration for Supabase transaction pooler compatibility
+			const sql = postgres(c.env.HYPERDRIVE_SUPABASE.connectionString, {
+				prepare: false, // Critical for transaction pooler - prevents prepared statement conflicts
+				max: 3, // Limit connections for Workers
+			});
 			c.set('db', sql);
 		} catch (err: any) {
 			console.error('Failed to connect to Hyperdrive:', err.message);
