@@ -1,32 +1,32 @@
-"use client"
+"use client";
 
-import { Card, CardContent } from "@/components/ui/card"
-import { useSyncProgress } from "@/hooks/use-sync-progress"
-import { useRouter } from "next/navigation"
-import { useEffect, useRef, useState } from "react"
-import { FirstTimeSyncBanner } from "./first-time-sync-banner"
-import { SyncProgressView } from "./sync-progress-view"
+import { Card, CardContent } from "@/components/ui/card";
+import { useSyncProgress } from "@/hooks/use-sync-progress";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { FirstTimeSyncBanner } from "./first-time-sync-banner";
+import { SyncProgressView } from "./sync-progress-view";
 
 interface SyncProgressContainerProps {
-  userId: string
-  integrationEmail?: string | null
+  userId: string;
+  integrationEmail?: string | null;
 }
 
 export function SyncProgressContainer({
   userId,
   integrationEmail,
 }: SyncProgressContainerProps) {
-  const { syncState, loading } = useSyncProgress(userId)
-  const [isPreparingSync, setIsPreparingSync] = useState(false)
+  const { syncState, loading } = useSyncProgress(userId);
+  const [isPreparingSync, setIsPreparingSync] = useState(false);
   const [redirectCountdown, setRedirectCountdown] = useState<number | null>(
     null,
-  )
-  const countdownStartedRef = useRef(false)
-  const router = useRouter()
+  );
+  const countdownStartedRef = useRef(false);
+  const router = useRouter();
 
   // Determine if sync is preparing based on database state
   const isPreparing =
-    syncState.summary?.status === "preparing" || isPreparingSync
+    syncState.summary?.status === "preparing" || isPreparingSync;
 
   // Reset preparing state when actual sync starts (ai_first_processing)
   useEffect(() => {
@@ -36,110 +36,115 @@ export function SyncProgressContainer({
       (syncState.summary.status === "ai_first_processing" ||
         syncState.summary.status === "completed")
     ) {
-      setIsPreparingSync(false)
+      setIsPreparingSync(false);
     }
-  }, [isPreparingSync, syncState.summary])
+  }, [isPreparingSync, syncState.summary]);
 
   // Auto-redirect to dashboard when sync completes (only from setup page)
   useEffect(() => {
     const isOnSetupPage =
       typeof window !== "undefined" &&
-      window.location.pathname.includes("/setup")
+      window.location.pathname.includes("/setup");
     const isSyncCompleted =
       !syncState.inProgress &&
       syncState.summary &&
-      syncState.summary.status === "completed"
+      syncState.summary.status === "completed";
 
     if (isSyncCompleted && isOnSetupPage && !countdownStartedRef.current) {
       // Mark countdown as started to prevent multiple timers
-      countdownStartedRef.current = true
+      countdownStartedRef.current = true;
 
       // Add "completing" query parameter to prevent middleware redirect
       if (typeof window !== "undefined") {
-        const url = new URL(window.location.href)
+        const url = new URL(window.location.href);
         if (!url.searchParams.has("completing")) {
-          url.searchParams.set("completing", "true")
-          window.history.replaceState({}, "", url.toString())
+          url.searchParams.set("completing", "true");
+          window.history.replaceState({}, "", url.toString());
         }
       }
 
       // Start countdown from 5 seconds
-      setRedirectCountdown(5)
+      setRedirectCountdown(5);
 
       // Update countdown every second
       const countdownInterval = setInterval(() => {
         setRedirectCountdown((prev) => {
           if (prev === null || prev <= 1) {
-            clearInterval(countdownInterval)
-            return 0 // Set to 0 to trigger redirect effect
+            clearInterval(countdownInterval);
+            return 0; // Set to 0 to trigger redirect effect
           }
-          return prev - 1
-        })
-      }, 1000)
+          return prev - 1;
+        });
+      }, 1000);
 
       return () => {
-        clearInterval(countdownInterval)
-      }
+        clearInterval(countdownInterval);
+      };
     } else if (!isSyncCompleted) {
       // Reset the countdown started flag if sync is not completed
-      countdownStartedRef.current = false
-      setRedirectCountdown(null)
+      countdownStartedRef.current = false;
+      setRedirectCountdown(null);
     }
-  }, [syncState.inProgress, syncState.summary?.status, router])
+  }, [
+    syncState.inProgress,
+    syncState.summary?.status,
+    router,
+    syncState.summary,
+  ]);
 
   // Separate effect to handle redirect when countdown reaches 0
   useEffect(() => {
     if (redirectCountdown === 0) {
       // Remove the "completing" query parameter before redirecting
       if (typeof window !== "undefined") {
-        const url = new URL(window.location.href)
-        url.searchParams.delete("completing")
-        window.history.replaceState({}, "", url.toString())
+        const url = new URL(window.location.href);
+        url.searchParams.delete("completing");
+        window.history.replaceState({}, "", url.toString());
       }
 
-      router.push("/dashboard")
+      router.push("/dashboard");
     }
-  }, [redirectCountdown, router])
+  }, [redirectCountdown, router]);
 
   const handleSyncInitiated = () => {
-    setIsPreparingSync(true)
-  }
+    setIsPreparingSync(true);
+  };
 
   // Show loading state to prevent flash
   if (loading) {
     return (
-      <div className="min-h-[400px] flex items-center justify-center px-4">
-        <Card className="w-full max-w-2xl border-slate-200/60 bg-gradient-to-br from-slate-50/90 via-gray-50/40 to-slate-50/30 dark:border-slate-700/60 dark:from-slate-900/90 dark:via-slate-800/40 dark:to-slate-700/30 shadow-xl shadow-slate-200/20 dark:shadow-slate-900/40">
+      <div className="flex min-h-[400px] items-center justify-center px-4">
+        <Card className="w-full max-w-2xl border-slate-200/60 bg-gradient-to-br from-slate-50/90 via-gray-50/40 to-slate-50/30 shadow-xl shadow-slate-200/20 dark:border-slate-700/60 dark:from-slate-900/90 dark:via-slate-800/40 dark:to-slate-700/30 dark:shadow-slate-900/40">
           <CardContent className="p-12">
-            <div className="text-center space-y-8">
+            <div className="space-y-8 text-center">
               {/* Icon skeleton */}
-              <div className="w-24 h-24 rounded-full bg-gradient-to-br from-slate-200 to-gray-200 dark:from-slate-700 dark:to-slate-600 animate-pulse mx-auto" />
+              <div className="mx-auto h-24 w-24 animate-pulse rounded-full bg-gradient-to-br from-slate-200 to-gray-200 dark:from-slate-700 dark:to-slate-600" />
 
               {/* Title skeleton */}
               <div className="space-y-4">
-                <div className="h-8 bg-gradient-to-r from-slate-200 to-gray-200 dark:from-slate-700 dark:to-slate-600 rounded-lg w-64 mx-auto animate-pulse" />
-                <div className="h-5 bg-gradient-to-r from-slate-200 to-gray-200 dark:from-slate-700 dark:to-slate-600 rounded-lg w-80 mx-auto animate-pulse" />
+                <div className="mx-auto h-8 w-64 animate-pulse rounded-lg bg-gradient-to-r from-slate-200 to-gray-200 dark:from-slate-700 dark:to-slate-600" />
+                <div className="mx-auto h-5 w-80 animate-pulse rounded-lg bg-gradient-to-r from-slate-200 to-gray-200 dark:from-slate-700 dark:to-slate-600" />
               </div>
 
               {/* Metrics skeleton */}
-              <div className="grid grid-cols-2 gap-6 max-w-md mx-auto">
-                <div className="bg-white/80 dark:bg-slate-800/60 backdrop-blur-sm rounded-xl p-6 border border-slate-200/50 dark:border-slate-700/50 shadow-sm">
-                  <div className="h-8 bg-gradient-to-r from-slate-200 to-gray-200 dark:from-slate-600 dark:to-slate-500 rounded mx-auto animate-pulse mb-2" />
-                  <div className="h-4 bg-gradient-to-r from-slate-200 to-gray-200 dark:from-slate-600 dark:to-slate-500 rounded w-20 mx-auto animate-pulse" />
+              <div className="mx-auto grid max-w-md grid-cols-2 gap-6">
+                <div className="rounded-xl border border-slate-200/50 bg-white/80 p-6 shadow-sm backdrop-blur-sm dark:border-slate-700/50 dark:bg-slate-800/60">
+                  <div className="mx-auto mb-2 h-8 animate-pulse rounded bg-gradient-to-r from-slate-200 to-gray-200 dark:from-slate-600 dark:to-slate-500" />
+                  <div className="mx-auto h-4 w-20 animate-pulse rounded bg-gradient-to-r from-slate-200 to-gray-200 dark:from-slate-600 dark:to-slate-500" />
                 </div>
-                <div className="bg-white/80 dark:bg-slate-800/60 backdrop-blur-sm rounded-xl p-6 border border-slate-200/50 dark:border-slate-700/50 shadow-sm">
-                  <div className="h-8 bg-gradient-to-r from-slate-200 to-gray-200 dark:from-slate-600 dark:to-slate-500 rounded mx-auto animate-pulse mb-2" />
-                  <div className="h-4 bg-gradient-to-r from-slate-200 to-gray-200 dark:from-slate-600 dark:to-slate-500 rounded w-24 mx-auto animate-pulse" />
+                <div className="rounded-xl border border-slate-200/50 bg-white/80 p-6 shadow-sm backdrop-blur-sm dark:border-slate-700/50 dark:bg-slate-800/60">
+                  <div className="mx-auto mb-2 h-8 animate-pulse rounded bg-gradient-to-r from-slate-200 to-gray-200 dark:from-slate-600 dark:to-slate-500" />
+                  <div className="mx-auto h-4 w-24 animate-pulse rounded bg-gradient-to-r from-slate-200 to-gray-200 dark:from-slate-600 dark:to-slate-500" />
                 </div>
               </div>
 
               {/* Button skeleton */}
-              <div className="h-12 bg-gradient-to-r from-slate-200 to-gray-200 dark:from-slate-700 dark:to-slate-600 rounded-lg w-48 mx-auto animate-pulse" />
+              <div className="mx-auto h-12 w-48 animate-pulse rounded-lg bg-gradient-to-r from-slate-200 to-gray-200 dark:from-slate-700 dark:to-slate-600" />
             </div>
           </CardContent>
         </Card>
       </div>
-    )
+    );
   }
 
   // Show sync progress if:
@@ -149,12 +154,12 @@ export function SyncProgressContainer({
   const shouldShowProgress =
     (syncState.inProgress && syncState.summary) ||
     (!syncState.inProgress && syncState.summary) ||
-    isPreparing
+    isPreparing;
 
   // Create animation key based on sync status for smooth transitions
   const syncStatus =
-    syncState.summary?.status || (isPreparing ? "preparing" : undefined)
-  const animationKey = syncState.error ? "error" : syncStatus || "initial"
+    syncState.summary?.status || (isPreparing ? "preparing" : undefined);
+  const animationKey = syncState.error ? "error" : syncStatus || "initial";
 
   if (shouldShowProgress && (syncState.summary || isPreparing)) {
     return (
@@ -169,7 +174,7 @@ export function SyncProgressContainer({
         emailsAnalyzed={syncState.summary?.emails_analyzed}
         redirectCountdown={redirectCountdown}
       />
-    )
+    );
   }
 
   // Show FirstTimeSyncBanner for first-time users or when no sync is happening
@@ -181,5 +186,5 @@ export function SyncProgressContainer({
       isPreparingSync={isPreparing}
       onSyncInitiated={handleSyncInitiated}
     />
-  )
+  );
 }

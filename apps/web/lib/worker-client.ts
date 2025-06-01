@@ -2,102 +2,103 @@
  * Shared utility for getting the Cloudflare Worker URL
  * Used by server components and server actions to call the worker directly
  */
-import { cookies } from "next/headers"
-import { getWorkerUrl } from "./worker-utils"
+import { cookies } from "next/headers";
+import { getWorkerUrl } from "./worker-utils";
 
 interface WorkerRequestOptions {
-  endpoint: string
-  method?: "GET" | "POST" | "PUT" | "DELETE"
-  body?: Record<string, unknown> | unknown[]
-  params?: Record<string, string | number | boolean>
-  cookieString?: string // Optional cookie string parameter
+  endpoint: string;
+  method?: "GET" | "POST" | "PUT" | "DELETE";
+  body?: Record<string, unknown> | unknown[];
+  params?: Record<string, string | number | boolean>;
+  cookieString?: string; // Optional cookie string parameter
 }
 
-interface WorkerResponse<T = any> {
-  data?: T
-  error?: string
-  details?: string
-  message?: string
+interface WorkerResponse<T = unknown> {
+  data?: T;
+  error?: string;
+  details?: string;
+  message?: string;
   // Allow any additional fields for cases where Worker returns data directly
-  [key: string]: any
+  [key: string]: unknown;
 }
 
 // Export the getWorkerUrl function from the shared utils
-export { getWorkerUrl } from "./worker-utils"
+export { getWorkerUrl } from "./worker-utils";
 
 // Create authenticated headers with Supabase session cookies
 async function createAuthenticatedHeaders(
   cookieString?: string,
 ): Promise<HeadersInit> {
-  let finalCookieString = cookieString
+  let finalCookieString = cookieString;
 
   if (!finalCookieString) {
-    const cookieStore = await cookies()
-    finalCookieString = cookieStore.toString()
+    const cookieStore = await cookies();
+    finalCookieString = cookieStore.toString();
   }
 
   return {
     "Content-Type": "application/json",
     Cookie: finalCookieString,
     "User-Agent": "TrackFlow-NextJS/1.0",
-  }
+  };
 }
 
 // Main function to make authenticated requests to the Worker
-export async function callWorker<T = any>(
+export async function callWorker<T = unknown>(
   options: WorkerRequestOptions,
 ): Promise<WorkerResponse<T>> {
-  const { endpoint, method = "GET", body, params, cookieString } = options
+  const { endpoint, method = "GET", body, params, cookieString } = options;
 
   try {
-    const workerUrl = getWorkerUrl()
-    const url = new URL(`${workerUrl}${endpoint}`)
+    const workerUrl = getWorkerUrl();
+    const url = new URL(`${workerUrl}${endpoint}`);
 
     // Add query parameters if provided
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
-        url.searchParams.append(key, String(value))
-      })
+        url.searchParams.append(key, String(value));
+      });
     }
 
-    const headers = await createAuthenticatedHeaders(cookieString)
+    const headers = await createAuthenticatedHeaders(cookieString);
 
     const requestOptions: RequestInit = {
       method,
       headers,
-    }
+    };
 
     // Add body for non-GET requests
     if (body && method !== "GET") {
-      requestOptions.body = JSON.stringify(body)
+      requestOptions.body = JSON.stringify(body);
     }
 
-    const response = await fetch(url.toString(), requestOptions)
+    const response = await fetch(url.toString(), requestOptions);
 
     if (!response.ok) {
-      let errorData: any = {}
+      let errorData: { error?: string; details?: string; message?: string } =
+        {};
       try {
-        errorData = await response.json()
+        errorData = await response.json();
       } catch {
         errorData = {
           error: `HTTP ${response.status}: ${response.statusText}`,
-        }
+        };
       }
 
       return {
         error: errorData.error || `Worker request failed: ${response.status}`,
         details: errorData.details || errorData.message || response.statusText,
-      }
+      };
     }
 
-    const result = await response.json()
+    const result = await response.json();
 
-    return result
-  } catch (error: any) {
+    return result;
+  } catch (error: unknown) {
     return {
       error: "Network error calling Worker",
-      details: error.message,
-    }
+      details: error instanceof Error ? error.message : "Unknown error",
+    };
   }
 }
 
@@ -105,15 +106,18 @@ export async function callWorker<T = any>(
 export const workerClient = {
   // Gmail operations
   async getGmailMessages(cookieString?: string) {
-    return callWorker<any[]>({ endpoint: "/api/gmail/messages", cookieString })
+    return callWorker<unknown[]>({
+      endpoint: "/api/gmail/messages",
+      cookieString,
+    });
   },
 
   async getGmailUserInfo(cookieString?: string) {
-    return callWorker({ endpoint: "/api/gmail/user-info", cookieString })
+    return callWorker({ endpoint: "/api/gmail/user-info", cookieString });
   },
 
   async getGmailSyncStatus(cookieString?: string) {
-    return callWorker({ endpoint: "/api/gmail/sync-status", cookieString })
+    return callWorker({ endpoint: "/api/gmail/sync-status", cookieString });
   },
 
   async triggerGmailSync(cookieString?: string) {
@@ -121,19 +125,19 @@ export const workerClient = {
       endpoint: "/api/gmail/sync-now",
       method: "POST",
       cookieString,
-    })
+    });
   },
 
   // Application operations
   async getApplications(cookieString?: string) {
-    return callWorker({ endpoint: "/api/applications", cookieString })
+    return callWorker({ endpoint: "/api/applications", cookieString });
   },
 
   async getPendingApplications(cookieString?: string) {
     return callWorker({
       endpoint: "/api/applications/pending-review",
       cookieString,
-    })
+    });
   },
 
   async reviewApplication(
@@ -146,12 +150,12 @@ export const workerClient = {
       method: "POST",
       body: { action },
       cookieString,
-    })
+    });
   },
 
   async updateApplication(
     applicationId: string,
-    updates: Record<string, any>,
+    updates: Record<string, unknown>,
     cookieString?: string,
   ) {
     return callWorker({
@@ -159,7 +163,7 @@ export const workerClient = {
       method: "POST",
       body: updates,
       cookieString,
-    })
+    });
   },
 
   async getApplicationEmailSources(
@@ -169,11 +173,11 @@ export const workerClient = {
     return callWorker({
       endpoint: `/api/applications/${applicationId}/sources`,
       cookieString,
-    })
+    });
   },
 
   async createApplication(
-    applicationData: Record<string, any>,
+    applicationData: Record<string, unknown>,
     cookieString?: string,
   ) {
     return callWorker({
@@ -181,7 +185,7 @@ export const workerClient = {
       method: "POST",
       body: applicationData,
       cookieString,
-    })
+    });
   },
 
   // Job board operations
@@ -190,16 +194,16 @@ export const workerClient = {
       endpoint: "/api/job-boards/scrape",
       params: { url },
       cookieString,
-    })
+    });
   },
 
   // Failed email operations
   async getFailedEmails(cookieString?: string) {
-    return callWorker({ endpoint: "/api/gmail/failed-emails", cookieString })
+    return callWorker({ endpoint: "/api/gmail/failed-emails", cookieString });
   },
 
   async processFailedEmail(
-    emailData: Record<string, any>,
+    emailData: Record<string, unknown>,
     cookieString?: string,
   ) {
     return callWorker({
@@ -207,6 +211,6 @@ export const workerClient = {
       method: "POST",
       body: emailData,
       cookieString,
-    })
+    });
   },
-}
+};

@@ -1,8 +1,8 @@
-"use client"
+"use client";
 
-import { Badge } from "@/components/ui/badge"
-import { Card, CardContent } from "@/components/ui/card"
-import { AnimatePresence, motion } from "framer-motion"
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertCircle,
   Brain,
@@ -12,76 +12,73 @@ import {
   RefreshCw,
   Search,
   Sparkles,
-} from "lucide-react"
+} from "lucide-react";
 
 interface SyncProgressViewProps {
-  emailsProcessed: number
-  applicationsFound: number
-  email?: string
-  error?: string | null
-  syncStatus?: string // 'ai_first_processing' | 'preparing' | 'completed' | etc
-  emailsSentToQueue?: number
-  emailsAnalyzed?: number
-  redirectCountdown?: number | null
+  emailsProcessed: number;
+  applicationsFound: number;
+  email?: string;
+  error?: string | null;
+  syncStatus?: string; // 'ai_first_processing' | 'preparing' | 'completed' | etc
+  emailsSentToQueue?: number;
+  emailsAnalyzed?: number;
+  redirectCountdown?: number | null;
 }
 
 export function SyncProgressView({
   emailsProcessed,
   applicationsFound,
-  email,
   error,
   syncStatus,
-  emailsSentToQueue,
-  emailsAnalyzed,
   redirectCountdown,
 }: SyncProgressViewProps) {
   // Determine if this looks like initial state (no meaningful progress yet)
   const isInitialState =
-    !syncStatus && emailsProcessed === 0 && applicationsFound === 0
+    !syncStatus && emailsProcessed === 0 && applicationsFound === 0;
 
   const getStatusText = () => {
     if (error) {
-      return "Sync Failed"
+      return "Sync Failed";
     }
 
     if (syncStatus === "completed") {
-      return "Setup Complete!"
+      return "Setup Complete!";
     }
 
     if (syncStatus === "ai_first_processing") {
-      return "Scanning & Analyzing..."
+      return "Scanning & Analyzing...";
     }
 
     if (syncStatus === "preparing") {
-      return "Preparing Your Sync"
+      return "Preparing Your Sync";
     }
 
-    return "Analyzing Your Emails..."
-  }
+    return "Analyzing Your Emails...";
+  };
 
   const getProgressText = () => {
     if (error) {
-      return "We encountered an issue while processing your emails. Our team has been notified and will help resolve this."
+      return "We encountered an issue while processing your emails. Our team has been notified and will help resolve this.";
     }
 
     if (syncStatus === "completed") {
-      return "Your emails have been successfully analyzed and job applications discovered. Redirecting to your dashboard..."
+      return "Your emails have been successfully analyzed and job applications discovered. Redirecting to your dashboard...";
     }
 
     if (syncStatus === "ai_first_processing") {
-      return `${emailsProcessed} emails scanned with AI • ${applicationsFound} applications found`
+      return `${emailsProcessed} emails scanned with AI • ${applicationsFound} applications found`;
     }
 
     if (syncStatus === "preparing") {
-      return "We're setting up the connection and preparing to analyze your emails. This will just take a moment."
+      return "We're setting up the connection and preparing to analyze your emails. This will just take a moment.";
     }
 
     if (isInitialState) {
-      return "We're connecting to your Gmail account to start analyzing your emails for job applications."
+      return "We're connecting to your Gmail account to start analyzing your emails for job applications.";
     }
 
-    return `${emailsProcessed} emails scanned • ${applicationsFound} applications found • AI analysis in progress`
-  }
+    return `${emailsProcessed} emails scanned • ${applicationsFound} applications found • AI analysis in progress`;
+  };
 
   const getStatusConfig = () => {
     if (error) {
@@ -94,7 +91,7 @@ export function SyncProgressView({
         icon: AlertCircle,
         borderColor: "border-red-200/60 dark:border-red-700/60",
         shadowColor: "shadow-red-200/20 dark:shadow-red-900/40",
-      }
+      };
     }
 
     if (syncStatus === "completed") {
@@ -107,7 +104,7 @@ export function SyncProgressView({
         icon: CheckCircle,
         borderColor: "border-emerald-200/60 dark:border-emerald-700/60",
         shadowColor: "shadow-emerald-200/20 dark:shadow-emerald-900/40",
-      }
+      };
     }
 
     if (syncStatus === "ai_first_processing") {
@@ -120,7 +117,7 @@ export function SyncProgressView({
         icon: Brain,
         borderColor: "border-violet-200/60 dark:border-violet-700/60",
         shadowColor: "shadow-violet-200/20 dark:shadow-violet-900/40",
-      }
+      };
     }
 
     // Default blue for preparing and other states
@@ -133,11 +130,11 @@ export function SyncProgressView({
       icon: RefreshCw,
       borderColor: "border-blue-200/60 dark:border-blue-700/60",
       shadowColor: "shadow-blue-200/20 dark:shadow-blue-900/40",
-    }
-  }
+    };
+  };
 
-  const config = getStatusConfig()
-  const IconComponent = config.icon
+  const config = getStatusConfig();
+  const IconComponent = config.icon;
 
   return (
     <motion.div
@@ -145,7 +142,7 @@ export function SyncProgressView({
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.95 }}
       transition={{ duration: 0.5, ease: [0.25, 0.25, 0, 1] }}
-      className="min-h-[400px] flex items-center justify-center px-4"
+      className="flex min-h-[400px] items-center justify-center px-4"
     >
       <Card
         className={`w-full max-w-2xl ${config.borderColor} bg-gradient-to-br ${config.bgClass} shadow-xl ${config.shadowColor}`}
@@ -155,7 +152,7 @@ export function SyncProgressView({
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.1, ease: [0.25, 0.25, 0, 1] }}
-            className="text-center space-y-8"
+            className="space-y-8 text-center"
           >
             {/* Animated icon with effects */}
             <motion.div
@@ -176,7 +173,7 @@ export function SyncProgressView({
                     animate={{ scale: 1, opacity: 1 }}
                     exit={{ scale: 0, opacity: 0 }}
                     transition={{ duration: 0.5 }}
-                    className={`absolute inset-0 w-24 h-24 rounded-full ${config.iconColor.replace("text-", "bg-").replace("dark:text-", "dark:bg-")}/10 animate-ping mx-auto`}
+                    className={`absolute inset-0 h-24 w-24 rounded-full ${config.iconColor.replace("text-", "bg-").replace("dark:text-", "dark:bg-")}/10 mx-auto animate-ping`}
                   />
                 )}
               </AnimatePresence>
@@ -185,10 +182,10 @@ export function SyncProgressView({
               <motion.div
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className={`relative w-24 h-24 rounded-full ${config.iconBg} flex items-center justify-center border ${config.borderColor} shadow-lg ${config.shadowColor}`}
+                className={`relative h-24 w-24 rounded-full ${config.iconBg} flex items-center justify-center border ${config.borderColor} shadow-lg ${config.shadowColor}`}
               >
                 <IconComponent
-                  className={`w-10 h-10 ${config.iconColor} ${
+                  className={`h-10 w-10 ${config.iconColor} ${
                     !error && syncStatus !== "completed" ? "animate-spin" : ""
                   }`}
                 />
@@ -205,7 +202,7 @@ export function SyncProgressView({
                       transition={{ duration: 0.6, delay: 0.8 }}
                       className="absolute -top-2 -right-2"
                     >
-                      <Sparkles className="w-6 h-6 text-emerald-500 dark:text-emerald-400" />
+                      <Sparkles className="h-6 w-6 text-emerald-500 dark:text-emerald-400" />
                     </motion.div>
                     <motion.div
                       initial={{ scale: 0, rotate: 45 }}
@@ -214,7 +211,7 @@ export function SyncProgressView({
                       transition={{ duration: 0.6, delay: 1.0 }}
                       className="absolute -bottom-1 -left-1"
                     >
-                      <Sparkles className="w-4 h-4 text-green-500 dark:text-green-400" />
+                      <Sparkles className="h-4 w-4 text-green-500 dark:text-green-400" />
                     </motion.div>
                   </>
                 )}
@@ -235,7 +232,7 @@ export function SyncProgressView({
               <h2 className="text-3xl font-semibold text-slate-900 dark:text-slate-100">
                 {getStatusText()}
               </h2>
-              <p className="text-base text-slate-600 dark:text-slate-400 max-w-lg mx-auto leading-relaxed">
+              <p className="mx-auto max-w-lg text-base leading-relaxed text-slate-600 dark:text-slate-400">
                 {getProgressText()}
               </p>
             </motion.div>
@@ -252,16 +249,16 @@ export function SyncProgressView({
                     delay: 0.4,
                     ease: [0.25, 0.25, 0, 1],
                   }}
-                  className="grid grid-cols-2 gap-6 max-w-md mx-auto"
+                  className="mx-auto grid max-w-md grid-cols-2 gap-6"
                 >
                   <motion.div
                     initial={{ x: -20, opacity: 0 }}
                     animate={{ x: 0, opacity: 1 }}
                     transition={{ duration: 0.6, delay: 0.5 }}
-                    className="bg-white/80 dark:bg-slate-800/60 backdrop-blur-sm rounded-xl p-6 border border-slate-200/50 dark:border-slate-700/50 shadow-sm"
+                    className="rounded-xl border border-slate-200/50 bg-white/80 p-6 shadow-sm backdrop-blur-sm dark:border-slate-700/50 dark:bg-slate-800/60"
                   >
-                    <div className="flex items-center justify-center gap-3 mb-2">
-                      <Mail className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                    <div className="mb-2 flex items-center justify-center gap-3">
+                      <Mail className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                       <motion.span
                         key={emailsProcessed}
                         initial={{ scale: 1.2, color: "#3b82f6" }}
@@ -272,7 +269,7 @@ export function SyncProgressView({
                         {emailsProcessed}
                       </motion.span>
                     </div>
-                    <div className="text-sm text-slate-600 dark:text-slate-400 font-medium">
+                    <div className="text-sm font-medium text-slate-600 dark:text-slate-400">
                       {syncStatus === "ai_processing"
                         ? "Emails Analyzed"
                         : "Emails Scanned"}
@@ -283,10 +280,10 @@ export function SyncProgressView({
                     initial={{ x: 20, opacity: 0 }}
                     animate={{ x: 0, opacity: 1 }}
                     transition={{ duration: 0.6, delay: 0.6 }}
-                    className="bg-white/80 dark:bg-slate-800/60 backdrop-blur-sm rounded-xl p-6 border border-slate-200/50 dark:border-slate-700/50 shadow-sm"
+                    className="rounded-xl border border-slate-200/50 bg-white/80 p-6 shadow-sm backdrop-blur-sm dark:border-slate-700/50 dark:bg-slate-800/60"
                   >
-                    <div className="flex items-center justify-center gap-3 mb-2">
-                      <Search className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                    <div className="mb-2 flex items-center justify-center gap-3">
+                      <Search className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
                       <motion.span
                         key={applicationsFound}
                         initial={{ scale: 1.2, color: "#10b981" }}
@@ -297,7 +294,7 @@ export function SyncProgressView({
                         {applicationsFound}
                       </motion.span>
                     </div>
-                    <div className="text-sm text-slate-600 dark:text-slate-400 font-medium">
+                    <div className="text-sm font-medium text-slate-600 dark:text-slate-400">
                       Applications Found
                     </div>
                   </motion.div>
@@ -319,9 +316,9 @@ export function SyncProgressView({
               {/* Status badge */}
               <Badge
                 variant="secondary"
-                className="text-xs px-3 py-1.5 bg-white/10 text-white/80 border-white/20 backdrop-blur-sm"
+                className="border-white/20 bg-white/10 px-3 py-1.5 text-xs text-white/80 backdrop-blur-sm"
               >
-                <Clock className="w-3 h-3 mr-1" />
+                <Clock className="mr-1 h-3 w-3" />
                 {syncStatus === "preparing"
                   ? "Preparing sync"
                   : syncStatus === "ai_first_processing"
@@ -338,10 +335,10 @@ export function SyncProgressView({
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.6, delay: 0.8 }}
-                className="max-w-lg mx-auto space-y-2"
+                className="mx-auto max-w-lg space-y-2"
               >
                 <p className="flex items-center justify-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-                  <CheckCircle className="w-4 h-4 text-emerald-500" />
+                  <CheckCircle className="h-4 w-4 text-emerald-500" />
                   {syncStatus === "completed"
                     ? "Taking you to your dashboard..."
                     : error
@@ -374,14 +371,14 @@ export function SyncProgressView({
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: -20, scale: 0.8 }}
                     transition={{ duration: 0.5, ease: [0.25, 0.25, 0, 1] }}
-                    className="flex items-center justify-center gap-3 px-6 py-4 rounded-full bg-emerald-100/80 dark:bg-emerald-900/30 border border-emerald-200/50 dark:border-emerald-700/50 backdrop-blur-sm"
+                    className="flex items-center justify-center gap-3 rounded-full border border-emerald-200/50 bg-emerald-100/80 px-6 py-4 backdrop-blur-sm dark:border-emerald-700/50 dark:bg-emerald-900/30"
                   >
                     <motion.div
                       key={redirectCountdown}
                       initial={{ scale: 1.2, color: "#10b981" }}
                       animate={{ scale: 1, color: "inherit" }}
                       transition={{ duration: 0.3, ease: "easeOut" }}
-                      className="w-8 h-8 rounded-full bg-emerald-200 dark:bg-emerald-800 flex items-center justify-center font-bold text-emerald-700 dark:text-emerald-300"
+                      className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-200 font-bold text-emerald-700 dark:bg-emerald-800 dark:text-emerald-300"
                     >
                       {redirectCountdown}
                     </motion.div>
@@ -414,7 +411,7 @@ export function SyncProgressView({
                         repeatType: "reverse",
                         ease: "easeInOut",
                       }}
-                      className={`w-2 h-2 rounded-full ${
+                      className={`h-2 w-2 rounded-full ${
                         syncStatus === "ai_processing"
                           ? "bg-violet-400"
                           : "bg-blue-400"
@@ -428,5 +425,5 @@ export function SyncProgressView({
         </CardContent>
       </Card>
     </motion.div>
-  )
+  );
 }

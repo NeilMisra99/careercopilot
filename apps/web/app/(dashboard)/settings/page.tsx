@@ -1,51 +1,51 @@
-"use client"
+"use client";
 
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { LogOut, Settings } from "lucide-react"
-import { useRouter } from "next/navigation"
-import { toast } from "sonner"
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { LogOut, Settings } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 export default function SettingsPage() {
-  const router = useRouter()
+  const router = useRouter();
 
   const handleSignOut = async () => {
     try {
       const response = await fetch("/api/auth/signout", {
         method: "POST",
-      })
+      });
 
-      const data = await response.json()
+      const data = await response.json();
 
       if (data.success) {
-        toast.success("Signed out successfully")
-        router.push("/")
+        toast.success("Signed out successfully");
+        router.push("/");
       } else {
         toast.error("Failed to sign out", {
           description: data.message,
-        })
+        });
       }
-    } catch (error) {
+    } catch {
       toast.error("Network error", {
         description: "Failed to sign out. Please try again.",
-      })
+      });
     }
-  }
+  };
 
   return (
     <div className="h-full bg-stone-50 dark:bg-stone-900">
-      <div className="container mx-auto px-6 py-8 max-w-7xl h-full">
+      <div className="container mx-auto h-full max-w-7xl px-6 py-8">
         {/* Header with Sign Out Button */}
-        <div className="flex justify-between items-center mb-8">
+        <div className="mb-8 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-purple-600">
               <Settings className="h-4 w-4 text-white" />
             </div>
             <div>
               <h1 className="text-3xl font-bold tracking-tight text-stone-900 dark:text-stone-100">
                 Settings
               </h1>
-              <p className="text-stone-600 dark:text-stone-400 mt-1">
+              <p className="mt-1 text-stone-600 dark:text-stone-400">
                 Manage your account and preferences
               </p>
             </div>
@@ -53,7 +53,7 @@ export default function SettingsPage() {
           <Button
             onClick={handleSignOut}
             variant="outline"
-            className="gap-2 text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-950"
+            className="gap-2 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950"
           >
             <LogOut className="h-4 w-4" />
             Sign Out
@@ -97,5 +97,5 @@ export default function SettingsPage() {
         </div>
       </div>
     </div>
-  )
+  );
 }

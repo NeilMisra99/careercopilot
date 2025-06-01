@@ -1,32 +1,32 @@
-"use client"
+"use client";
 
-import { Button } from "@/components/ui/button"
+import { Button } from "@/components/ui/button";
 import {
   DatePicker,
   formatDateToLocalString,
   parseDateFromLocalString,
-} from "@/components/ui/date-picker"
+} from "@/components/ui/date-picker";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
-import { Textarea } from "@/components/ui/textarea"
-import { zodResolver } from "@hookform/resolvers/zod"
-import React, { useState } from "react"
-import { useForm } from "react-hook-form"
-import { toast } from "sonner"
-import { z } from "zod"
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { zodResolver } from "@hookform/resolvers/zod";
+import React, { useState } from "react";
+import { useForm } from "react-hook-form";
+import { toast } from "sonner";
+import { z } from "zod";
 
 const editApplicationSchema = z.object({
   companyName: z.string().min(1, "Company name is required"),
@@ -46,28 +46,28 @@ const editApplicationSchema = z.object({
   location: z.string().optional(),
   salary: z.string().optional(),
   notes: z.string().optional(),
-})
+});
 
-type EditApplicationFormData = z.infer<typeof editApplicationSchema>
+type EditApplicationFormData = z.infer<typeof editApplicationSchema>;
 
 interface Application {
-  id: string
-  company_name: string
-  role: string
-  status: string
-  applied_at: string
-  application_date?: string
-  job_url?: string | null
-  location?: string | null
-  salary_range?: string | null
-  notes?: string | null
+  id: string;
+  company_name: string;
+  role: string;
+  status: string;
+  applied_at: string;
+  application_date?: string;
+  job_url?: string | null;
+  location?: string | null;
+  salary_range?: string | null;
+  notes?: string | null;
 }
 
 interface EditApplicationDialogProps {
-  application: Application | null
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  onApplicationUpdated?: () => void
+  application: Application | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onApplicationUpdated?: () => void;
 }
 
 export function EditApplicationDialog({
@@ -76,7 +76,7 @@ export function EditApplicationDialog({
   onOpenChange,
   onApplicationUpdated,
 }: EditApplicationDialogProps) {
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<EditApplicationFormData>({
     resolver: zodResolver(editApplicationSchema),
@@ -90,14 +90,14 @@ export function EditApplicationDialog({
       salary: "",
       notes: "",
     },
-  })
+  });
 
   // Update form when application changes
   React.useEffect(() => {
     if (application) {
       const applicationDate = application.application_date
         ? application.application_date
-        : formatDateToLocalString(new Date(application.applied_at)) // Timezone-safe conversion
+        : formatDateToLocalString(new Date(application.applied_at)); // Timezone-safe conversion
 
       form.reset({
         companyName: application.company_name,
@@ -108,14 +108,14 @@ export function EditApplicationDialog({
         location: application.location || "",
         salary: application.salary_range || "",
         notes: application.notes || "",
-      })
+      });
     }
-  }, [application, form])
+  }, [application, form]);
 
   const onSubmit = async (data: EditApplicationFormData) => {
-    if (!application) return
+    if (!application) return;
 
-    setIsSubmitting(true)
+    setIsSubmitting(true);
     try {
       const response = await fetch(
         `/api/worker_proxy/applications/${application.id}`,
@@ -135,34 +135,38 @@ export function EditApplicationDialog({
             notes: data.notes || null,
           }),
         },
-      )
+      );
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "Failed to update application")
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to update application");
       }
 
-      toast.success("Application updated successfully")
-      onOpenChange(false)
-      onApplicationUpdated?.()
-    } catch (error: any) {
-      console.error("Error updating application:", error)
-      toast.error(error.message || "Failed to update application")
+      toast.success("Application updated successfully");
+      onOpenChange(false);
+      onApplicationUpdated?.();
+    } catch (error: unknown) {
+      console.error("Error updating application:", error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Please try again or contact support if the problem persists.",
+      );
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
-  }
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[700px] sm:max-w-none max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-h-[90vh] w-[700px] overflow-y-auto sm:max-w-none">
         <DialogHeader>
           <DialogTitle>Edit Application</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           {/* Company and Role */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="companyName">Company Name *</Label>
               <Input
@@ -193,7 +197,7 @@ export function EditApplicationDialog({
           </div>
 
           {/* Status and Date */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="status">Status *</Label>
               <Select
@@ -234,7 +238,7 @@ export function EditApplicationDialog({
                   form.setValue(
                     "applicationDate",
                     date ? formatDateToLocalString(date) : "",
-                  )
+                  );
                 }}
                 placeholder="Select application date"
               />
@@ -247,7 +251,7 @@ export function EditApplicationDialog({
           </div>
 
           {/* URL and Location */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="jobUrl">Job URL</Label>
               <Input
@@ -311,5 +315,5 @@ export function EditApplicationDialog({
         </form>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

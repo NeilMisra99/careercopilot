@@ -1,16 +1,16 @@
-"use client"
+"use client";
 
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ScrollArea } from "@/components/ui/scroll-area"
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip"
-import { useSyncProgress } from "@/hooks/use-sync-progress"
-import { motion } from "framer-motion"
+} from "@/components/ui/tooltip";
+import { useSyncProgress } from "@/hooks/use-sync-progress";
+import { motion } from "framer-motion";
 import {
   Briefcase,
   Calendar,
@@ -20,94 +20,94 @@ import {
   Mail,
   Plus,
   Trophy,
-} from "lucide-react"
-import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { useState } from "react"
-import { toast } from "sonner"
-import { PendingApplicationsReview } from "./pending-applications-review"
-import { SyncControl } from "./sync-control"
-import { SyncProgressView } from "./sync-progress-view"
+} from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { toast } from "sonner";
+import { PendingApplicationsReview } from "./pending-applications-review";
+import { SyncControl } from "./sync-control";
+import { SyncProgressView } from "./sync-progress-view";
 
 interface Application {
-  id: string
-  company_name: string
-  role: string
-  status: string
-  applied_at: string
-  source_email_id?: string
-  source_thread_id?: string
+  id: string;
+  company_name: string;
+  role: string;
+  status: string;
+  applied_at: string;
+  source_email_id?: string;
+  source_thread_id?: string;
 }
 
 interface PendingApplication {
-  id: string
-  company_name: string
-  role: string
-  status: string
-  applied_at: string
-  ai_suggested: boolean
-  ai_confidence: number
-  ai_reasoning: string
-  needs_user_review: boolean
-  source_email_id?: string
-  source_thread_id?: string
-  job_url?: string
-  location?: string
-  salary_range?: string
-  notes?: string
+  id: string;
+  company_name: string;
+  role: string;
+  status: string;
+  applied_at: string;
+  ai_suggested: boolean;
+  ai_confidence: number;
+  ai_reasoning: string;
+  needs_user_review: boolean;
+  source_email_id?: string;
+  source_thread_id?: string;
+  job_url?: string;
+  location?: string;
+  salary_range?: string;
+  notes?: string;
 }
 
 interface DashboardWithRealtimeProps {
   user: {
-    id: string
-    email?: string
-  }
+    id: string;
+    email?: string;
+  };
   initialData?: {
-    totalApplications: number
-    interviewsScheduled: number
-    offersReceived: number
+    totalApplications: number;
+    interviewsScheduled: number;
+    offersReceived: number;
     recentActivity: Array<{
-      id: string
+      id: string;
       type:
         | "application_created"
         | "status_update"
         | "interview_scheduled"
         | "email_sync"
         | "offer_received"
-        | "application_rejected"
-      title: string
-      description: string
-      timestamp: string
+        | "application_rejected";
+      title: string;
+      description: string;
+      timestamp: string;
       metadata?: {
-        company?: string
-        role?: string
-        previousStatus?: string
-        newStatus?: string
-        interviewDate?: string
-        interviewType?: string
-        location?: string
-        salary?: string
-        emailCount?: number
-        applicationsFound?: number
-      }
-    }>
-    rawApplications: Application[]
-    rawPendingApplications: PendingApplication[]
+        company?: string;
+        role?: string;
+        previousStatus?: string;
+        newStatus?: string;
+        interviewDate?: string;
+        interviewType?: string;
+        location?: string;
+        salary?: string;
+        emailCount?: number;
+        applicationsFound?: number;
+      };
+    }>;
+    rawApplications: Application[];
+    rawPendingApplications: PendingApplication[];
     errors: {
-      applications?: string
-      pendingApplications?: string
-    }
-  }
+      applications?: string;
+      pendingApplications?: string;
+    };
+  };
   gmailData?: {
     messages?: Array<{
-      id: string
-      subject?: string
-      from?: string
-      snippet?: string
-    }>
-    integratedGmailAddress?: string | null
-  }
-  integrationEmail?: string | null
+      id: string;
+      subject?: string;
+      from?: string;
+      snippet?: string;
+    }>;
+    integratedGmailAddress?: string | null;
+  };
+  integrationEmail?: string | null;
 }
 
 export function DashboardWithRealtime({
@@ -116,32 +116,32 @@ export function DashboardWithRealtime({
   gmailData,
   integrationEmail,
 }: DashboardWithRealtimeProps) {
-  const { syncState, loading } = useSyncProgress(user.id)
+  const { syncState, loading } = useSyncProgress(user.id);
   const [pendingApplications, setPendingApplications] = useState<
     PendingApplication[]
-  >(initialData?.rawPendingApplications || [])
+  >(initialData?.rawPendingApplications || []);
   const [reviewingApplications, setReviewingApplications] = useState<
     Set<string>
-  >(new Set())
-  const router = useRouter()
+  >(new Set());
+  const router = useRouter();
 
   const handleApplicationReview = async (
     applicationId: string,
     action: "approve" | "delete",
   ) => {
     // Prevent multiple clicks
-    if (reviewingApplications.has(applicationId)) return
+    if (reviewingApplications.has(applicationId)) return;
 
     // Add to reviewing set
-    setReviewingApplications((prev) => new Set(prev).add(applicationId))
+    setReviewingApplications((prev) => new Set(prev).add(applicationId));
 
     // Store original state for rollback
-    const originalApplications = [...pendingApplications]
+    const originalApplications = [...pendingApplications];
 
     // Optimistic update
     setPendingApplications((prev) =>
       prev.filter((app) => app.id !== applicationId),
-    )
+    );
 
     // Show loading toast
     const toastId = toast.loading(
@@ -154,7 +154,7 @@ export function DashboardWithRealtime({
             ? "Moving to your applications board"
             : "Removing from pending list",
       },
-    )
+    );
 
     try {
       // Call the worker API to review the application
@@ -167,14 +167,12 @@ export function DashboardWithRealtime({
           },
           body: JSON.stringify({ action }),
         },
-      )
+      );
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || `Failed to ${action} application`)
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Failed to ${action} application`);
       }
-
-      const result = await response.json()
 
       // Success toast
       toast.success(
@@ -193,14 +191,14 @@ export function DashboardWithRealtime({
                 }
               : undefined,
         },
-      )
+      );
 
       // Trigger a refresh for both approve and delete actions
       // This ensures the data is synchronized across all views
-      router.refresh()
-    } catch (error: any) {
+      router.refresh();
+    } catch (error: unknown) {
       // Rollback optimistic update
-      setPendingApplications(originalApplications)
+      setPendingApplications(originalApplications);
 
       // Error toast
       toast.error(
@@ -210,38 +208,28 @@ export function DashboardWithRealtime({
         {
           id: toastId,
           description:
-            error.message ||
-            "Please try again or contact support if the problem persists.",
+            error instanceof Error
+              ? error.message
+              : "Please try again or contact support if the problem persists.",
           action: {
             label: "Retry",
             onClick: () => handleApplicationReview(applicationId, action),
           },
         },
-      )
+      );
     } finally {
       // Remove from reviewing set
       setReviewingApplications((prev) => {
-        const newSet = new Set(prev)
-        newSet.delete(applicationId)
-        return newSet
-      })
+        const newSet = new Set(prev);
+        newSet.delete(applicationId);
+        return newSet;
+      });
     }
-  }
-
-  const getInitials = (email?: string) => {
-    if (!email) return "U"
-    return email
-      .split("@")[0]
-      .split(".")
-      .map((part) => part[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2)
-  }
+  };
 
   // Show loading skeleton while checking sync state
   if (loading) {
-    return null // Let Next.js loading.tsx handle page-level loading
+    return null; // Let Next.js loading.tsx handle page-level loading
   }
 
   // Show sync progress if currently syncing - but only if we have actual progress data
@@ -256,13 +244,13 @@ export function DashboardWithRealtime({
   ) {
     return (
       <div className="h-full">
-        <div className="container mx-auto px-6 py-8 max-w-7xl h-full flex flex-col">
-          <div className="flex justify-between items-center mb-12 flex-shrink-0">
+        <div className="container mx-auto flex h-full max-w-7xl flex-col px-6 py-8">
+          <div className="mb-12 flex flex-shrink-0 items-center justify-between">
             <div>
-              <h1 className="text-4xl font-bold tracking-tight text-foreground">
+              <h1 className="text-foreground text-4xl font-bold tracking-tight">
                 Dashboard
               </h1>
-              <p className="text-lg text-muted-foreground mt-2">
+              <p className="text-muted-foreground mt-2 text-lg">
                 Syncing your job applications...
               </p>
             </div>
@@ -276,7 +264,7 @@ export function DashboardWithRealtime({
             </div>
           </div>
 
-          <div className="flex items-center justify-center flex-1">
+          <div className="flex flex-1 items-center justify-center">
             <SyncProgressView
               emailsProcessed={syncState.summary?.emails_processed || 0}
               applicationsFound={syncState.summary?.applications_found || 0}
@@ -289,20 +277,20 @@ export function DashboardWithRealtime({
           </div>
         </div>
       </div>
-    )
+    );
   }
 
   // Show Gmail connection prompt if no integration
   if (!integrationEmail) {
     return (
       <div className="h-full overflow-auto">
-        <div className="container mx-auto px-6 py-8 max-w-7xl h-full flex flex-col">
-          <div className="flex justify-between items-center mb-12 flex-shrink-0">
+        <div className="container mx-auto flex h-full max-w-7xl flex-col px-6 py-8">
+          <div className="mb-12 flex flex-shrink-0 items-center justify-between">
             <div>
-              <h1 className="text-4xl font-bold tracking-tight text-foreground">
+              <h1 className="text-foreground text-4xl font-bold tracking-tight">
                 Dashboard
               </h1>
-              <p className="text-lg text-muted-foreground mt-2">
+              <p className="text-muted-foreground mt-2 text-lg">
                 Get started by connecting your Gmail account
               </p>
             </div>
@@ -321,18 +309,18 @@ export function DashboardWithRealtime({
             </div>
           </div>
 
-          <div className="flex items-center justify-center flex-1">
-            <Card className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30 max-w-2xl mx-auto">
+          <div className="flex flex-1 items-center justify-center">
+            <Card className="mx-auto max-w-2xl border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30">
               <CardContent className="p-8">
-                <div className="text-center space-y-6">
+                <div className="space-y-6 text-center">
                   <div className="flex justify-center">
-                    <div className="h-16 w-16 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
+                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900">
                       <Mail className="h-8 w-8 text-blue-600" />
                     </div>
                   </div>
 
                   <div className="space-y-2">
-                    <h2 className="text-2xl font-semibold text-foreground">
+                    <h2 className="text-foreground text-2xl font-semibold">
                       Connect Your Gmail
                     </h2>
                     <p className="text-muted-foreground">
@@ -352,7 +340,7 @@ export function DashboardWithRealtime({
                     </Link>
                   </Button>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-6 text-sm text-muted-foreground">
+                  <div className="text-muted-foreground grid grid-cols-1 gap-6 pt-6 text-sm sm:grid-cols-3">
                     <div className="flex items-center justify-center gap-2">
                       <CheckCircle className="h-4 w-4 text-green-600" />
                       <span>Auto-detect applications</span>
@@ -372,13 +360,13 @@ export function DashboardWithRealtime({
           </div>
         </div>
       </div>
-    )
+    );
   }
 
   // Main dashboard content
-  const totalApplications = initialData?.totalApplications || 0
-  const interviewsScheduled = initialData?.interviewsScheduled || 0
-  const offersReceived = initialData?.offersReceived || 0
+  const totalApplications = initialData?.totalApplications || 0;
+  const interviewsScheduled = initialData?.interviewsScheduled || 0;
+  const offersReceived = initialData?.offersReceived || 0;
 
   // Show regular dashboard with data
   return (
@@ -389,19 +377,19 @@ export function DashboardWithRealtime({
         transition={{ duration: 0.5 }}
         className="min-h-screen w-full bg-white dark:bg-gradient-to-br dark:from-slate-950 dark:via-slate-900 dark:to-zinc-950"
       >
-        <div className="flex-1 p-8 overflow-auto">
+        <div className="flex-1 overflow-auto p-8">
           {/* Header */}
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.1 }}
-            className="flex justify-between items-center mb-12 flex-shrink-0"
+            className="mb-12 flex flex-shrink-0 items-center justify-between"
           >
             <div>
-              <h1 className="text-4xl font-bold tracking-tight text-foreground">
+              <h1 className="text-foreground text-4xl font-bold tracking-tight">
                 Dashboard
               </h1>
-              <p className="text-lg text-muted-foreground mt-2">
+              <p className="text-muted-foreground mt-2 text-lg">
                 Track your job applications and stay organized
               </p>
             </div>
@@ -445,24 +433,24 @@ export function DashboardWithRealtime({
             transition={{ duration: 0.6, delay: 0.2 }}
             className="mb-8 flex-shrink-0"
           >
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.3 }}
                 whileHover={{ y: -2, transition: { duration: 0.2 } }}
               >
-                <Card className="bg-white dark:bg-slate-800/90 border-l-4 border-l-blue-500 border-r-slate-200/80 border-t-slate-200/80 border-b-slate-200/80 dark:border-r-slate-700/60 dark:border-t-slate-700/60 dark:border-b-slate-700/60 hover:border-l-blue-600 hover:shadow-lg transition-all duration-300 rounded-xl group relative overflow-hidden">
-                  <CardHeader className="pb-3 relative z-10">
-                    <CardTitle className="text-base font-medium text-slate-700 dark:text-slate-300 flex items-center gap-3 group-hover:text-slate-800 dark:group-hover:text-slate-200 transition-colors">
-                      <div className="w-7 h-7 bg-blue-500 rounded-lg flex items-center justify-center shadow-lg shadow-blue-500/25">
+                <Card className="group relative overflow-hidden rounded-xl border-l-4 border-t-slate-200/80 border-r-slate-200/80 border-b-slate-200/80 border-l-blue-500 bg-white transition-all duration-300 hover:border-l-blue-600 hover:shadow-lg dark:border-t-slate-700/60 dark:border-r-slate-700/60 dark:border-b-slate-700/60 dark:bg-slate-800/90">
+                  <CardHeader className="relative z-10 pb-3">
+                    <CardTitle className="flex items-center gap-3 text-base font-medium text-slate-700 transition-colors group-hover:text-slate-800 dark:text-slate-300 dark:group-hover:text-slate-200">
+                      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-500 shadow-lg shadow-blue-500/25">
                         <Briefcase className="h-4 w-4 text-white" />
                       </div>
                       Total Applications
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="relative z-10">
-                    <div className="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-1">
+                    <div className="mb-1 text-3xl font-bold text-slate-900 dark:text-slate-100">
                       {totalApplications}
                     </div>
                     <p className="text-sm text-slate-600 dark:text-slate-400">
@@ -478,17 +466,17 @@ export function DashboardWithRealtime({
                 transition={{ duration: 0.6, delay: 0.4 }}
                 whileHover={{ y: -2, transition: { duration: 0.2 } }}
               >
-                <Card className="bg-white dark:bg-slate-800/90 border-l-4 border-l-amber-500 border-r-slate-200/80 border-t-slate-200/80 border-b-slate-200/80 dark:border-r-slate-700/60 dark:border-t-slate-700/60 dark:border-b-slate-700/60 hover:border-l-amber-600 hover:shadow-lg transition-all duration-300 rounded-xl group relative overflow-hidden">
-                  <CardHeader className="pb-3 relative z-10">
-                    <CardTitle className="text-base font-medium text-slate-700 dark:text-slate-300 flex items-center gap-3 group-hover:text-slate-800 dark:group-hover:text-slate-200 transition-colors">
-                      <div className="w-7 h-7 bg-amber-500 rounded-lg flex items-center justify-center shadow-lg shadow-amber-500/25">
+                <Card className="group relative overflow-hidden rounded-xl border-l-4 border-t-slate-200/80 border-r-slate-200/80 border-b-slate-200/80 border-l-amber-500 bg-white transition-all duration-300 hover:border-l-amber-600 hover:shadow-lg dark:border-t-slate-700/60 dark:border-r-slate-700/60 dark:border-b-slate-700/60 dark:bg-slate-800/90">
+                  <CardHeader className="relative z-10 pb-3">
+                    <CardTitle className="flex items-center gap-3 text-base font-medium text-slate-700 transition-colors group-hover:text-slate-800 dark:text-slate-300 dark:group-hover:text-slate-200">
+                      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500 shadow-lg shadow-amber-500/25">
                         <Calendar className="h-4 w-4 text-white" />
                       </div>
                       Interviews Scheduled
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="relative z-10">
-                    <div className="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-1">
+                    <div className="mb-1 text-3xl font-bold text-slate-900 dark:text-slate-100">
                       {interviewsScheduled}
                     </div>
                     <p className="text-sm text-slate-600 dark:text-slate-400">
@@ -504,17 +492,17 @@ export function DashboardWithRealtime({
                 transition={{ duration: 0.6, delay: 0.5 }}
                 whileHover={{ y: -2, transition: { duration: 0.2 } }}
               >
-                <Card className="bg-white dark:bg-slate-800/90 border-l-4 border-l-emerald-500 border-r-slate-200/80 border-t-slate-200/80 border-b-slate-200/80 dark:border-r-slate-700/60 dark:border-t-slate-700/60 dark:border-b-slate-700/60 hover:border-l-emerald-600 hover:shadow-lg transition-all duration-300 rounded-xl group relative overflow-hidden">
-                  <CardHeader className="pb-3 relative z-10">
-                    <CardTitle className="text-base font-medium text-slate-700 dark:text-slate-300 flex items-center gap-3 group-hover:text-slate-800 dark:group-hover:text-slate-200 transition-colors">
-                      <div className="w-7 h-7 bg-emerald-500 rounded-lg flex items-center justify-center shadow-lg shadow-emerald-500/25">
+                <Card className="group relative overflow-hidden rounded-xl border-l-4 border-t-slate-200/80 border-r-slate-200/80 border-b-slate-200/80 border-l-emerald-500 bg-white transition-all duration-300 hover:border-l-emerald-600 hover:shadow-lg dark:border-t-slate-700/60 dark:border-r-slate-700/60 dark:border-b-slate-700/60 dark:bg-slate-800/90">
+                  <CardHeader className="relative z-10 pb-3">
+                    <CardTitle className="flex items-center gap-3 text-base font-medium text-slate-700 transition-colors group-hover:text-slate-800 dark:text-slate-300 dark:group-hover:text-slate-200">
+                      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500 shadow-lg shadow-emerald-500/25">
                         <Trophy className="h-4 w-4 text-white" />
                       </div>
                       Offers Received
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="relative z-10">
-                    <div className="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-1">
+                    <div className="mb-1 text-3xl font-bold text-slate-900 dark:text-slate-100">
                       {offersReceived}
                     </div>
                     <p className="text-sm text-slate-600 dark:text-slate-400">
@@ -531,7 +519,7 @@ export function DashboardWithRealtime({
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.6 }}
-            className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1 min-h-0"
+            className="grid min-h-0 flex-1 grid-cols-1 gap-6 lg:grid-cols-2"
           >
             {/* Recent Emails Section */}
             <motion.div
@@ -539,16 +527,16 @@ export function DashboardWithRealtime({
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.6, delay: 0.7 }}
             >
-              <Card className="bg-white/70 dark:bg-slate-800/70 backdrop-blur-md border border-slate-200/20 dark:border-slate-700/40 hover:border-slate-300/30 dark:hover:border-slate-600/50 transition-all duration-300 rounded-xl h-[600px] relative overflow-hidden">
-                <CardHeader className="pb-6 bg-gradient-to-b from-fuchsia-100/80 via-fuchsia-50/40 via-50% to-transparent dark:from-fuchsia-700/40 dark:via-fuchsia-800/15 dark:via-50% dark:to-transparent">
-                  <CardTitle className="text-base font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                    <div className="w-6 h-6 bg-fuchsia-500 rounded-lg flex items-center justify-center">
+              <Card className="relative h-[600px] overflow-hidden rounded-xl border border-slate-200/20 bg-white/70 backdrop-blur-md transition-all duration-300 hover:border-slate-300/30 dark:border-slate-700/40 dark:bg-slate-800/70 dark:hover:border-slate-600/50">
+                <CardHeader className="bg-gradient-to-b from-fuchsia-100/80 via-fuchsia-50/40 via-50% to-transparent pb-6 dark:from-fuchsia-700/40 dark:via-fuchsia-800/15 dark:via-50% dark:to-transparent">
+                  <CardTitle className="flex items-center gap-2 text-base font-semibold text-slate-800 dark:text-slate-100">
+                    <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-fuchsia-500">
                       <Mail className="h-3 w-3 text-white" />
                     </div>
                     Recent Emails
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="py-3 h-[calc(600px-80px)]">
+                <CardContent className="h-[calc(600px-80px)] py-3">
                   <ScrollArea className="h-full">
                     <div className="space-y-0 px-3">
                       {gmailData?.messages && gmailData.messages.length > 0 ? (
@@ -561,14 +549,14 @@ export function DashboardWithRealtime({
                               duration: 0.4,
                               delay: 0.8 + index * 0.05,
                             }}
-                            className="hover:bg-blue-50/70 dark:hover:bg-slate-700/30 py-3 px-2 rounded-md transition-colors duration-150 group"
+                            className="group rounded-md px-2 py-3 transition-colors duration-150 hover:bg-blue-50/70 dark:hover:bg-slate-700/30"
                           >
-                            <div className="flex justify-between items-start mb-2">
-                              <h4 className="text-sm font-medium text-slate-900 dark:text-slate-100 leading-relaxed pr-3 flex-1 min-w-0">
+                            <div className="mb-2 flex items-start justify-between">
+                              <h4 className="min-w-0 flex-1 pr-3 text-sm leading-relaxed font-medium text-slate-900 dark:text-slate-100">
                                 {message.subject || "No Subject"}
                               </h4>
-                              <div className="flex items-center gap-2 flex-shrink-0">
-                                <span className="text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                              <div className="flex flex-shrink-0 items-center gap-2">
+                                <span className="text-xs whitespace-nowrap text-slate-600 dark:text-slate-400">
                                   {message.from
                                     ?.split("<")[0]
                                     ?.trim()
@@ -580,15 +568,15 @@ export function DashboardWithRealtime({
                                       <Button
                                         variant="ghost"
                                         size="sm"
-                                        className="h-5 w-5 p-0 text-slate-500 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-opacity"
+                                        className="h-5 w-5 p-0 text-slate-500 transition-opacity hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300"
                                         onClick={() => {
                                           // Use the authuser parameter to specify which Gmail account to use
                                           const gmailUrl =
                                             integrationEmail ||
                                             gmailData?.integratedGmailAddress
                                               ? `https://mail.google.com/mail/?authuser=${encodeURIComponent(integrationEmail || gmailData?.integratedGmailAddress || "")}#inbox/${message.id}`
-                                              : `https://mail.google.com/mail/u/0/#inbox/${message.id}`
-                                          window.open(gmailUrl, "_blank")
+                                              : `https://mail.google.com/mail/u/0/#inbox/${message.id}`;
+                                          window.open(gmailUrl, "_blank");
                                         }}
                                       >
                                         <ExternalLink className="h-3 w-3" />
@@ -601,7 +589,7 @@ export function DashboardWithRealtime({
                                 )}
                               </div>
                             </div>
-                            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed line-clamp-2 pr-2">
+                            <p className="line-clamp-2 pr-2 text-xs leading-relaxed text-slate-600 dark:text-slate-400">
                               {message.snippet || "No preview available"}
                             </p>
                             {index <
@@ -612,10 +600,10 @@ export function DashboardWithRealtime({
                           </motion.div>
                         ))
                       ) : (
-                        <div className="text-center py-6 text-slate-500 dark:text-slate-400">
-                          <Mail className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                        <div className="py-6 text-center text-slate-500 dark:text-slate-400">
+                          <Mail className="mx-auto mb-2 h-8 w-8 opacity-50" />
                           <p className="text-sm">No recent emails found</p>
-                          <p className="text-xs mt-1">
+                          <p className="mt-1 text-xs">
                             {gmailData?.integratedGmailAddress
                               ? "Check your email connection"
                               : "Connect your email to see recent messages"}
@@ -634,16 +622,16 @@ export function DashboardWithRealtime({
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.6, delay: 0.8 }}
             >
-              <Card className="bg-white/70 dark:bg-slate-800/70 backdrop-blur-md border border-slate-200/20 dark:border-slate-700/40 hover:border-slate-300/30 dark:hover:border-slate-600/50 transition-all duration-300 rounded-xl h-[600px] relative overflow-hidden">
-                <CardHeader className="pb-6 bg-gradient-to-b from-violet-100/80 via-violet-50/40 via-50% to-transparent dark:from-violet-700/40 dark:via-violet-800/15 dark:via-50% dark:to-transparent">
-                  <CardTitle className="text-base font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                    <div className="w-6 h-6 bg-violet-500 rounded-lg flex items-center justify-center">
+              <Card className="relative h-[600px] overflow-hidden rounded-xl border border-slate-200/20 bg-white/70 backdrop-blur-md transition-all duration-300 hover:border-slate-300/30 dark:border-slate-700/40 dark:bg-slate-800/70 dark:hover:border-slate-600/50">
+                <CardHeader className="bg-gradient-to-b from-violet-100/80 via-violet-50/40 via-50% to-transparent pb-6 dark:from-violet-700/40 dark:via-violet-800/15 dark:via-50% dark:to-transparent">
+                  <CardTitle className="flex items-center gap-2 text-base font-semibold text-slate-800 dark:text-slate-100">
+                    <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-violet-500">
                       <CheckCircle className="h-3 w-3 text-white" />
                     </div>
                     Applications to Review
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="py-3 h-[calc(600px-80px)]">
+                <CardContent className="h-[calc(600px-80px)] py-3">
                   <PendingApplicationsReview
                     applications={pendingApplications}
                     onApplicationReview={handleApplicationReview}
@@ -657,5 +645,5 @@ export function DashboardWithRealtime({
         </div>
       </motion.div>
     </TooltipProvider>
-  )
+  );
 }

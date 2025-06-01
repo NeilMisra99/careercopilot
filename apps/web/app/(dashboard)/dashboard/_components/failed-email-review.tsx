@@ -1,100 +1,100 @@
-"use client"
+"use client";
 
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { AlertCircle, CheckCircle, Mail, RefreshCw, X } from "lucide-react"
-import { useEffect, useState } from "react"
-import { toast } from "sonner"
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AlertCircle, CheckCircle, Mail, RefreshCw, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import {
   getFailedEmailsAction,
   submitManualCorrectionAction,
   type FailedEmail,
   type ManualCorrectionRequest,
-} from "../_lib/actions/failed-email-actions"
-import { ManualCorrectionDialog } from "./manual-correction-dialog"
+} from "../_lib/actions/failed-email-actions";
+import { ManualCorrectionDialog } from "./manual-correction-dialog";
 
 export function FailedEmailReview() {
-  const [failedEmails, setFailedEmails] = useState<FailedEmail[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [selectedEmail, setSelectedEmail] = useState<FailedEmail | null>(null)
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [failedEmails, setFailedEmails] = useState<FailedEmail[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedEmail, setSelectedEmail] = useState<FailedEmail | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const loadFailedEmails = async () => {
-    setLoading(true)
-    setError(null)
+    setLoading(true);
+    setError(null);
 
     try {
-      const result = await getFailedEmailsAction()
+      const result = await getFailedEmailsAction();
 
       if (!result.success) {
-        setError(result.error || "Failed to load failed emails")
-        return
+        setError(result.error || "Failed to load failed emails");
+        return;
       }
 
-      setFailedEmails(result.data || [])
-    } catch (err) {
-      setError("Network error while loading failed emails")
+      setFailedEmails(result.data || []);
+    } catch {
+      setError("Network error while loading failed emails");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
-    loadFailedEmails()
-  }, [])
+    loadFailedEmails();
+  }, []);
 
   const handleCorrectEmail = (email: FailedEmail) => {
-    setSelectedEmail(email)
-    setIsDialogOpen(true)
-  }
+    setSelectedEmail(email);
+    setIsDialogOpen(true);
+  };
 
   const handleSubmitCorrection = async (
     correction: ManualCorrectionRequest,
   ) => {
-    setIsSubmitting(true)
+    setIsSubmitting(true);
 
     try {
-      const result = await submitManualCorrectionAction(correction)
+      const result = await submitManualCorrectionAction(correction);
 
       if (result.success) {
         toast.success("Application created!", {
           description: result.message,
-        })
+        });
 
         // Remove the corrected email from the list
         setFailedEmails((prev) =>
           prev.filter((email) => email.email_id !== correction.emailId),
-        )
+        );
 
-        setIsDialogOpen(false)
-        setSelectedEmail(null)
+        setIsDialogOpen(false);
+        setSelectedEmail(null);
       } else {
         toast.error("Failed to create application", {
           description: result.error || "Unknown error occurred",
-        })
+        });
       }
-    } catch (err) {
+    } catch {
       toast.error("Network error", {
         description: "Failed to submit correction. Please try again.",
-      })
+      });
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
-  }
+  };
 
   const handleSkipEmail = (emailId: string) => {
     // For now, just remove from the UI
     // In a full implementation, you'd mark it as reviewed in the database
     setFailedEmails((prev) =>
       prev.filter((email) => email.email_id !== emailId),
-    )
+    );
     toast.success("Email skipped", {
       description: "This email won't be shown again",
-    })
-  }
+    });
+  };
 
   const formatDate = (dateString: string) => {
     try {
@@ -103,11 +103,11 @@ export function FailedEmailReview() {
         day: "numeric",
         hour: "2-digit",
         minute: "2-digit",
-      })
+      });
     } catch {
-      return "Unknown date"
+      return "Unknown date";
     }
-  }
+  };
 
   if (loading) {
     return (
@@ -120,14 +120,14 @@ export function FailedEmailReview() {
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-center py-8">
-            <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
-            <span className="ml-2 text-muted-foreground">
+            <RefreshCw className="text-muted-foreground h-6 w-6 animate-spin" />
+            <span className="text-muted-foreground ml-2">
               Loading failed emails...
             </span>
           </div>
         </CardContent>
       </Card>
-    )
+    );
   }
 
   if (error) {
@@ -140,14 +140,14 @@ export function FailedEmailReview() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-red-700 dark:text-red-300 mb-4">{error}</p>
+          <p className="mb-4 text-red-700 dark:text-red-300">{error}</p>
           <Button onClick={loadFailedEmails} variant="outline" size="sm">
-            <RefreshCw className="h-4 w-4 mr-2" />
+            <RefreshCw className="mr-2 h-4 w-4" />
             Try Again
           </Button>
         </CardContent>
       </Card>
-    )
+    );
   }
 
   if (failedEmails.length === 0) {
@@ -160,16 +160,16 @@ export function FailedEmailReview() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-center py-8">
-            <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
-            <h3 className="text-lg font-medium mb-2">All emails processed!</h3>
+          <div className="py-8 text-center">
+            <CheckCircle className="mx-auto mb-4 h-12 w-12 text-green-500" />
+            <h3 className="mb-2 text-lg font-medium">All emails processed!</h3>
             <p className="text-muted-foreground">
               No failed emails need manual review at this time.
             </p>
           </div>
         </CardContent>
       </Card>
-    )
+    );
   }
 
   return (
@@ -185,14 +185,14 @@ export function FailedEmailReview() {
               </Badge>
             </CardTitle>
             <Button onClick={loadFailedEmails} variant="outline" size="sm">
-              <RefreshCw className="h-4 w-4 mr-2" />
+              <RefreshCw className="mr-2 h-4 w-4" />
               Refresh
             </Button>
           </div>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
+            <p className="text-muted-foreground text-sm">
               These emails couldn&apos;t be processed automatically. You can
               provide missing information to create job applications manually.
             </p>
@@ -201,13 +201,13 @@ export function FailedEmailReview() {
               {failedEmails.map((email) => (
                 <div
                   key={email.id}
-                  className="border rounded-lg p-4 hover:bg-muted/50 transition-colors"
+                  className="hover:bg-muted/50 rounded-lg border p-4 transition-colors"
                 >
                   <div className="flex items-start justify-between">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Mail className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                        <h4 className="font-medium text-sm truncate">
+                    <div className="min-w-0 flex-1">
+                      <div className="mb-2 flex items-center gap-2">
+                        <Mail className="text-muted-foreground h-4 w-4 flex-shrink-0" />
+                        <h4 className="truncate text-sm font-medium">
                           {email.email_subject || "No Subject"}
                         </h4>
                         <Badge variant="outline" className="text-xs">
@@ -215,7 +215,7 @@ export function FailedEmailReview() {
                         </Badge>
                       </div>
 
-                      <div className="space-y-1 text-xs text-muted-foreground">
+                      <div className="text-muted-foreground space-y-1 text-xs">
                         <p>
                           <span className="font-medium">From:</span>{" "}
                           {email.email_from || "Unknown sender"}
@@ -233,13 +233,13 @@ export function FailedEmailReview() {
                       </div>
 
                       {email.email_snippet && (
-                        <p className="text-xs text-muted-foreground mt-2 line-clamp-2">
+                        <p className="text-muted-foreground mt-2 line-clamp-2 text-xs">
                           {email.email_snippet}
                         </p>
                       )}
                     </div>
 
-                    <div className="flex gap-2 ml-4">
+                    <div className="ml-4 flex gap-2">
                       <Button
                         onClick={() => handleCorrectEmail(email)}
                         size="sm"
@@ -271,5 +271,5 @@ export function FailedEmailReview() {
         isSubmitting={isSubmitting}
       />
     </>
-  )
+  );
 }

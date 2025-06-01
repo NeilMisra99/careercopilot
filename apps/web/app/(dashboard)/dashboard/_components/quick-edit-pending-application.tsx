@@ -1,33 +1,33 @@
-"use client"
+"use client";
 
-import { Button } from "@/components/ui/button"
+import { Button } from "@/components/ui/button";
 import {
   DatePicker,
   formatDateToLocalString,
   parseDateFromLocalString,
-} from "@/components/ui/date-picker"
+} from "@/components/ui/date-picker";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
-import { Textarea } from "@/components/ui/textarea"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { PencilIcon } from "lucide-react"
-import { useState } from "react"
-import { useForm } from "react-hook-form"
-import { toast } from "sonner"
-import { z } from "zod"
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { PencilIcon } from "lucide-react";
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { toast } from "sonner";
+import { z } from "zod";
 
 const quickEditSchema = z.object({
   companyName: z.string().min(1, "Company name is required"),
@@ -47,39 +47,39 @@ const quickEditSchema = z.object({
   location: z.string().optional(),
   salary: z.string().optional(),
   notes: z.string().optional(),
-})
+});
 
-type QuickEditFormData = z.infer<typeof quickEditSchema>
+type QuickEditFormData = z.infer<typeof quickEditSchema>;
 
 interface PendingApplication {
-  id: string
-  company_name: string
-  role: string
-  status: string
-  applied_at: string
-  ai_suggested: boolean
-  ai_confidence: number
-  ai_reasoning: string
-  needs_user_review: boolean
-  source_email_id?: string
-  source_thread_id?: string
-  job_url?: string
-  location?: string
-  salary_range?: string
-  notes?: string
+  id: string;
+  company_name: string;
+  role: string;
+  status: string;
+  applied_at: string;
+  ai_suggested: boolean;
+  ai_confidence: number;
+  ai_reasoning: string;
+  needs_user_review: boolean;
+  source_email_id?: string;
+  source_thread_id?: string;
+  job_url?: string;
+  location?: string;
+  salary_range?: string;
+  notes?: string;
 }
 
 interface QuickEditPendingApplicationProps {
-  application: PendingApplication
-  onApplicationUpdated?: () => void
+  application: PendingApplication;
+  onApplicationUpdated?: () => void;
 }
 
 export function QuickEditPendingApplication({
   application,
   onApplicationUpdated,
 }: QuickEditPendingApplicationProps) {
-  const [open, setOpen] = useState(false)
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [open, setOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<QuickEditFormData>({
     resolver: zodResolver(quickEditSchema),
@@ -95,10 +95,10 @@ export function QuickEditPendingApplication({
       salary: application.salary_range || "",
       notes: application.notes || "",
     },
-  })
+  });
 
   const onSubmit = async (data: QuickEditFormData) => {
-    setIsSubmitting(true)
+    setIsSubmitting(true);
     try {
       const response = await fetch(
         `/api/worker_proxy/applications/${application.id}`,
@@ -118,23 +118,23 @@ export function QuickEditPendingApplication({
             notes: data.notes || null,
           }),
         },
-      )
+      );
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "Failed to update application")
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to update application");
       }
 
-      toast.success("Application updated successfully")
-      setOpen(false)
-      onApplicationUpdated?.()
-    } catch (error: any) {
-      console.error("Error updating application:", error)
-      toast.error(error.message || "Failed to update application")
+      toast.success("Application updated successfully");
+      setOpen(false);
+      onApplicationUpdated?.();
+    } catch (error: unknown) {
+      console.error("Error updating application:", error);
+      toast.error("Failed to update application");
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
-  }
+  };
 
   return (
     <>
@@ -142,21 +142,21 @@ export function QuickEditPendingApplication({
         variant="ghost"
         size="sm"
         onClick={() => setOpen(true)}
-        className="h-6 w-6 p-0 hover:scale-110 hover:opacity-80 transition-all duration-200 ease-out"
+        className="h-6 w-6 p-0 transition-all duration-200 ease-out hover:scale-110 hover:opacity-80"
         title="Quick edit"
       >
         <PencilIcon className="h-3 w-3" />
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="w-[700px] sm:max-w-none max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-h-[90vh] w-[700px] overflow-y-auto sm:max-w-none">
           <DialogHeader>
             <DialogTitle>Edit Application</DialogTitle>
           </DialogHeader>
 
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             {/* Company and Role */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="companyName">Company Name *</Label>
                 <Input
@@ -187,7 +187,7 @@ export function QuickEditPendingApplication({
             </div>
 
             {/* Status and Date */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="status">Status *</Label>
                 <Select
@@ -230,7 +230,7 @@ export function QuickEditPendingApplication({
                     form.setValue(
                       "applicationDate",
                       date ? formatDateToLocalString(date) : "",
-                    )
+                    );
                   }}
                   placeholder="Select application date"
                 />
@@ -243,7 +243,7 @@ export function QuickEditPendingApplication({
             </div>
 
             {/* URL and Location */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="jobUrl">Job URL</Label>
                 <Input
@@ -308,5 +308,5 @@ export function QuickEditPendingApplication({
         </DialogContent>
       </Dialog>
     </>
-  )
+  );
 }
