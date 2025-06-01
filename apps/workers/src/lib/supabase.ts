@@ -6,61 +6,26 @@ const connectionCache = new Map<string, postgres.Sql>();
 
 // Function to get a Supabase client, configured for server-side/admin tasks
 export function getSupabaseClient(supabaseUrl: string, serviceRoleKey: string): SupabaseClient {
-	if (!supabaseUrl || !serviceRoleKey) {
-		throw new Error('Supabase URL or Service Role Key is missing for creating admin client.');
-	}
-	// console.log("Creating Supabase admin client for worker");
 	return createClient(supabaseUrl, serviceRoleKey, {
 		auth: {
-			persistSession: false,
 			autoRefreshToken: false,
-		},
-		global: {
-			headers: { 'X-Client-Info': 'trackflow-worker/1.0.0' }, // Identify the client
-			// Custom fetch with timeout for Supabase client requests
-			fetch: async (url, options = {}) => {
-				const controller = new AbortController();
-				const timeoutId = setTimeout(() => controller.abort(), 3000); // 3-second timeout
-
-				const fetchPromise = fetch(url, {
-					...options,
-					signal: controller.signal,
-					cf: { cacheTtl: 0, cacheEverything: false }, // Ensure no caching for API calls via client
-				});
-
-				return fetchPromise.finally(() => {
-					clearTimeout(timeoutId);
-				});
-			},
+			persistSession: false,
 		},
 	});
 }
 
-// Function to get a cached or new Hyperdrive connection
+// Function to get a direct Hyperdrive connection (non-pooled for typical cron usage)
 export function getHyperdriveNonPooled(connectionString: string): postgres.Sql {
 	if (!connectionString) {
 		throw new Error('Hyperdrive connection string is undefined or empty.');
 	}
 
-	// Use connection string as cache key
-	const cacheKey = connectionString;
-
-	// Return cached connection if it exists and is still alive
-	if (connectionCache.has(cacheKey)) {
-		const cachedConnection = connectionCache.get(cacheKey)!;
-		console.log('[DB] Reusing cached Hyperdrive connection');
-		return cachedConnection;
-	}
-
-	console.log('[DB] Creating new Hyperdrive connection');
-
 	const options: postgres.Options<Record<string, postgres.PostgresType>> = {
-		max: 1, // Reduce to 1 for singleton pattern
+		max: 5, // Cloudflare Workers limit on concurrent external connections
 		fetch_types: false, // Avoid additional round-trip if not using array types
-		prepare: false, // Critical: Disable prepared statements for transaction pooler
-		connect_timeout: 15, // Increase timeout for more reliability
-		idle_timeout: 30, // Keep connections alive longer
-		max_lifetime: 10 * 60, // 10 minutes lifetime
+		connect_timeout: 5, // 5 seconds, as per recommendation
+		idle_timeout: 15, // 15 seconds (converted from 15_000 ms in recommendation)
+		max_lifetime: 10 * 60, // 10 minutes (converted from 10 * 60_000 ms)
 		// SSL options will be set conditionally below
 	};
 
@@ -73,40 +38,14 @@ export function getHyperdriveNonPooled(connectionString: string): postgres.Sql {
 		console.log(
 			"[getHyperdriveNonPooled] Local connection string detected. SSL 'require' NOT enforced by client options (will connect plain if server allows).",
 		);
+		// For local PostgreSQL (often via Hyperdrive proxy in dev), SSL is typically not enabled by default on the PG server.
+		// By not setting options.ssl, postgres.js will attempt a plain connection if the server doesn't force SSL.
 	}
 
-	console.log('Creating Hyperdrive connection optimized for Supabase Transaction Pooler:', {
+	console.log('Creating non-pooled Hyperdrive connection with Cloudflare-recommended options:', {
 		max: options.max,
 		fetch_types: options.fetch_types,
-		prepare: options.prepare,
 		connect_timeout: options.connect_timeout,
 	});
-
-	const sql = postgres(connectionString, options);
-
-	// Add connection event logging for debugging
-	sql.listen('connect', () => {
-		console.log('[DB] Successfully connected to Hyperdrive');
-	});
-
-	sql.listen('disconnect', () => {
-		console.log('[DB] Disconnected from Hyperdrive');
-		// Remove from cache when disconnected
-		connectionCache.delete(cacheKey);
-	});
-
-	sql.listen('error', (error: any) => {
-		console.error('[DB] Hyperdrive connection error:', {
-			message: error?.message || error,
-			code: error?.code,
-			timeout: error?.message?.includes('timeout') || error?.code === 'CONNECT_TIMEOUT',
-		});
-		// Remove from cache on error
-		connectionCache.delete(cacheKey);
-	});
-
-	// Cache the connection
-	connectionCache.set(cacheKey, sql);
-
-	return sql;
+	return postgres(connectionString, options);
 }

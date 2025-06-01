@@ -160,7 +160,7 @@ export async function exchangeGmailOAuthCode(c: Context<Env>) {
 			);
 		}
 
-		// Store metadata in database with retry logic
+		// Store metadata in database
 		const db = c.var.db;
 		console.log(`[OAuth Exchange] Database connection available: ${!!db}`);
 
@@ -172,37 +172,10 @@ export async function exchangeGmailOAuthCode(c: Context<Env>) {
 		const backendType = c.env.TOKEN_BACKEND || 'supabase';
 		console.log(`[OAuth Exchange] Token backend type: ${backendType}`);
 
-		// Retry logic for database operations
-		async function executeWithRetry<T>(operation: () => Promise<T>, maxRetries = 3): Promise<T> {
-			for (let attempt = 1; attempt <= maxRetries; attempt++) {
-				try {
-					return await operation();
-				} catch (error: any) {
-					const isTimeout = error?.message?.includes('timeout') || error?.code === 'CONNECT_TIMEOUT';
-					console.error(`[OAuth Exchange] Database operation attempt ${attempt} failed:`, {
-						message: error?.message,
-						isTimeout,
-						willRetry: attempt < maxRetries,
-					});
-
-					if (attempt === maxRetries || !isTimeout) {
-						throw error;
-					}
-
-					// Exponential backoff: 1s, 2s, 4s
-					const delay = Math.pow(2, attempt - 1) * 1000;
-					console.log(`[OAuth Exchange] Retrying in ${delay}ms...`);
-					await new Promise((resolve) => setTimeout(resolve, delay));
-				}
-			}
-			throw new Error('Max retries exceeded');
-		}
-
 		try {
 			if (backendType === 'kv') {
 				console.log(`[OAuth Exchange] Inserting metadata for KV backend...`);
-				const result = await executeWithRetry(
-					() => db`
+				const result = await db`
 					INSERT INTO user_email_integrations (user_id, provider, email_address, sync_status, updated_at, created_at)
 					VALUES (${user.id}, 'gmail', ${userEmail}, 'active', NOW(), NOW())
 					ON CONFLICT (user_id, provider, email_address) DO UPDATE SET
@@ -210,13 +183,11 @@ export async function exchangeGmailOAuthCode(c: Context<Env>) {
 						sync_status = 'active',
 						updated_at = NOW()
 					RETURNING id, user_id, email_address, sync_status;
-				`,
-				);
+				`;
 				console.log(`[OAuth Exchange] KV metadata insertion result:`, result);
 			} else {
 				console.log(`[OAuth Exchange] Inserting full data for Supabase backend...`);
-				const result = await executeWithRetry(
-					() => db`
+				const result = await db`
 					INSERT INTO user_email_integrations (
 						user_id,
 						provider,
@@ -247,22 +218,19 @@ export async function exchangeGmailOAuthCode(c: Context<Env>) {
 						sync_status = 'active',
 						updated_at = NOW()
 					RETURNING id, user_id, email_address, sync_status;
-				`,
-				);
+				`;
 				console.log(`[OAuth Exchange] Supabase metadata insertion result:`, result);
 			}
 
-			// Verify the insertion with retry
-			const verificationResult = await executeWithRetry(
-				() => db`
+			// Verify the insertion
+			const verificationResult = await db`
 				SELECT id, user_id, provider, email_address, sync_status, created_at, updated_at
 				FROM user_email_integrations 
 				WHERE user_id = ${user.id} AND provider = 'gmail' AND email_address = ${userEmail};
-			`,
-			);
+			`;
 			console.log(`[OAuth Exchange] Verification query result:`, verificationResult);
 		} catch (dbError) {
-			console.error(`[OAuth Exchange] Database operation failed after retries:`, dbError);
+			console.error(`[OAuth Exchange] Database operation failed:`, dbError);
 			return c.json(
 				{
 					error: 'Database operation failed',
