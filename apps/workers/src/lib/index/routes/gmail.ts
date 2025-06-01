@@ -14,18 +14,19 @@ import type { Env, GoogleTokenResponse, GoogleUserInfoResponse, GmailMessageMeta
 import type { TokenData } from '../../token-repository';
 
 /**
- * Initiate Gmail OAuth flow
+ * Initiate Gmail OAuth flow - now redirects to frontend
  */
 export async function initiateGmailOAuth(c: Context<Env>) {
 	const clientId = c.env.GOOGLE_CLIENT_ID;
-	const redirectUri = c.env.WORKER_GOOGLE_REDIRECT_URI;
+	const appBaseUrl = c.env.APP_BASE_URL || 'http://localhost:3000';
+	const redirectUri = `${appBaseUrl}/api/auth/gmail/callback`; // Frontend callback, not worker
 
 	console.log(`[OAuth Init] Starting OAuth initiation`);
 	console.log(`[OAuth Init] Client ID: ${clientId ? 'present' : 'missing'}`);
 	console.log(`[OAuth Init] Redirect URI: ${redirectUri}`);
 
-	if (!clientId || !redirectUri) {
-		console.error('Google OAuth environment variables for worker are not set.');
+	if (!clientId) {
+		console.error('Google OAuth CLIENT_ID not set.');
 		return c.json({ message: 'OAuth configuration error on server.' }, 500);
 	}
 
@@ -42,51 +43,54 @@ export async function initiateGmailOAuth(c: Context<Env>) {
 }
 
 /**
- * Handle Gmail OAuth callback
+ * Exchange OAuth code for tokens - called by frontend after it receives the callback
  */
-export async function handleGmailOAuthCallback(c: Context<Env>) {
-	const code = c.req.query('code');
-	const receivedState = c.req.query('state');
-	const appBaseUrl = c.env.APP_BASE_URL || 'http://localhost:3000';
-
-	// Debug logging for OAuth callback
-	console.log(`[OAuth Callback] Starting OAuth callback process`);
-	console.log(`[OAuth Callback] Request URL: ${c.req.url}`);
-	console.log(`[OAuth Callback] Headers:`, Object.fromEntries(c.req.raw.headers.entries()));
-	console.log(`[OAuth Callback] All cookies:`, c.req.raw.headers.get('cookie') || 'No cookies found');
-
-	if (!code) {
-		console.error('[OAuth Callback] Missing authorization code');
-		return c.redirect(`${appBaseUrl}/auth/onboarding/connect-email?error=missing_code`, 302);
-	}
-
-	if (!(await validateOAuthStateKV(c, receivedState || ''))) {
-		console.error('Invalid OAuth state. Potential CSRF attack.');
-		return c.redirect(`${appBaseUrl}/auth/onboarding/connect-email?error=invalid_state`, 302);
-	}
-
-	const supabase = getSupabase(c);
-	const {
-		data: { user },
-	} = await supabase.auth.getUser();
-	if (!user) {
-		console.error('User not authenticated during OAuth callback.');
-		return c.redirect(`${appBaseUrl}/auth/login?error=session_expired_oauth`, 302);
-	}
-
+export async function exchangeGmailOAuthCode(c: Context<Env>) {
 	try {
-		const tokenDataFromGoogle = await exchangeOAuthCode(
-			code,
-			c.env.GOOGLE_CLIENT_ID,
-			c.env.GOOGLE_CLIENT_SECRET,
-			c.env.WORKER_GOOGLE_REDIRECT_URI,
-		);
+		const body = await c.req.json();
+		const { code, state } = body;
+
+		console.log(`[OAuth Exchange] Starting code exchange`);
+		console.log(`[OAuth Exchange] Code present: ${!!code}`);
+		console.log(`[OAuth Exchange] State present: ${!!state}`);
+
+		if (!code || !state) {
+			return c.json({ error: 'Missing code or state parameter' }, 400);
+		}
+
+		// Validate state from KV
+		if (!(await validateOAuthStateKV(c, state))) {
+			console.error('[OAuth Exchange] Invalid OAuth state');
+			return c.json({ error: 'Invalid OAuth state' }, 400);
+		}
+
+		// Get authenticated user from frontend session
+		const supabase = getSupabase(c);
+		const {
+			data: { user },
+		} = await supabase.auth.getUser();
+
+		if (!user) {
+			console.error('[OAuth Exchange] User not authenticated');
+			return c.json({ error: 'User not authenticated' }, 401);
+		}
+
+		console.log(`[OAuth Exchange] User authenticated: ${user.id}`);
+
+		// Exchange code for tokens
+		const appBaseUrl = c.env.APP_BASE_URL || 'http://localhost:3000';
+		const redirectUri = `${appBaseUrl}/api/auth/gmail/callback`;
+
+		const tokenDataFromGoogle = await exchangeOAuthCode(code, c.env.GOOGLE_CLIENT_ID, c.env.GOOGLE_CLIENT_SECRET, redirectUri);
 
 		if (tokenDataFromGoogle.error) {
-			console.error('Google token exchange error:', tokenDataFromGoogle.error_description || tokenDataFromGoogle.error || 'Unknown error');
-			return c.redirect(
-				`${appBaseUrl}/auth/onboarding/connect-email?error=token_exchange_failed&details=${encodeURIComponent(tokenDataFromGoogle.error_description || tokenDataFromGoogle.error || 'Unknown error')}`,
-				302,
+			console.error('[OAuth Exchange] Google token exchange error:', tokenDataFromGoogle.error_description || tokenDataFromGoogle.error);
+			return c.json(
+				{
+					error: 'Token exchange failed',
+					details: tokenDataFromGoogle.error_description || tokenDataFromGoogle.error,
+				},
+				400,
 			);
 		}
 
@@ -94,29 +98,33 @@ export async function handleGmailOAuthCallback(c: Context<Env>) {
 		const refreshToken = tokenDataFromGoogle.refresh_token;
 		const expiresIn = tokenDataFromGoogle.expires_in;
 
-		console.log(`[OAuth Callback] Token exchange successful for user ${user.id}`);
-		console.log(`[OAuth Callback] Access token present: ${!!accessToken}`);
-		console.log(`[OAuth Callback] Refresh token present: ${!!refreshToken}`);
+		console.log(`[OAuth Exchange] Token exchange successful for user ${user.id}`);
+		console.log(`[OAuth Exchange] Access token present: ${!!accessToken}`);
+		console.log(`[OAuth Exchange] Refresh token present: ${!!refreshToken}`);
 
 		if (!refreshToken) {
-			console.warn('Refresh token not received from Google.');
-			return c.redirect(`${appBaseUrl}/auth/onboarding/connect-email?error=no_refresh_token`, 302);
+			console.warn('[OAuth Exchange] Refresh token not received from Google');
+			return c.json({ error: 'No refresh token received from Google' }, 400);
 		}
 
+		// Get user info from Google
 		const userInfo = await fetchGoogleUserInfo(accessToken);
 
 		if (userInfo.error || !userInfo.email) {
-			console.error('Could not fetch user email from Google:', userInfo.error?.message);
-			return c.redirect(
-				`${appBaseUrl}/auth/onboarding/connect-email?error=email_fetch_failed&details=${encodeURIComponent(userInfo.error?.message || 'Unknown error')}`,
-				302,
+			console.error('[OAuth Exchange] Could not fetch user email from Google:', userInfo.error?.message);
+			return c.json(
+				{
+					error: 'Failed to fetch user email from Google',
+					details: userInfo.error?.message,
+				},
+				400,
 			);
 		}
 
 		const userEmail = userInfo.email;
-		console.log(`[OAuth Callback] User email from Google: ${userEmail}`);
-		console.log(`[OAuth Callback] User ID from Supabase: ${user.id}`);
+		console.log(`[OAuth Exchange] User email from Google: ${userEmail}`);
 
+		// Encrypt and store tokens
 		const encryptionKey = await getKeyMaterial(c.env.TOKEN_ENCRYPTION_KEY);
 		const { encryptToken } = await import('../../crypto');
 
@@ -125,9 +133,7 @@ export async function handleGmailOAuthCallback(c: Context<Env>) {
 		const accessTokenExpiresAt = new Date(Date.now() + (expiresIn || 3599) * 1000).toISOString();
 		const scopes = tokenDataFromGoogle.scope ? tokenDataFromGoogle.scope.split(' ') : null;
 
-		console.log(`[OAuth Callback] Tokens encrypted successfully`);
-		console.log(`[OAuth Callback] Access token expires at: ${accessTokenExpiresAt}`);
-		console.log(`[OAuth Callback] Scopes: ${scopes ? scopes.join(', ') : 'none'}`);
+		console.log(`[OAuth Exchange] Tokens encrypted successfully`);
 
 		const newAuthTokenData: TokenData = {
 			refreshTokenEncrypted: encryptedRefreshToken,
@@ -136,33 +142,39 @@ export async function handleGmailOAuthCallback(c: Context<Env>) {
 			scopes: scopes,
 		};
 
+		// Store in KV
 		const tokenRepository = c.var.tokenRepository;
-		console.log(`[OAuth Callback] Token repository type: ${tokenRepository.constructor.name}`);
+		console.log(`[OAuth Exchange] Token repository type: ${tokenRepository.constructor.name}`);
 
 		try {
 			await tokenRepository.put(user.id, 'gmail', newAuthTokenData);
-			console.log(`[OAuth Callback] Tokens stored in repository successfully`);
+			console.log(`[OAuth Exchange] Tokens stored in repository successfully`);
 		} catch (tokenError) {
-			console.error(`[OAuth Callback] Failed to store tokens in repository:`, tokenError);
-			throw new Error(`Token storage failed: ${tokenError instanceof Error ? tokenError.message : 'Unknown error'}`);
+			console.error(`[OAuth Exchange] Failed to store tokens in repository:`, tokenError);
+			return c.json(
+				{
+					error: 'Token storage failed',
+					details: tokenError instanceof Error ? tokenError.message : 'Unknown error',
+				},
+				500,
+			);
 		}
 
-		// Store metadata in Supabase
+		// Store metadata in database
 		const db = c.var.db;
-		console.log(`[OAuth Callback] Database connection available: ${!!db}`);
+		console.log(`[OAuth Exchange] Database connection available: ${!!db}`);
 
 		if (!db) {
-			console.error('Database not available during OAuth callback for metadata write.');
-			return c.redirect(`${appBaseUrl}/auth/onboarding/connect-email?error=db_unavailable_metadata`, 302);
+			console.error('[OAuth Exchange] Database not available');
+			return c.json({ error: 'Database not available' }, 500);
 		}
 
 		const backendType = c.env.TOKEN_BACKEND || 'supabase';
-		console.log(`[OAuth Callback] Token backend type: ${backendType}`);
+		console.log(`[OAuth Exchange] Token backend type: ${backendType}`);
 
 		try {
 			if (backendType === 'kv') {
-				console.log(`[OAuth Callback] Inserting metadata for KV backend...`);
-				// When tokens are stored in KV we still want a metadata row, but without the token columns.
+				console.log(`[OAuth Exchange] Inserting metadata for KV backend...`);
 				const result = await db`
 					INSERT INTO user_email_integrations (user_id, provider, email_address, sync_status, updated_at, created_at)
 					VALUES (${user.id}, 'gmail', ${userEmail}, 'active', NOW(), NOW())
@@ -172,10 +184,9 @@ export async function handleGmailOAuthCallback(c: Context<Env>) {
 						updated_at = NOW()
 					RETURNING id, user_id, email_address, sync_status;
 				`;
-				console.log(`[OAuth Callback] KV metadata insertion result:`, result);
+				console.log(`[OAuth Exchange] KV metadata insertion result:`, result);
 			} else {
-				console.log(`[OAuth Callback] Inserting full data for Supabase backend...`);
-				// Supabase backend → tokens live in this table too.
+				console.log(`[OAuth Exchange] Inserting full data for Supabase backend...`);
 				const result = await db`
 					INSERT INTO user_email_integrations (
 						user_id,
@@ -208,35 +219,41 @@ export async function handleGmailOAuthCallback(c: Context<Env>) {
 						updated_at = NOW()
 					RETURNING id, user_id, email_address, sync_status;
 				`;
-				console.log(`[OAuth Callback] Supabase metadata insertion result:`, result);
+				console.log(`[OAuth Exchange] Supabase metadata insertion result:`, result);
 			}
 
-			// Verify the insertion by querying the record
+			// Verify the insertion
 			const verificationResult = await db`
 				SELECT id, user_id, provider, email_address, sync_status, created_at, updated_at
 				FROM user_email_integrations 
 				WHERE user_id = ${user.id} AND provider = 'gmail' AND email_address = ${userEmail};
 			`;
-			console.log(`[OAuth Callback] Verification query result:`, verificationResult);
+			console.log(`[OAuth Exchange] Verification query result:`, verificationResult);
 		} catch (dbError) {
-			console.error(`[OAuth Callback] Database operation failed:`, dbError);
-			console.error(`[OAuth Callback] Error details:`, {
-				message: dbError instanceof Error ? dbError.message : 'Unknown error',
-				stack: dbError instanceof Error ? dbError.stack : undefined,
-				userId: user.id,
-				userEmail: userEmail,
-				backendType: backendType,
-			});
-			throw new Error(`Database operation failed: ${dbError instanceof Error ? dbError.message : 'Unknown error'}`);
+			console.error(`[OAuth Exchange] Database operation failed:`, dbError);
+			return c.json(
+				{
+					error: 'Database operation failed',
+					details: dbError instanceof Error ? dbError.message : 'Unknown error',
+				},
+				500,
+			);
 		}
 
-		console.log(`Gmail OAuth integration completed successfully for user ${user.id} (${userEmail})`);
-		return c.redirect(`${appBaseUrl}/setup`, 302);
+		console.log(`[OAuth Exchange] Gmail OAuth integration completed successfully for user ${user.id} (${userEmail})`);
+		return c.json({
+			success: true,
+			message: 'Gmail integration completed successfully',
+			userEmail: userEmail,
+		});
 	} catch (error: any) {
-		console.error('Error in Gmail OAuth callback:', error.message, error.stack);
-		return c.redirect(
-			`${appBaseUrl}/auth/onboarding/connect-email?error=server_error&details=${encodeURIComponent(error.message || 'Unknown error')}`,
-			302,
+		console.error('[OAuth Exchange] Error:', error);
+		return c.json(
+			{
+				error: 'OAuth exchange failed',
+				details: error.message || 'Unknown error',
+			},
+			500,
 		);
 	}
 }

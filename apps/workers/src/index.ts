@@ -25,7 +25,7 @@ import { setupCors, setupPrettyJSON, setupSupabaseAuth, setupHyperdrive, setupTo
 // Import route handlers
 import {
 	initiateGmailOAuth,
-	handleGmailOAuthCallback,
+	exchangeGmailOAuthCode,
 	getGmailUserInfo,
 	getGmailMessages,
 	initiateGmailSync,
@@ -65,8 +65,8 @@ app.use('/api/*', setupTokenRepository());
 app.get('/api/health', healthCheck);
 
 // === Gmail OAuth Routes ===
-app.get('/api/auth/gmail/initiate', initiateGmailOAuth);
-app.get('/api/auth/gmail/callback', handleGmailOAuthCallback);
+app.post('/api/auth/gmail/initiate', initiateGmailOAuth);
+app.post('/api/auth/gmail/exchange', exchangeGmailOAuthCode);
 
 // === Gmail API Routes ===
 app.get('/api/gmail/user-info', getGmailUserInfo);
