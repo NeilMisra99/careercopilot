@@ -1,1 +1,1 @@
-DROP TABLE IF EXISTS public.potential_duplicate_applications;
+DROP VIEW IF EXISTS public.potential_duplicate_applications;
