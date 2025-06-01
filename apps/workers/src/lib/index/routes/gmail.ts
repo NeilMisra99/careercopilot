@@ -183,7 +183,7 @@ export async function handleGmailOAuthCallback(c: Context<Env>) {
 		}
 
 		console.log(`Gmail OAuth integration completed successfully for user ${user.id} (${userEmail})`);
-		return c.redirect(`${appBaseUrl}/auth/onboarding/connect-email?success=true`, 302);
+		return c.redirect(`${appBaseUrl}/setup`, 302);
 	} catch (error: any) {
 		console.error('Error in Gmail OAuth callback:', error.message, error.stack);
 		return c.redirect(`${appBaseUrl}/auth/onboarding/connect-email?error=server_error`, 302);
