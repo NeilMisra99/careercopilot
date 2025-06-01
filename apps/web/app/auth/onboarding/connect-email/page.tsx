@@ -1,5 +1,5 @@
-import { Suspense } from "react";
-import { ConnectEmailClient } from "./_components/connect-email-client";
+import { Suspense } from "react"
+import { ConnectEmailClient } from "./_components/connect-email-client"
 
 export default function ConnectEmailPage() {
   return (
@@ -12,5 +12,5 @@ export default function ConnectEmailPage() {
     >
       <ConnectEmailClient />
     </Suspense>
-  );
+  )
 }

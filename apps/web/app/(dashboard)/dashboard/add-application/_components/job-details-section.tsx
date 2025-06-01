@@ -1,30 +1,30 @@
-import { UseFormReturn } from "react-hook-form";
+import { UseFormReturn } from "react-hook-form"
 
+import {
+  DatePicker,
+  formatDateToLocalString,
+  parseDateFromLocalString,
+} from "@/components/ui/date-picker"
 import {
   FormControl,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
+} from "@/components/ui/form"
+import { Input } from "@/components/ui/input"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import {
-  DatePicker,
-  parseDateFromLocalString,
-  formatDateToLocalString,
-} from "@/components/ui/date-picker";
+} from "@/components/ui/select"
 
-import { type ApplicationFormData } from "../_lib/types";
+import { type ApplicationFormData } from "../_lib/types"
 
 interface JobDetailsSectionProps {
-  form: UseFormReturn<ApplicationFormData>;
+  form: UseFormReturn<ApplicationFormData>
 }
 
 const statusOptions = [
@@ -36,7 +36,7 @@ const statusOptions = [
   { value: "Offer", label: "Offer" },
   { value: "Rejected", label: "Rejected" },
   { value: "Withdrawn", label: "Withdrawn" },
-] as const;
+] as const
 
 export function JobDetailsSection({ form }: JobDetailsSectionProps) {
   return (
@@ -119,7 +119,7 @@ export function JobDetailsSection({ form }: JobDetailsSectionProps) {
                 <DatePicker
                   date={parseDateFromLocalString(field.value)}
                   onDateChange={(date) => {
-                    field.onChange(date ? formatDateToLocalString(date) : "");
+                    field.onChange(date ? formatDateToLocalString(date) : "")
                   }}
                   placeholder="Select application date"
                 />
@@ -130,5 +130,5 @@ export function JobDetailsSection({ form }: JobDetailsSectionProps) {
         />
       </div>
     </div>
-  );
+  )
 }

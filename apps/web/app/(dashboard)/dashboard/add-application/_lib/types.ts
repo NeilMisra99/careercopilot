@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "zod"
 
 // Form validation schema
 export const applicationFormSchema = z.object({
@@ -19,6 +19,6 @@ export const applicationFormSchema = z.object({
   location: z.string().optional(),
   salary: z.string().optional(),
   notes: z.string().optional(),
-});
+})
 
-export type ApplicationFormData = z.infer<typeof applicationFormSchema>;
+export type ApplicationFormData = z.infer<typeof applicationFormSchema>

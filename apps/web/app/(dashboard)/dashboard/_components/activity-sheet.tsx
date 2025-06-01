@@ -1,6 +1,8 @@
-"use client";
+"use client"
 
-import { useState } from "react";
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import {
   Sheet,
   SheetContent,
@@ -8,75 +10,73 @@ import {
   SheetHeader,
   SheetTitle,
   SheetTrigger,
-} from "@/components/ui/sheet";
-import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
+} from "@/components/ui/sheet"
 import {
   Activity,
-  Building,
-  Briefcase,
-  Mail,
-  Calendar,
-  TrendingUp,
-  CheckCircle,
-  XCircle,
   ArrowRight,
-  MapPin,
+  Briefcase,
+  Building,
+  Calendar,
+  CheckCircle,
   DollarSign,
-} from "lucide-react";
+  Mail,
+  MapPin,
+  TrendingUp,
+  XCircle,
+} from "lucide-react"
+import { useState } from "react"
 
 interface ActivityItem {
-  id: string;
+  id: string
   type:
     | "application_created"
     | "status_update"
     | "interview_scheduled"
     | "email_sync"
     | "offer_received"
-    | "application_rejected";
-  title: string;
-  description: string;
-  timestamp: string;
+    | "application_rejected"
+  title: string
+  description: string
+  timestamp: string
   metadata?: {
-    company?: string;
-    role?: string;
-    previousStatus?: string;
-    newStatus?: string;
-    interviewDate?: string;
-    interviewType?: string;
-    location?: string;
-    salary?: string;
-    emailCount?: number;
-    applicationsFound?: number;
-  };
+    company?: string
+    role?: string
+    previousStatus?: string
+    newStatus?: string
+    interviewDate?: string
+    interviewType?: string
+    location?: string
+    salary?: string
+    emailCount?: number
+    applicationsFound?: number
+  }
 }
 
 interface ActivitySheetProps {
-  activities: ActivityItem[];
+  activities: ActivityItem[]
 }
 
 export function ActivitySheet({ activities }: ActivitySheetProps) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(false)
 
   const getActivityIcon = (type: string) => {
     switch (type) {
       case "application_created":
-        return <Building className="h-4 w-4 text-blue-500" />;
+        return <Building className="h-4 w-4 text-blue-500" />
       case "status_update":
-        return <TrendingUp className="h-4 w-4 text-amber-500" />;
+        return <TrendingUp className="h-4 w-4 text-amber-500" />
       case "interview_scheduled":
-        return <Calendar className="h-4 w-4 text-purple-500" />;
+        return <Calendar className="h-4 w-4 text-purple-500" />
       case "email_sync":
-        return <Mail className="h-4 w-4 text-green-500" />;
+        return <Mail className="h-4 w-4 text-green-500" />
       case "offer_received":
-        return <CheckCircle className="h-4 w-4 text-emerald-500" />;
+        return <CheckCircle className="h-4 w-4 text-emerald-500" />
       case "application_rejected":
-        return <XCircle className="h-4 w-4 text-red-500" />;
+        return <XCircle className="h-4 w-4 text-red-500" />
       default:
-        return <Activity className="h-4 w-4 text-stone-500" />;
+        return <Activity className="h-4 w-4 text-stone-500" />
     }
-  };
+  }
 
   const getActivityBadge = (type: string) => {
     switch (type) {
@@ -88,7 +88,7 @@ export function ActivitySheet({ activities }: ActivitySheetProps) {
           >
             New Application
           </Badge>
-        );
+        )
       case "status_update":
         return (
           <Badge
@@ -97,7 +97,7 @@ export function ActivitySheet({ activities }: ActivitySheetProps) {
           >
             Status Update
           </Badge>
-        );
+        )
       case "interview_scheduled":
         return (
           <Badge
@@ -106,7 +106,7 @@ export function ActivitySheet({ activities }: ActivitySheetProps) {
           >
             Interview
           </Badge>
-        );
+        )
       case "email_sync":
         return (
           <Badge
@@ -115,7 +115,7 @@ export function ActivitySheet({ activities }: ActivitySheetProps) {
           >
             Sync
           </Badge>
-        );
+        )
       case "offer_received":
         return (
           <Badge
@@ -124,7 +124,7 @@ export function ActivitySheet({ activities }: ActivitySheetProps) {
           >
             Offer
           </Badge>
-        );
+        )
       case "application_rejected":
         return (
           <Badge
@@ -133,28 +133,28 @@ export function ActivitySheet({ activities }: ActivitySheetProps) {
           >
             Rejected
           </Badge>
-        );
+        )
       default:
-        return <Badge variant="outline">Activity</Badge>;
+        return <Badge variant="outline">Activity</Badge>
     }
-  };
+  }
 
   const formatTimestamp = (timestamp: string) => {
-    const date = new Date(timestamp);
-    const now = new Date();
+    const date = new Date(timestamp)
+    const now = new Date()
     const diffInHours = Math.floor(
-      (now.getTime() - date.getTime()) / (1000 * 60 * 60)
-    );
+      (now.getTime() - date.getTime()) / (1000 * 60 * 60),
+    )
 
-    if (diffInHours < 1) return "Just now";
-    if (diffInHours < 24) return `${diffInHours}h ago`;
-    if (diffInHours < 48) return "Yesterday";
-    return date.toLocaleDateString();
-  };
+    if (diffInHours < 1) return "Just now"
+    if (diffInHours < 24) return `${diffInHours}h ago`
+    if (diffInHours < 48) return "Yesterday"
+    return date.toLocaleDateString()
+  }
 
   const renderActivityDetails = (activity: ActivityItem) => {
-    const { metadata } = activity;
-    if (!metadata) return null;
+    const { metadata } = activity
+    if (!metadata) return null
 
     return (
       <div className="space-y-2">
@@ -238,8 +238,8 @@ export function ActivitySheet({ activities }: ActivitySheetProps) {
           </div>
         )}
       </div>
-    );
-  };
+    )
+  }
 
   // Mock data for demonstration - in real app this would come from props
   const mockActivities: ActivityItem[] = [
@@ -278,7 +278,7 @@ export function ActivitySheet({ activities }: ActivitySheetProps) {
         company: "OpenAI",
         role: "Machine Learning Engineer",
         interviewDate: new Date(
-          Date.now() + 3 * 24 * 60 * 60 * 1000
+          Date.now() + 3 * 24 * 60 * 60 * 1000,
         ).toISOString(),
         interviewType: "Technical",
       },
@@ -307,9 +307,9 @@ export function ActivitySheet({ activities }: ActivitySheetProps) {
         location: "Remote",
       },
     },
-  ];
+  ]
 
-  const displayActivities = activities.length > 0 ? activities : mockActivities;
+  const displayActivities = activities.length > 0 ? activities : mockActivities
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -404,5 +404,5 @@ export function ActivitySheet({ activities }: ActivitySheetProps) {
         </div>
       </SheetContent>
     </Sheet>
-  );
+  )
 }

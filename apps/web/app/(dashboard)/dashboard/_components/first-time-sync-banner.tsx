@@ -1,19 +1,18 @@
-"use client";
+"use client"
 
-import { useState, useEffect } from "react";
-import { Card, CardContent } from "@/components/ui/card";
-import { RefreshCw, Mail, CheckCircle, Clock, Sparkles } from "lucide-react";
-import { syncGmailNowAction } from "../_lib/actions/sync-actions";
-import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
-import { createClient } from "@/lib/supabase/client";
-import { motion, AnimatePresence } from "framer-motion";
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import { AnimatePresence, motion } from "framer-motion"
+import { CheckCircle, Clock, Mail, RefreshCw, Sparkles } from "lucide-react"
+import { useState } from "react"
+import { toast } from "sonner"
+import { syncGmailNowAction } from "../_lib/actions/sync-actions"
 
 interface FirstTimeSyncBannerProps {
-  integrationEmail?: string | null;
-  userId?: string;
-  isPreparingSync?: boolean;
-  onSyncInitiated?: () => void;
+  integrationEmail?: string | null
+  userId?: string
+  isPreparingSync?: boolean
+  onSyncInitiated?: () => void
 }
 
 export function FirstTimeSyncBanner({
@@ -22,36 +21,36 @@ export function FirstTimeSyncBanner({
   isPreparingSync = false,
   onSyncInitiated,
 }: FirstTimeSyncBannerProps) {
-  const [isInitiatingSync, setIsInitiatingSync] = useState(false);
+  const [isInitiatingSync, setIsInitiatingSync] = useState(false)
 
   const handleStartSync = async () => {
-    setIsInitiatingSync(true);
+    setIsInitiatingSync(true)
 
-    onSyncInitiated?.();
+    onSyncInitiated?.()
 
     try {
-      const result = await syncGmailNowAction();
+      const result = await syncGmailNowAction()
       if (result.success) {
         toast.success("Sync started!", {
           description:
             "Your emails are being processed. This may take a moment to begin...",
           duration: 4000,
-        });
+        })
       } else {
         toast.error("Sync failed", {
           description: result.error || "Unknown error occurred",
-        });
+        })
       }
     } catch {
       toast.error("Network error", {
         description: "Failed to start sync. Please try again.",
-      });
+      })
     } finally {
-      setIsInitiatingSync(false);
+      setIsInitiatingSync(false)
     }
-  };
+  }
 
-  const showPreparingState = isInitiatingSync || isPreparingSync;
+  const showPreparingState = isInitiatingSync || isPreparingSync
 
   if (showPreparingState) {
     return (
@@ -154,7 +153,7 @@ export function FirstTimeSyncBanner({
           </CardContent>
         </Card>
       </motion.div>
-    );
+    )
   }
 
   return (
@@ -296,5 +295,5 @@ export function FirstTimeSyncBanner({
         </CardContent>
       </Card>
     </motion.div>
-  );
+  )
 }

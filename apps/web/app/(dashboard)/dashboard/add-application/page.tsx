@@ -1,7 +1,7 @@
-import { Suspense } from "react";
-import { ApplicationForm } from "./_components/application-form";
-import { ApplicationFormSkeleton } from "./_components/application-form-skeleton";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Suspense } from "react"
+import { ApplicationForm } from "./_components/application-form"
+import { ApplicationFormSkeleton } from "./_components/application-form-skeleton"
 
 export default function AddApplicationPage() {
   return (
@@ -26,5 +26,5 @@ export default function AddApplicationPage() {
         </CardContent>
       </Card>
     </div>
-  );
+  )
 }

@@ -1,15 +1,15 @@
-import { createClient } from "@/lib/supabase/server";
-import Link from "next/link";
-import { redirect } from "next/navigation"; // Added for redirection
+import { createClient } from "@/lib/supabase/server"
+import Link from "next/link"
+import { redirect } from "next/navigation" // Added for redirection
 
 export default async function HomePage() {
-  const supabase = await createClient();
+  const supabase = await createClient()
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await supabase.auth.getUser()
 
   if (user) {
-    redirect("/dashboard"); // Redirect to dashboard if user is logged in
+    redirect("/dashboard") // Redirect to dashboard if user is logged in
   }
 
   return (
@@ -38,5 +38,5 @@ export default async function HomePage() {
         </div>
       </div>
     </main>
-  );
+  )
 }

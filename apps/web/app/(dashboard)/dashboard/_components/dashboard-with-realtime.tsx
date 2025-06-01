@@ -1,117 +1,113 @@
-"use client";
+"use client"
 
-import { useState, useEffect, useCallback } from "react";
-import { useSyncProgress } from "@/hooks/use-sync-progress";
-import { SyncProgressView } from "./sync-progress-view";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import {
-  Inbox,
-  Kanban,
-  Plus,
-  Mail,
-  CheckCircle,
-  Briefcase,
-  Calendar,
-  Trophy,
-  ExternalLink,
-  RefreshCw,
-} from "lucide-react";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { PendingApplicationsReview } from "./pending-applications-review";
-import { SyncControl } from "./sync-control";
-import { ActivitySheet } from "./activity-sheet";
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import {
   Tooltip,
   TooltipContent,
-  TooltipTrigger,
   TooltipProvider,
-} from "@/components/ui/tooltip";
-import { toast } from "sonner";
-import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import { useSyncProgress } from "@/hooks/use-sync-progress"
+import { motion } from "framer-motion"
+import {
+  Briefcase,
+  Calendar,
+  CheckCircle,
+  ExternalLink,
+  Kanban,
+  Mail,
+  Plus,
+  Trophy,
+} from "lucide-react"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { useState } from "react"
+import { toast } from "sonner"
+import { PendingApplicationsReview } from "./pending-applications-review"
+import { SyncControl } from "./sync-control"
+import { SyncProgressView } from "./sync-progress-view"
 
 interface Application {
-  id: string;
-  company_name: string;
-  role: string;
-  status: string;
-  applied_at: string;
-  source_email_id?: string;
-  source_thread_id?: string;
+  id: string
+  company_name: string
+  role: string
+  status: string
+  applied_at: string
+  source_email_id?: string
+  source_thread_id?: string
 }
 
 interface PendingApplication {
-  id: string;
-  company_name: string;
-  role: string;
-  status: string;
-  applied_at: string;
-  ai_suggested: boolean;
-  ai_confidence: number;
-  ai_reasoning: string;
-  needs_user_review: boolean;
-  source_email_id?: string;
-  source_thread_id?: string;
-  job_url?: string;
-  location?: string;
-  salary_range?: string;
-  notes?: string;
+  id: string
+  company_name: string
+  role: string
+  status: string
+  applied_at: string
+  ai_suggested: boolean
+  ai_confidence: number
+  ai_reasoning: string
+  needs_user_review: boolean
+  source_email_id?: string
+  source_thread_id?: string
+  job_url?: string
+  location?: string
+  salary_range?: string
+  notes?: string
 }
 
 interface DashboardWithRealtimeProps {
   user: {
-    id: string;
-    email?: string;
-  };
+    id: string
+    email?: string
+  }
   initialData?: {
-    totalApplications: number;
-    interviewsScheduled: number;
-    offersReceived: number;
+    totalApplications: number
+    interviewsScheduled: number
+    offersReceived: number
     recentActivity: Array<{
-      id: string;
+      id: string
       type:
         | "application_created"
         | "status_update"
         | "interview_scheduled"
         | "email_sync"
         | "offer_received"
-        | "application_rejected";
-      title: string;
-      description: string;
-      timestamp: string;
+        | "application_rejected"
+      title: string
+      description: string
+      timestamp: string
       metadata?: {
-        company?: string;
-        role?: string;
-        previousStatus?: string;
-        newStatus?: string;
-        interviewDate?: string;
-        interviewType?: string;
-        location?: string;
-        salary?: string;
-        emailCount?: number;
-        applicationsFound?: number;
-      };
-    }>;
-    rawApplications: Application[];
-    rawPendingApplications: PendingApplication[];
+        company?: string
+        role?: string
+        previousStatus?: string
+        newStatus?: string
+        interviewDate?: string
+        interviewType?: string
+        location?: string
+        salary?: string
+        emailCount?: number
+        applicationsFound?: number
+      }
+    }>
+    rawApplications: Application[]
+    rawPendingApplications: PendingApplication[]
     errors: {
-      applications?: string;
-      pendingApplications?: string;
-    };
-  };
+      applications?: string
+      pendingApplications?: string
+    }
+  }
   gmailData?: {
     messages?: Array<{
-      id: string;
-      subject?: string;
-      from?: string;
-      snippet?: string;
-    }>;
-    integratedGmailAddress?: string | null;
-  };
-  integrationEmail?: string | null;
+      id: string
+      subject?: string
+      from?: string
+      snippet?: string
+    }>
+    integratedGmailAddress?: string | null
+  }
+  integrationEmail?: string | null
 }
 
 export function DashboardWithRealtime({
@@ -120,32 +116,32 @@ export function DashboardWithRealtime({
   gmailData,
   integrationEmail,
 }: DashboardWithRealtimeProps) {
-  const { syncState, loading } = useSyncProgress(user.id);
+  const { syncState, loading } = useSyncProgress(user.id)
   const [pendingApplications, setPendingApplications] = useState<
     PendingApplication[]
-  >(initialData?.rawPendingApplications || []);
+  >(initialData?.rawPendingApplications || [])
   const [reviewingApplications, setReviewingApplications] = useState<
     Set<string>
-  >(new Set());
-  const router = useRouter();
+  >(new Set())
+  const router = useRouter()
 
   const handleApplicationReview = async (
     applicationId: string,
-    action: "approve" | "delete"
+    action: "approve" | "delete",
   ) => {
     // Prevent multiple clicks
-    if (reviewingApplications.has(applicationId)) return;
+    if (reviewingApplications.has(applicationId)) return
 
     // Add to reviewing set
-    setReviewingApplications((prev) => new Set(prev).add(applicationId));
+    setReviewingApplications((prev) => new Set(prev).add(applicationId))
 
     // Store original state for rollback
-    const originalApplications = [...pendingApplications];
+    const originalApplications = [...pendingApplications]
 
     // Optimistic update
     setPendingApplications((prev) =>
-      prev.filter((app) => app.id !== applicationId)
-    );
+      prev.filter((app) => app.id !== applicationId),
+    )
 
     // Show loading toast
     const toastId = toast.loading(
@@ -157,8 +153,8 @@ export function DashboardWithRealtime({
           action === "approve"
             ? "Moving to your applications board"
             : "Removing from pending list",
-      }
-    );
+      },
+    )
 
     try {
       // Call the worker API to review the application
@@ -170,15 +166,15 @@ export function DashboardWithRealtime({
             "Content-Type": "application/json",
           },
           body: JSON.stringify({ action }),
-        }
-      );
+        },
+      )
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `Failed to ${action} application`);
+        const errorData = await response.json()
+        throw new Error(errorData.error || `Failed to ${action} application`)
       }
 
-      const result = await response.json();
+      const result = await response.json()
 
       // Success toast
       toast.success(
@@ -196,15 +192,15 @@ export function DashboardWithRealtime({
                   onClick: () => (window.location.href = "/dashboard/board"),
                 }
               : undefined,
-        }
-      );
+        },
+      )
 
       // Trigger a refresh for both approve and delete actions
       // This ensures the data is synchronized across all views
-      router.refresh();
+      router.refresh()
     } catch (error: any) {
       // Rollback optimistic update
-      setPendingApplications(originalApplications);
+      setPendingApplications(originalApplications)
 
       // Error toast
       toast.error(
@@ -220,32 +216,32 @@ export function DashboardWithRealtime({
             label: "Retry",
             onClick: () => handleApplicationReview(applicationId, action),
           },
-        }
-      );
+        },
+      )
     } finally {
       // Remove from reviewing set
       setReviewingApplications((prev) => {
-        const newSet = new Set(prev);
-        newSet.delete(applicationId);
-        return newSet;
-      });
+        const newSet = new Set(prev)
+        newSet.delete(applicationId)
+        return newSet
+      })
     }
-  };
+  }
 
   const getInitials = (email?: string) => {
-    if (!email) return "U";
+    if (!email) return "U"
     return email
       .split("@")[0]
       .split(".")
       .map((part) => part[0])
       .join("")
       .toUpperCase()
-      .slice(0, 2);
-  };
+      .slice(0, 2)
+  }
 
   // Show loading skeleton while checking sync state
   if (loading) {
-    return null; // Let Next.js loading.tsx handle page-level loading
+    return null // Let Next.js loading.tsx handle page-level loading
   }
 
   // Show sync progress if currently syncing - but only if we have actual progress data
@@ -293,7 +289,7 @@ export function DashboardWithRealtime({
           </div>
         </div>
       </div>
-    );
+    )
   }
 
   // Show Gmail connection prompt if no integration
@@ -376,13 +372,13 @@ export function DashboardWithRealtime({
           </div>
         </div>
       </div>
-    );
+    )
   }
 
   // Main dashboard content
-  const totalApplications = initialData?.totalApplications || 0;
-  const interviewsScheduled = initialData?.interviewsScheduled || 0;
-  const offersReceived = initialData?.offersReceived || 0;
+  const totalApplications = initialData?.totalApplications || 0
+  const interviewsScheduled = initialData?.interviewsScheduled || 0
+  const offersReceived = initialData?.offersReceived || 0
 
   // Show regular dashboard with data
   return (
@@ -591,8 +587,8 @@ export function DashboardWithRealtime({
                                             integrationEmail ||
                                             gmailData?.integratedGmailAddress
                                               ? `https://mail.google.com/mail/?authuser=${encodeURIComponent(integrationEmail || gmailData?.integratedGmailAddress || "")}#inbox/${message.id}`
-                                              : `https://mail.google.com/mail/u/0/#inbox/${message.id}`;
-                                          window.open(gmailUrl, "_blank");
+                                              : `https://mail.google.com/mail/u/0/#inbox/${message.id}`
+                                          window.open(gmailUrl, "_blank")
                                         }}
                                       >
                                         <ExternalLink className="h-3 w-3" />
@@ -661,5 +657,5 @@ export function DashboardWithRealtime({
         </div>
       </motion.div>
     </TooltipProvider>
-  );
+  )
 }

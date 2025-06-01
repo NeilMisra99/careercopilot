@@ -1,80 +1,80 @@
-"use client";
+"use client"
 
-import { Button } from "@/components/ui/button";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
-import { initiateGmailOAuth } from "../_lib/actions";
+import { Button } from "@/components/ui/button"
+import { useRouter, useSearchParams } from "next/navigation"
+import { useEffect, useState } from "react"
+import { initiateGmailOAuth } from "../_lib/actions"
 
 // Helper to map error codes to user-friendly messages
 function getFriendlyErrorMessage(
   errorCode: string | null,
-  errorDetails: string | null
+  errorDetails: string | null,
 ): string {
-  if (!errorCode) return "An unexpected error occurred. Please try again.";
+  if (!errorCode) return "An unexpected error occurred. Please try again."
 
   switch (errorCode) {
     case "missing_code":
-      return "Authorization code not found. Please try connecting again.";
+      return "Authorization code not found. Please try connecting again."
     case "invalid_state":
-      return "Invalid request state. This could be a security issue or a timeout. Please try connecting again.";
+      return "Invalid request state. This could be a security issue or a timeout. Please try connecting again."
     case "session_expired_oauth":
-      return "Your session has expired. Please log in and try connecting again.";
+      return "Your session has expired. Please log in and try connecting again."
     case "token_exchange_failed":
-      return `Failed to obtain access tokens from Google. ${errorDetails ? `Details: ${decodeURIComponent(errorDetails)}` : "Please ensure you have granted permissions."}`;
+      return `Failed to obtain access tokens from Google. ${errorDetails ? `Details: ${decodeURIComponent(errorDetails)}` : "Please ensure you have granted permissions."}`
     case "no_refresh_token":
-      return "A refresh token was not provided by Google. This is needed for offline access. Please try connecting again, ensuring you grant all requested permissions.";
+      return "A refresh token was not provided by Google. This is needed for offline access. Please try connecting again, ensuring you grant all requested permissions."
     case "email_fetch_failed":
-      return `Could not retrieve your email address from Google after connecting. ${errorDetails ? `Details: ${decodeURIComponent(errorDetails)}` : "Please try again."}`;
+      return `Could not retrieve your email address from Google after connecting. ${errorDetails ? `Details: ${decodeURIComponent(errorDetails)}` : "Please try again."}`
     case "db_unavailable":
-      return "Could not connect to our database to save your integration. Please try again later.";
+      return "Could not connect to our database to save your integration. Please try again later."
     case "db_save_failed":
     case "db_operation_failed":
-      return `Failed to save your Gmail integration. ${errorDetails ? `Details: ${decodeURIComponent(errorDetails)}` : "Please try again."}`;
+      return `Failed to save your Gmail integration. ${errorDetails ? `Details: ${decodeURIComponent(errorDetails)}` : "Please try again."}`
     case "callback_exception":
     default:
-      return `An unexpected error occurred: ${decodeURIComponent(errorDetails || errorCode)}. Please try again or contact support if the issue persists.`;
+      return `An unexpected error occurred: ${decodeURIComponent(errorDetails || errorCode)}. Please try again or contact support if the issue persists.`
   }
 }
 
 export function ConnectEmailClient() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const [error, setError] = useState<string | null>(null);
-  const [isGmailConnected, setIsGmailConnected] = useState(false);
-  const [isConnecting, setIsConnecting] = useState(false);
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const [error, setError] = useState<string | null>(null)
+  const [isGmailConnected, setIsGmailConnected] = useState(false)
+  const [isConnecting, setIsConnecting] = useState(false)
 
   useEffect(() => {
     // Check for errors from OAuth callback in URL params
-    const errorCode = searchParams.get("error");
-    const errorDetails = searchParams.get("details");
+    const errorCode = searchParams.get("error")
+    const errorDetails = searchParams.get("details")
     if (errorCode) {
-      setError(getFriendlyErrorMessage(errorCode, errorDetails));
+      setError(getFriendlyErrorMessage(errorCode, errorDetails))
     }
-  }, [searchParams]);
+  }, [searchParams])
 
   const handleConnectGmail = async () => {
-    setError(null);
-    setIsConnecting(true);
+    setError(null)
+    setIsConnecting(true)
 
     try {
-      const result = await initiateGmailOAuth();
+      const result = await initiateGmailOAuth()
 
       if (result.success && result.authorizeUrl) {
-        window.location.href = result.authorizeUrl;
+        window.location.href = result.authorizeUrl
       } else {
-        setError(result.error || "Could not retrieve authorization URL.");
+        setError(result.error || "Could not retrieve authorization URL.")
       }
     } catch (err) {
-      setError("An unexpected error occurred while trying to connect.");
+      setError("An unexpected error occurred while trying to connect.")
     } finally {
-      setIsConnecting(false);
+      setIsConnecting(false)
     }
-  };
+  }
 
   useEffect(() => {
-    const connected = searchParams.get("gmail_connected") === "true";
-    setIsGmailConnected(connected);
-  }, [searchParams]);
+    const connected = searchParams.get("gmail_connected") === "true"
+    setIsGmailConnected(connected)
+  }, [searchParams])
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen py-2">
@@ -113,5 +113,5 @@ export function ConnectEmailClient() {
         </button>
       </main>
     </div>
-  );
+  )
 }

@@ -1,32 +1,32 @@
-"use client";
+"use client"
 
-import React, { useState } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
+import { Button } from "@/components/ui/button"
+import {
+  DatePicker,
+  formatDateToLocalString,
+  parseDateFromLocalString,
+} from "@/components/ui/date-picker"
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  DatePicker,
-  parseDateFromLocalString,
-  formatDateToLocalString,
-} from "@/components/ui/date-picker";
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { toast } from "sonner";
+} from "@/components/ui/select"
+import { Textarea } from "@/components/ui/textarea"
+import { zodResolver } from "@hookform/resolvers/zod"
+import React, { useState } from "react"
+import { useForm } from "react-hook-form"
+import { toast } from "sonner"
+import { z } from "zod"
 
 const editApplicationSchema = z.object({
   companyName: z.string().min(1, "Company name is required"),
@@ -46,28 +46,28 @@ const editApplicationSchema = z.object({
   location: z.string().optional(),
   salary: z.string().optional(),
   notes: z.string().optional(),
-});
+})
 
-type EditApplicationFormData = z.infer<typeof editApplicationSchema>;
+type EditApplicationFormData = z.infer<typeof editApplicationSchema>
 
 interface Application {
-  id: string;
-  company_name: string;
-  role: string;
-  status: string;
-  applied_at: string;
-  application_date?: string;
-  job_url?: string | null;
-  location?: string | null;
-  salary_range?: string | null;
-  notes?: string | null;
+  id: string
+  company_name: string
+  role: string
+  status: string
+  applied_at: string
+  application_date?: string
+  job_url?: string | null
+  location?: string | null
+  salary_range?: string | null
+  notes?: string | null
 }
 
 interface EditApplicationDialogProps {
-  application: Application | null;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onApplicationUpdated?: () => void;
+  application: Application | null
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onApplicationUpdated?: () => void
 }
 
 export function EditApplicationDialog({
@@ -76,7 +76,7 @@ export function EditApplicationDialog({
   onOpenChange,
   onApplicationUpdated,
 }: EditApplicationDialogProps) {
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const form = useForm<EditApplicationFormData>({
     resolver: zodResolver(editApplicationSchema),
@@ -90,14 +90,14 @@ export function EditApplicationDialog({
       salary: "",
       notes: "",
     },
-  });
+  })
 
   // Update form when application changes
   React.useEffect(() => {
     if (application) {
       const applicationDate = application.application_date
         ? application.application_date
-        : formatDateToLocalString(new Date(application.applied_at)); // Timezone-safe conversion
+        : formatDateToLocalString(new Date(application.applied_at)) // Timezone-safe conversion
 
       form.reset({
         companyName: application.company_name,
@@ -108,14 +108,14 @@ export function EditApplicationDialog({
         location: application.location || "",
         salary: application.salary_range || "",
         notes: application.notes || "",
-      });
+      })
     }
-  }, [application, form]);
+  }, [application, form])
 
   const onSubmit = async (data: EditApplicationFormData) => {
-    if (!application) return;
+    if (!application) return
 
-    setIsSubmitting(true);
+    setIsSubmitting(true)
     try {
       const response = await fetch(
         `/api/worker_proxy/applications/${application.id}`,
@@ -134,24 +134,24 @@ export function EditApplicationDialog({
             salary: data.salary || null,
             notes: data.notes || null,
           }),
-        }
-      );
+        },
+      )
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to update application");
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to update application")
       }
 
-      toast.success("Application updated successfully");
-      onOpenChange(false);
-      onApplicationUpdated?.();
+      toast.success("Application updated successfully")
+      onOpenChange(false)
+      onApplicationUpdated?.()
     } catch (error: any) {
-      console.error("Error updating application:", error);
-      toast.error(error.message || "Failed to update application");
+      console.error("Error updating application:", error)
+      toast.error(error.message || "Failed to update application")
     } finally {
-      setIsSubmitting(false);
+      setIsSubmitting(false)
     }
-  };
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -201,7 +201,7 @@ export function EditApplicationDialog({
                 onValueChange={(value) =>
                   form.setValue(
                     "status",
-                    value as EditApplicationFormData["status"]
+                    value as EditApplicationFormData["status"],
                   )
                 }
               >
@@ -233,8 +233,8 @@ export function EditApplicationDialog({
                 onDateChange={(date) => {
                   form.setValue(
                     "applicationDate",
-                    date ? formatDateToLocalString(date) : ""
-                  );
+                    date ? formatDateToLocalString(date) : "",
+                  )
                 }}
                 placeholder="Select application date"
               />
@@ -311,5 +311,5 @@ export function EditApplicationDialog({
         </form>
       </DialogContent>
     </Dialog>
-  );
+  )
 }

@@ -1,22 +1,22 @@
-import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { SignOutButton } from "@/components/auth/sign-out-button";
-import { ThemeToggle } from "@/components/theme-toggle";
-import Link from "next/link";
+import { SignOutButton } from "@/components/auth/sign-out-button"
+import { ThemeToggle } from "@/components/theme-toggle"
+import { createClient } from "@/lib/supabase/server"
+import Link from "next/link"
+import { redirect } from "next/navigation"
 
 export default async function SetupLayout({
   children,
 }: Readonly<{
-  children: React.ReactNode;
+  children: React.ReactNode
 }>) {
   // Check authentication
-  const supabase = await createClient();
+  const supabase = await createClient()
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await supabase.auth.getUser()
 
   if (!user) {
-    redirect("/auth/login?message=Please log in to view the setup page.");
+    redirect("/auth/login?message=Please log in to view the setup page.")
   }
 
   return (
@@ -69,5 +69,5 @@ export default async function SetupLayout({
       {/* Main Content - AnimatedSetupPageWrapper handles all background animations */}
       <main className="relative flex-1">{children}</main>
     </div>
-  );
+  )
 }

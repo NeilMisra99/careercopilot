@@ -1,32 +1,32 @@
-"use client";
+"use client"
 
-import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
-import { FirstTimeSyncBanner } from "./first-time-sync-banner";
-import { SyncProgressView } from "./sync-progress-view";
-import { useSyncProgress } from "@/hooks/use-sync-progress";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card"
+import { useSyncProgress } from "@/hooks/use-sync-progress"
+import { useRouter } from "next/navigation"
+import { useEffect, useRef, useState } from "react"
+import { FirstTimeSyncBanner } from "./first-time-sync-banner"
+import { SyncProgressView } from "./sync-progress-view"
 
 interface SyncProgressContainerProps {
-  userId: string;
-  integrationEmail?: string | null;
+  userId: string
+  integrationEmail?: string | null
 }
 
 export function SyncProgressContainer({
   userId,
   integrationEmail,
 }: SyncProgressContainerProps) {
-  const { syncState, loading } = useSyncProgress(userId);
-  const [isPreparingSync, setIsPreparingSync] = useState(false);
+  const { syncState, loading } = useSyncProgress(userId)
+  const [isPreparingSync, setIsPreparingSync] = useState(false)
   const [redirectCountdown, setRedirectCountdown] = useState<number | null>(
-    null
-  );
-  const countdownStartedRef = useRef(false);
-  const router = useRouter();
+    null,
+  )
+  const countdownStartedRef = useRef(false)
+  const router = useRouter()
 
   // Determine if sync is preparing based on database state
   const isPreparing =
-    syncState.summary?.status === "preparing" || isPreparingSync;
+    syncState.summary?.status === "preparing" || isPreparingSync
 
   // Reset preparing state when actual sync starts (ai_first_processing)
   useEffect(() => {
@@ -36,74 +36,74 @@ export function SyncProgressContainer({
       (syncState.summary.status === "ai_first_processing" ||
         syncState.summary.status === "completed")
     ) {
-      setIsPreparingSync(false);
+      setIsPreparingSync(false)
     }
-  }, [isPreparingSync, syncState.summary]);
+  }, [isPreparingSync, syncState.summary])
 
   // Auto-redirect to dashboard when sync completes (only from setup page)
   useEffect(() => {
     const isOnSetupPage =
       typeof window !== "undefined" &&
-      window.location.pathname.includes("/setup");
+      window.location.pathname.includes("/setup")
     const isSyncCompleted =
       !syncState.inProgress &&
       syncState.summary &&
-      syncState.summary.status === "completed";
+      syncState.summary.status === "completed"
 
     if (isSyncCompleted && isOnSetupPage && !countdownStartedRef.current) {
       // Mark countdown as started to prevent multiple timers
-      countdownStartedRef.current = true;
+      countdownStartedRef.current = true
 
       // Add "completing" query parameter to prevent middleware redirect
       if (typeof window !== "undefined") {
-        const url = new URL(window.location.href);
+        const url = new URL(window.location.href)
         if (!url.searchParams.has("completing")) {
-          url.searchParams.set("completing", "true");
-          window.history.replaceState({}, "", url.toString());
+          url.searchParams.set("completing", "true")
+          window.history.replaceState({}, "", url.toString())
         }
       }
 
       // Start countdown from 5 seconds
-      setRedirectCountdown(5);
+      setRedirectCountdown(5)
 
       // Update countdown every second
       const countdownInterval = setInterval(() => {
         setRedirectCountdown((prev) => {
           if (prev === null || prev <= 1) {
-            clearInterval(countdownInterval);
-            return 0; // Set to 0 to trigger redirect effect
+            clearInterval(countdownInterval)
+            return 0 // Set to 0 to trigger redirect effect
           }
-          return prev - 1;
-        });
-      }, 1000);
+          return prev - 1
+        })
+      }, 1000)
 
       return () => {
-        clearInterval(countdownInterval);
-      };
+        clearInterval(countdownInterval)
+      }
     } else if (!isSyncCompleted) {
       // Reset the countdown started flag if sync is not completed
-      countdownStartedRef.current = false;
-      setRedirectCountdown(null);
+      countdownStartedRef.current = false
+      setRedirectCountdown(null)
     }
-  }, [syncState.inProgress, syncState.summary?.status, router]);
+  }, [syncState.inProgress, syncState.summary?.status, router])
 
   // Separate effect to handle redirect when countdown reaches 0
   useEffect(() => {
     if (redirectCountdown === 0) {
       // Remove the "completing" query parameter before redirecting
       if (typeof window !== "undefined") {
-        const url = new URL(window.location.href);
-        url.searchParams.delete("completing");
-        window.history.replaceState({}, "", url.toString());
+        const url = new URL(window.location.href)
+        url.searchParams.delete("completing")
+        window.history.replaceState({}, "", url.toString())
       }
 
-      router.push("/dashboard");
+      router.push("/dashboard")
     }
-  }, [redirectCountdown, router]);
+  }, [redirectCountdown, router])
 
   const handleSyncInitiated = () => {
-    setIsPreparingSync(true);
-  };
+    setIsPreparingSync(true)
+  }
 
   // Show loading state to prevent flash
   if (loading) {
@@ -139,7 +139,7 @@ export function SyncProgressContainer({
           </CardContent>
         </Card>
       </div>
-    );
+    )
   }
 
   // Show sync progress if:
@@ -149,12 +149,12 @@ export function SyncProgressContainer({
   const shouldShowProgress =
     (syncState.inProgress && syncState.summary) ||
     (!syncState.inProgress && syncState.summary) ||
-    isPreparing;
+    isPreparing
 
   // Create animation key based on sync status for smooth transitions
   const syncStatus =
-    syncState.summary?.status || (isPreparing ? "preparing" : undefined);
-  const animationKey = syncState.error ? "error" : syncStatus || "initial";
+    syncState.summary?.status || (isPreparing ? "preparing" : undefined)
+  const animationKey = syncState.error ? "error" : syncStatus || "initial"
 
   if (shouldShowProgress && (syncState.summary || isPreparing)) {
     return (
@@ -169,7 +169,7 @@ export function SyncProgressContainer({
         emailsAnalyzed={syncState.summary?.emails_analyzed}
         redirectCountdown={redirectCountdown}
       />
-    );
+    )
   }
 
   // Show FirstTimeSyncBanner for first-time users or when no sync is happening
@@ -181,5 +181,5 @@ export function SyncProgressContainer({
       isPreparingSync={isPreparing}
       onSyncInitiated={handleSyncInitiated}
     />
-  );
+  )
 }

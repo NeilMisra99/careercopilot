@@ -1,6 +1,6 @@
-import { Skeleton } from "@/components/ui/skeleton";
-import { Separator } from "@/components/ui/separator";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card"
+import { Separator } from "@/components/ui/separator"
+import { Skeleton } from "@/components/ui/skeleton"
 
 export function ApplicationFormSkeleton() {
   return (
@@ -126,5 +126,5 @@ export function ApplicationFormSkeleton() {
         <Skeleton className="h-10 w-32" />
       </div>
     </div>
-  );
+  )
 }

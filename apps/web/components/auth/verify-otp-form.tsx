@@ -1,13 +1,6 @@
-"use client";
+"use client"
 
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
-import { z } from "zod";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { Button } from "@/components/ui/button"
 import {
   Form,
   FormControl,
@@ -16,80 +9,87 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form";
+} from "@/components/ui/form"
 import {
   InputOTP,
   InputOTPGroup,
   InputOTPSeparator,
   InputOTPSlot,
-} from "@/components/ui/input-otp";
-import Link from "next/link";
+} from "@/components/ui/input-otp"
+import { createClient } from "@/lib/supabase/client"
+import { zodResolver } from "@hookform/resolvers/zod"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { useState } from "react"
+import { useForm } from "react-hook-form"
+import { toast } from "sonner"
+import { z } from "zod"
 
 const otpFormSchema = z.object({
   token: z
     .string()
     .min(6, { message: "OTP must be 6 characters." })
     .max(6, { message: "OTP must be 6 characters." }),
-});
-type OtpFormValues = z.infer<typeof otpFormSchema>;
+})
+type OtpFormValues = z.infer<typeof otpFormSchema>
 
 interface VerifyOtpFormProps {
-  email: string;
+  email: string
 }
 
 export function VerifyOtpForm({ email }: VerifyOtpFormProps) {
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const router = useRouter();
-  const supabase = createClient();
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const router = useRouter()
+  const supabase = createClient()
 
   const form = useForm<OtpFormValues>({
     resolver: zodResolver(otpFormSchema),
     defaultValues: {
       token: "",
     },
-  });
+  })
 
   const onSubmit = async (values: OtpFormValues) => {
-    setIsSubmitting(true);
+    setIsSubmitting(true)
 
     try {
       const { error } = await supabase.auth.verifyOtp({
         email: email,
         token: values.token,
         type: "signup",
-      });
+      })
 
       if (error) {
-        throw error;
+        throw error
       }
 
-      toast.success("Email verified successfully! Proceeding to next step...");
-      router.push("/auth/onboarding/connect-email");
-      router.refresh(); // Important to update server-side session state for layout
+      toast.success("Email verified successfully! Proceeding to next step...")
+      router.push("/auth/onboarding/connect-email")
+      router.refresh() // Important to update server-side session state for layout
     } catch (error) {
       const errorMessage =
-        error instanceof Error ? error.message : "Invalid OTP or other error.";
-      toast.error("Verification Failed", { description: errorMessage });
+        error instanceof Error ? error.message : "Invalid OTP or other error."
+      toast.error("Verification Failed", { description: errorMessage })
     } finally {
-      setIsSubmitting(false);
+      setIsSubmitting(false)
     }
-  };
+  }
 
   const handleResendOtp = async () => {
-    setIsSubmitting(true);
-    toast.info("Resending OTP...");
+    setIsSubmitting(true)
+    toast.info("Resending OTP...")
     const { error } = await supabase.auth.resend({
       type: "signup",
       email: email,
-    });
-    setIsSubmitting(false);
+    })
+    setIsSubmitting(false)
 
     if (error) {
-      toast.error("Failed to resend OTP", { description: error.message });
+      toast.error("Failed to resend OTP", { description: error.message })
     } else {
-      toast.success("New OTP sent! Check your email.");
+      toast.success("New OTP sent! Check your email.")
     }
-  };
+  }
 
   return (
     <div className="w-full max-w-md p-8 space-y-8 bg-card rounded-lg shadow-md">
@@ -157,5 +157,5 @@ export function VerifyOtpForm({ email }: VerifyOtpFormProps) {
         </Link>
       </p>
     </div>
-  );
+  )
 }

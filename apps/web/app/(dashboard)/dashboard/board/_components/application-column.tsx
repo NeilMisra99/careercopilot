@@ -1,18 +1,18 @@
-"use client";
+"use client"
 
-import { ReactNode } from "react";
-import { useDroppable } from "@dnd-kit/core";
-import { Badge } from "@/components/ui/badge";
-import { motion } from "framer-motion";
+import { Badge } from "@/components/ui/badge"
+import { useDroppable } from "@dnd-kit/core"
+import { motion } from "framer-motion"
+import { ReactNode } from "react"
 
 interface ApplicationColumnProps {
-  id: string;
-  title: string;
-  children: ReactNode;
-  icon?: ReactNode;
-  count?: number;
-  className?: string;
-  index?: number;
+  id: string
+  title: string
+  children: ReactNode
+  icon?: ReactNode
+  count?: number
+  className?: string
+  index?: number
 }
 
 export function ApplicationColumn({
@@ -26,7 +26,7 @@ export function ApplicationColumn({
 }: ApplicationColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id,
-  });
+  })
 
   return (
     <motion.div
@@ -65,5 +65,5 @@ export function ApplicationColumn({
         </div>
       </div>
     </motion.div>
-  );
+  )
 }

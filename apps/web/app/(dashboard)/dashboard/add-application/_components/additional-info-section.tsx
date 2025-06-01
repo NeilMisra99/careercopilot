@@ -1,18 +1,18 @@
-import { UseFormReturn } from "react-hook-form";
 import {
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
-  FormDescription,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { type ApplicationFormData } from "../_lib/types";
+} from "@/components/ui/form"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { UseFormReturn } from "react-hook-form"
+import { type ApplicationFormData } from "../_lib/types"
 
 interface AdditionalInfoSectionProps {
-  form: UseFormReturn<ApplicationFormData>;
+  form: UseFormReturn<ApplicationFormData>
 }
 
 export function AdditionalInfoSection({ form }: AdditionalInfoSectionProps) {
@@ -106,5 +106,5 @@ export function AdditionalInfoSection({ form }: AdditionalInfoSectionProps) {
         />
       </div>
     </div>
-  );
+  )
 }

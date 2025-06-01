@@ -1,106 +1,106 @@
-"use client";
+"use client"
 
-import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover";
+} from "@/components/ui/popover"
+import { formatDistanceToNow } from "date-fns"
 import {
-  RefreshCw,
-  Clock,
-  CheckCircle,
   AlertCircle,
-  Mail,
+  CheckCircle,
   ChevronDown,
-} from "lucide-react";
-import { toast } from "sonner";
+  Clock,
+  Mail,
+  RefreshCw,
+} from "lucide-react"
+import { useEffect, useState } from "react"
+import { toast } from "sonner"
 import {
-  syncGmailNowAction,
   getSyncStatusAction,
-} from "../_lib/actions/sync-actions";
-import { formatDistanceToNow } from "date-fns";
+  syncGmailNowAction,
+} from "../_lib/actions/sync-actions"
 
 interface SyncControlProps {
-  className?: string;
+  className?: string
 }
 
 export function SyncControl({ className }: SyncControlProps) {
-  const [isLoading, setIsLoading] = useState(false);
-  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false)
+  const [isPopoverOpen, setIsPopoverOpen] = useState(false)
   const [syncStatus, setSyncStatus] = useState<{
     integration: {
-      id: string;
-      email: string;
-    };
+      id: string
+      email: string
+    }
     sync: {
-      inProgress: boolean;
-      lastStarted: string | null;
-      lastCompleted: string | null;
+      inProgress: boolean
+      lastStarted: string | null
+      lastCompleted: string | null
       lastSummary: {
-        emails_processed: number;
-        applications_found: number;
-        error: string | null;
-        sync_type: "manual" | "scheduled";
-      } | null;
-      lastSuccessfulSync: string | null;
-    };
+        emails_processed: number
+        applications_found: number
+        error: string | null
+        sync_type: "manual" | "scheduled"
+      } | null
+      lastSuccessfulSync: string | null
+    }
     rateLimit: {
-      canSyncNow: boolean;
-      rateLimitedUntil: string | null;
-    };
-  } | null>(null);
-  const [error, setError] = useState<string | null>(null);
+      canSyncNow: boolean
+      rateLimitedUntil: string | null
+    }
+  } | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   // Poll sync status
   useEffect(() => {
-    let interval: NodeJS.Timeout;
+    let interval: NodeJS.Timeout
 
     const checkSyncStatus = async () => {
       try {
-        const result = await getSyncStatusAction();
+        const result = await getSyncStatusAction()
         if (result.success && result.data) {
-          const wasInProgress = syncStatus?.sync.inProgress;
-          setSyncStatus(result.data);
-          setError(null);
+          const wasInProgress = syncStatus?.sync.inProgress
+          setSyncStatus(result.data)
+          setError(null)
 
           // Show completion toast if sync just completed
           if (wasInProgress && !result.data.sync.inProgress) {
-            const summary = result.data.sync.lastSummary;
+            const summary = result.data.sync.lastSummary
             if (summary?.error) {
               toast.error("Sync failed", {
                 description: summary.error,
-              });
+              })
             } else {
               toast.success("Sync completed!", {
                 description: summary
                   ? `Processed ${summary.emails_processed} emails, found ${summary.applications_found} applications`
                   : "Your emails have been synced successfully",
-              });
+              })
             }
           }
         } else {
-          setError(result.error || "Failed to get sync status");
+          setError(result.error || "Failed to get sync status")
         }
       } catch (err) {
-        setError("Network error");
+        setError("Network error")
       }
-    };
+    }
 
     // Initial check
-    checkSyncStatus();
+    checkSyncStatus()
 
     // Poll every 10 seconds when sync is in progress
     if (syncStatus?.sync.inProgress) {
-      interval = setInterval(checkSyncStatus, 10000);
+      interval = setInterval(checkSyncStatus, 10000)
     }
 
     return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [syncStatus?.sync.inProgress]);
+      if (interval) clearInterval(interval)
+    }
+  }, [syncStatus?.sync.inProgress])
 
   const handleSync = async () => {
     if (
@@ -108,28 +108,28 @@ export function SyncControl({ className }: SyncControlProps) {
       syncStatus?.sync.inProgress ||
       !syncStatus?.rateLimit.canSyncNow
     )
-      return;
+      return
 
-    setIsLoading(true);
+    setIsLoading(true)
     const toastId = toast.loading("Starting email sync...", {
       description: "This may take a few moments",
-    });
+    })
 
     try {
-      const result = await syncGmailNowAction();
+      const result = await syncGmailNowAction()
 
       if (!result.success) {
         toast.error(result.message, {
           id: toastId,
           description: result.error,
-        });
-        return;
+        })
+        return
       }
 
       toast.success("Sync started!", {
         id: toastId,
         description: "Your emails are being processed in the background.",
-      });
+      })
 
       // Update status to show sync in progress
       setSyncStatus((prev) =>
@@ -138,20 +138,20 @@ export function SyncControl({ className }: SyncControlProps) {
               ...prev,
               sync: { ...prev.sync, inProgress: true },
             }
-          : null
-      );
+          : null,
+      )
 
       // Close popover after successful sync start
-      setIsPopoverOpen(false);
+      setIsPopoverOpen(false)
     } catch (error) {
       toast.error("Network error", {
         id: toastId,
         description: "Failed to connect to the server. Please try again.",
-      });
+      })
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  };
+  }
 
   if (error && !syncStatus) {
     return (
@@ -161,7 +161,7 @@ export function SyncControl({ className }: SyncControlProps) {
         <AlertCircle className="h-4 w-4 text-destructive" />
         <span>{error}</span>
       </div>
-    );
+    )
   }
 
   if (!syncStatus) {
@@ -172,55 +172,55 @@ export function SyncControl({ className }: SyncControlProps) {
         <RefreshCw className="h-4 w-4 animate-spin" />
         <span>Loading sync status...</span>
       </div>
-    );
+    )
   }
 
-  const { integration, sync, rateLimit } = syncStatus;
-  const isDisabled = isLoading || sync.inProgress || !rateLimit.canSyncNow;
-  const showRateLimit = rateLimit.rateLimitedUntil && !rateLimit.canSyncNow;
+  const { integration, sync, rateLimit } = syncStatus
+  const isDisabled = isLoading || sync.inProgress || !rateLimit.canSyncNow
+  const showRateLimit = rateLimit.rateLimitedUntil && !rateLimit.canSyncNow
 
   const getStatusIcon = () => {
     if (sync.inProgress) {
-      return <RefreshCw className="h-4 w-4 animate-spin text-blue-500" />;
+      return <RefreshCw className="h-4 w-4 animate-spin text-blue-500" />
     }
     if (sync.lastSummary?.error) {
-      return <AlertCircle className="h-4 w-4 text-destructive" />;
+      return <AlertCircle className="h-4 w-4 text-destructive" />
     }
     if (sync.lastSummary && !sync.lastSummary.error) {
-      return <CheckCircle className="h-4 w-4 text-green-500" />;
+      return <CheckCircle className="h-4 w-4 text-green-500" />
     }
-    return <Mail className="h-4 w-4 text-muted-foreground" />;
-  };
+    return <Mail className="h-4 w-4 text-muted-foreground" />
+  }
 
   const getButtonText = () => {
-    if (isLoading) return "Starting...";
-    if (sync.inProgress) return "Syncing...";
-    if (showRateLimit) return "Rate Limited";
-    if (sync.lastSummary?.error) return "Sync Failed";
+    if (isLoading) return "Starting..."
+    if (sync.inProgress) return "Syncing..."
+    if (showRateLimit) return "Rate Limited"
+    if (sync.lastSummary?.error) return "Sync Failed"
     if (sync.lastSummary && !sync.lastSummary.error) {
-      return "Synced";
+      return "Synced"
     }
-    return "Sync Email";
-  };
+    return "Sync Email"
+  }
 
   const getVariant = () => {
-    if (sync.lastSummary?.error) return "destructive";
-    if (showRateLimit) return "secondary";
-    return "outline";
-  };
+    if (sync.lastSummary?.error) return "destructive"
+    if (showRateLimit) return "secondary"
+    return "outline"
+  }
 
   const getStatusText = () => {
     if (sync.inProgress) {
-      return "Sync in progress...";
+      return "Sync in progress..."
     }
     if (sync.lastSummary?.error) {
-      return "Last sync failed";
+      return "Last sync failed"
     }
     if (sync.lastCompleted) {
-      return `Last synced ${formatDistanceToNow(new Date(sync.lastCompleted), { addSuffix: true })}`;
+      return `Last synced ${formatDistanceToNow(new Date(sync.lastCompleted), { addSuffix: true })}`
     }
-    return "No sync history";
-  };
+    return "No sync history"
+  }
 
   return (
     <div className={className}>
@@ -325,5 +325,5 @@ export function SyncControl({ className }: SyncControlProps) {
         </PopoverContent>
       </Popover>
     </div>
-  );
+  )
 }

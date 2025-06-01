@@ -1,41 +1,35 @@
-"use client";
+"use client"
 
-import React, { useState } from "react";
-import { useSortable } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import {
-  Building2,
-  Calendar,
-  ExternalLink,
-  MapPin,
-  PencilIcon,
-} from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
-import { motion } from "framer-motion";
-import { EditApplicationDialog } from "../../_components/edit-application-dialog";
+import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
+import { useSortable } from "@dnd-kit/sortable"
+import { CSS } from "@dnd-kit/utilities"
+import { formatDistanceToNow } from "date-fns"
+import { motion } from "framer-motion"
+import { Building2, Calendar, ExternalLink, PencilIcon } from "lucide-react"
+import React, { useState } from "react"
+import { EditApplicationDialog } from "../../_components/edit-application-dialog"
 
 interface Application {
-  id: string;
-  company_name: string;
-  role: string;
-  status: string;
-  applied_at: string;
-  notes?: string;
-  job_url?: string;
-  source_email_id?: string;
-  source_thread_id?: string;
-  application_date?: string;
-  location?: string | null;
-  salary_range?: string | null;
+  id: string
+  company_name: string
+  role: string
+  status: string
+  applied_at: string
+  notes?: string
+  job_url?: string
+  source_email_id?: string
+  source_thread_id?: string
+  application_date?: string
+  location?: string | null
+  salary_range?: string | null
 }
 
 interface ApplicationCardProps {
-  application: Application;
-  color?: string;
-  bgColor?: string;
-  onApplicationUpdated?: () => void;
+  application: Application
+  color?: string
+  bgColor?: string
+  onApplicationUpdated?: () => void
 }
 
 export function ApplicationCard({
@@ -44,7 +38,7 @@ export function ApplicationCard({
   bgColor = "bg-primary/5",
   onApplicationUpdated,
 }: ApplicationCardProps) {
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
 
   const {
     attributes,
@@ -59,22 +53,22 @@ export function ApplicationCard({
       type: "ApplicationCard",
       application: application,
     },
-  });
+  })
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
     zIndex: isDragging ? 1000 : 1,
-  };
+  }
 
-  const date = new Date(application.applied_at);
-  const timeAgo = formatDistanceToNow(date, { addSuffix: true });
+  const date = new Date(application.applied_at)
+  const timeAgo = formatDistanceToNow(date, { addSuffix: true })
 
   const handleEditClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setEditDialogOpen(true);
-  };
+    e.stopPropagation()
+    setEditDialogOpen(true)
+  }
 
   return (
     <>
@@ -188,5 +182,5 @@ export function ApplicationCard({
         onApplicationUpdated={onApplicationUpdated}
       />
     </>
-  );
+  )
 }

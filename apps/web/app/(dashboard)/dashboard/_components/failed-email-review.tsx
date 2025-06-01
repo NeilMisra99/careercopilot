@@ -1,100 +1,100 @@
-"use client";
+"use client"
 
-import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { AlertCircle, Mail, RefreshCw, CheckCircle, X } from "lucide-react";
-import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { AlertCircle, CheckCircle, Mail, RefreshCw, X } from "lucide-react"
+import { useEffect, useState } from "react"
+import { toast } from "sonner"
 import {
   getFailedEmailsAction,
   submitManualCorrectionAction,
   type FailedEmail,
   type ManualCorrectionRequest,
-} from "../_lib/actions/failed-email-actions";
-import { ManualCorrectionDialog } from "./manual-correction-dialog";
+} from "../_lib/actions/failed-email-actions"
+import { ManualCorrectionDialog } from "./manual-correction-dialog"
 
 export function FailedEmailReview() {
-  const [failedEmails, setFailedEmails] = useState<FailedEmail[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [selectedEmail, setSelectedEmail] = useState<FailedEmail | null>(null);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [failedEmails, setFailedEmails] = useState<FailedEmail[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [selectedEmail, setSelectedEmail] = useState<FailedEmail | null>(null)
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const loadFailedEmails = async () => {
-    setLoading(true);
-    setError(null);
+    setLoading(true)
+    setError(null)
 
     try {
-      const result = await getFailedEmailsAction();
+      const result = await getFailedEmailsAction()
 
       if (!result.success) {
-        setError(result.error || "Failed to load failed emails");
-        return;
+        setError(result.error || "Failed to load failed emails")
+        return
       }
 
-      setFailedEmails(result.data || []);
+      setFailedEmails(result.data || [])
     } catch (err) {
-      setError("Network error while loading failed emails");
+      setError("Network error while loading failed emails")
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   useEffect(() => {
-    loadFailedEmails();
-  }, []);
+    loadFailedEmails()
+  }, [])
 
   const handleCorrectEmail = (email: FailedEmail) => {
-    setSelectedEmail(email);
-    setIsDialogOpen(true);
-  };
+    setSelectedEmail(email)
+    setIsDialogOpen(true)
+  }
 
   const handleSubmitCorrection = async (
-    correction: ManualCorrectionRequest
+    correction: ManualCorrectionRequest,
   ) => {
-    setIsSubmitting(true);
+    setIsSubmitting(true)
 
     try {
-      const result = await submitManualCorrectionAction(correction);
+      const result = await submitManualCorrectionAction(correction)
 
       if (result.success) {
         toast.success("Application created!", {
           description: result.message,
-        });
+        })
 
         // Remove the corrected email from the list
         setFailedEmails((prev) =>
-          prev.filter((email) => email.email_id !== correction.emailId)
-        );
+          prev.filter((email) => email.email_id !== correction.emailId),
+        )
 
-        setIsDialogOpen(false);
-        setSelectedEmail(null);
+        setIsDialogOpen(false)
+        setSelectedEmail(null)
       } else {
         toast.error("Failed to create application", {
           description: result.error || "Unknown error occurred",
-        });
+        })
       }
     } catch (err) {
       toast.error("Network error", {
         description: "Failed to submit correction. Please try again.",
-      });
+      })
     } finally {
-      setIsSubmitting(false);
+      setIsSubmitting(false)
     }
-  };
+  }
 
   const handleSkipEmail = (emailId: string) => {
     // For now, just remove from the UI
     // In a full implementation, you'd mark it as reviewed in the database
     setFailedEmails((prev) =>
-      prev.filter((email) => email.email_id !== emailId)
-    );
+      prev.filter((email) => email.email_id !== emailId),
+    )
     toast.success("Email skipped", {
       description: "This email won't be shown again",
-    });
-  };
+    })
+  }
 
   const formatDate = (dateString: string) => {
     try {
@@ -103,11 +103,11 @@ export function FailedEmailReview() {
         day: "numeric",
         hour: "2-digit",
         minute: "2-digit",
-      });
+      })
     } catch {
-      return "Unknown date";
+      return "Unknown date"
     }
-  };
+  }
 
   if (loading) {
     return (
@@ -127,7 +127,7 @@ export function FailedEmailReview() {
           </div>
         </CardContent>
       </Card>
-    );
+    )
   }
 
   if (error) {
@@ -147,7 +147,7 @@ export function FailedEmailReview() {
           </Button>
         </CardContent>
       </Card>
-    );
+    )
   }
 
   if (failedEmails.length === 0) {
@@ -169,7 +169,7 @@ export function FailedEmailReview() {
           </div>
         </CardContent>
       </Card>
-    );
+    )
   }
 
   return (
@@ -271,5 +271,5 @@ export function FailedEmailReview() {
         isSubmitting={isSubmitting}
       />
     </>
-  );
+  )
 }

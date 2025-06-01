@@ -1,17 +1,6 @@
-"use client";
+"use client"
 
-import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
@@ -19,19 +8,30 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { AlertCircle, Mail } from "lucide-react";
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Textarea } from "@/components/ui/textarea"
+import { AlertCircle, Mail } from "lucide-react"
+import { useEffect, useState } from "react"
 import type {
   FailedEmail,
   ManualCorrectionRequest,
-} from "../_lib/actions/failed-email-actions";
+} from "../_lib/actions/failed-email-actions"
 
 interface ManualCorrectionDialogProps {
-  email: FailedEmail | null;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onSubmit: (correction: ManualCorrectionRequest) => Promise<void>;
-  isSubmitting: boolean;
+  email: FailedEmail | null
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onSubmit: (correction: ManualCorrectionRequest) => Promise<void>
+  isSubmitting: boolean
 }
 
 const JOB_STATUSES = [
@@ -44,7 +44,7 @@ const JOB_STATUSES = [
   "Rejected",
   "Withdrawn",
   "On Hold",
-];
+]
 
 export function ManualCorrectionDialog({
   email,
@@ -53,26 +53,26 @@ export function ManualCorrectionDialog({
   onSubmit,
   isSubmitting,
 }: ManualCorrectionDialogProps) {
-  const [companyName, setCompanyName] = useState("");
-  const [jobTitle, setJobTitle] = useState("");
-  const [status, setStatus] = useState("Applied");
-  const [notes, setNotes] = useState("");
+  const [companyName, setCompanyName] = useState("")
+  const [jobTitle, setJobTitle] = useState("")
+  const [status, setStatus] = useState("Applied")
+  const [notes, setNotes] = useState("")
 
   // Reset form when dialog opens with new email
   useEffect(() => {
     if (email && open) {
-      setCompanyName("");
-      setJobTitle("");
-      setStatus("Applied");
-      setNotes("");
+      setCompanyName("")
+      setJobTitle("")
+      setStatus("Applied")
+      setNotes("")
     }
-  }, [email, open]);
+  }, [email, open])
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+    e.preventDefault()
 
     if (!email || !companyName.trim()) {
-      return;
+      return
     }
 
     const correction: ManualCorrectionRequest = {
@@ -81,13 +81,13 @@ export function ManualCorrectionDialog({
       jobTitle: jobTitle.trim() || undefined,
       status: status || undefined,
       notes: notes.trim() || undefined,
-    };
+    }
 
-    await onSubmit(correction);
-  };
+    await onSubmit(correction)
+  }
 
   const formatDate = (dateString: string | null) => {
-    if (!dateString) return "Unknown date";
+    if (!dateString) return "Unknown date"
     try {
       return new Date(dateString).toLocaleDateString("en-US", {
         weekday: "short",
@@ -95,13 +95,13 @@ export function ManualCorrectionDialog({
         day: "numeric",
         hour: "2-digit",
         minute: "2-digit",
-      });
+      })
     } catch {
-      return "Unknown date";
+      return "Unknown date"
     }
-  };
+  }
 
-  if (!email) return null;
+  if (!email) return null
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -251,5 +251,5 @@ export function ManualCorrectionDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
+  )
 }

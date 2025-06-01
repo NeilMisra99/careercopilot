@@ -1,18 +1,18 @@
-import { VerifyOtpForm } from "@/components/auth/verify-otp-form";
-import { Suspense } from "react";
-import { createClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
+import { VerifyOtpForm } from "@/components/auth/verify-otp-form"
+import { createClient } from "@/lib/supabase/server"
+import { redirect } from "next/navigation"
+import { Suspense } from "react"
 
 interface VerifyOtpPageProps {
   searchParams: Promise<{
-    email?: string;
-  }>;
+    email?: string
+  }>
 }
 
 // Separate component to handle searchParams access and suspense boundary
 async function VerifyOtpContent(props: VerifyOtpPageProps) {
-  const params = await props.searchParams;
-  const email = params.email;
+  const params = await props.searchParams
+  const email = params.email
   if (!email) {
     return (
       <div className="w-full max-w-md p-8 text-center">
@@ -21,23 +21,23 @@ async function VerifyOtpContent(props: VerifyOtpPageProps) {
           process again.
         </p>
       </div>
-    );
+    )
   }
-  return <VerifyOtpForm email={email} />;
+  return <VerifyOtpForm email={email} />
 }
 
 export default async function VerifyOtpPage({
   searchParams,
 }: VerifyOtpPageProps) {
-  const supabase = await createClient();
+  const supabase = await createClient()
 
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await supabase.auth.getUser()
 
   // If user is already logged in, redirect to dashboard
   if (user) {
-    redirect("/dashboard");
+    redirect("/dashboard")
   }
 
   return (
@@ -50,5 +50,5 @@ export default async function VerifyOtpPage({
         <VerifyOtpContent searchParams={searchParams} />
       </Suspense>
     </div>
-  );
+  )
 }

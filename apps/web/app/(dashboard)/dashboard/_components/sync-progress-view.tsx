@@ -1,28 +1,28 @@
-"use client";
+"use client"
 
-import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge"
+import { Card, CardContent } from "@/components/ui/card"
+import { AnimatePresence, motion } from "framer-motion"
 import {
-  RefreshCw,
-  Mail,
-  Search,
+  AlertCircle,
+  Brain,
   CheckCircle,
   Clock,
-  AlertCircle,
+  Mail,
+  RefreshCw,
+  Search,
   Sparkles,
-  Brain,
-} from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { motion, AnimatePresence } from "framer-motion";
+} from "lucide-react"
 
 interface SyncProgressViewProps {
-  emailsProcessed: number;
-  applicationsFound: number;
-  email?: string;
-  error?: string | null;
-  syncStatus?: string; // 'ai_first_processing' | 'preparing' | 'completed' | etc
-  emailsSentToQueue?: number;
-  emailsAnalyzed?: number;
-  redirectCountdown?: number | null;
+  emailsProcessed: number
+  applicationsFound: number
+  email?: string
+  error?: string | null
+  syncStatus?: string // 'ai_first_processing' | 'preparing' | 'completed' | etc
+  emailsSentToQueue?: number
+  emailsAnalyzed?: number
+  redirectCountdown?: number | null
 }
 
 export function SyncProgressView({
@@ -37,51 +37,51 @@ export function SyncProgressView({
 }: SyncProgressViewProps) {
   // Determine if this looks like initial state (no meaningful progress yet)
   const isInitialState =
-    !syncStatus && emailsProcessed === 0 && applicationsFound === 0;
+    !syncStatus && emailsProcessed === 0 && applicationsFound === 0
 
   const getStatusText = () => {
     if (error) {
-      return "Sync Failed";
+      return "Sync Failed"
     }
 
     if (syncStatus === "completed") {
-      return "Setup Complete!";
+      return "Setup Complete!"
     }
 
     if (syncStatus === "ai_first_processing") {
-      return "Scanning & Analyzing...";
+      return "Scanning & Analyzing..."
     }
 
     if (syncStatus === "preparing") {
-      return "Preparing Your Sync";
+      return "Preparing Your Sync"
     }
 
-    return "Analyzing Your Emails...";
-  };
+    return "Analyzing Your Emails..."
+  }
 
   const getProgressText = () => {
     if (error) {
-      return "We encountered an issue while processing your emails. Our team has been notified and will help resolve this.";
+      return "We encountered an issue while processing your emails. Our team has been notified and will help resolve this."
     }
 
     if (syncStatus === "completed") {
-      return "Your emails have been successfully analyzed and job applications discovered. Redirecting to your dashboard...";
+      return "Your emails have been successfully analyzed and job applications discovered. Redirecting to your dashboard..."
     }
 
     if (syncStatus === "ai_first_processing") {
-      return `${emailsProcessed} emails scanned with AI • ${applicationsFound} applications found`;
+      return `${emailsProcessed} emails scanned with AI • ${applicationsFound} applications found`
     }
 
     if (syncStatus === "preparing") {
-      return "We're setting up the connection and preparing to analyze your emails. This will just take a moment.";
+      return "We're setting up the connection and preparing to analyze your emails. This will just take a moment."
     }
 
     if (isInitialState) {
-      return "We're connecting to your Gmail account to start analyzing your emails for job applications.";
+      return "We're connecting to your Gmail account to start analyzing your emails for job applications."
     }
 
-    return `${emailsProcessed} emails scanned • ${applicationsFound} applications found • AI analysis in progress`;
-  };
+    return `${emailsProcessed} emails scanned • ${applicationsFound} applications found • AI analysis in progress`
+  }
 
   const getStatusConfig = () => {
     if (error) {
@@ -94,7 +94,7 @@ export function SyncProgressView({
         icon: AlertCircle,
         borderColor: "border-red-200/60 dark:border-red-700/60",
         shadowColor: "shadow-red-200/20 dark:shadow-red-900/40",
-      };
+      }
     }
 
     if (syncStatus === "completed") {
@@ -107,7 +107,7 @@ export function SyncProgressView({
         icon: CheckCircle,
         borderColor: "border-emerald-200/60 dark:border-emerald-700/60",
         shadowColor: "shadow-emerald-200/20 dark:shadow-emerald-900/40",
-      };
+      }
     }
 
     if (syncStatus === "ai_first_processing") {
@@ -120,7 +120,7 @@ export function SyncProgressView({
         icon: Brain,
         borderColor: "border-violet-200/60 dark:border-violet-700/60",
         shadowColor: "shadow-violet-200/20 dark:shadow-violet-900/40",
-      };
+      }
     }
 
     // Default blue for preparing and other states
@@ -133,11 +133,11 @@ export function SyncProgressView({
       icon: RefreshCw,
       borderColor: "border-blue-200/60 dark:border-blue-700/60",
       shadowColor: "shadow-blue-200/20 dark:shadow-blue-900/40",
-    };
-  };
+    }
+  }
 
-  const config = getStatusConfig();
-  const IconComponent = config.icon;
+  const config = getStatusConfig()
+  const IconComponent = config.icon
 
   return (
     <motion.div
@@ -428,5 +428,5 @@ export function SyncProgressView({
         </CardContent>
       </Card>
     </motion.div>
-  );
+  )
 }

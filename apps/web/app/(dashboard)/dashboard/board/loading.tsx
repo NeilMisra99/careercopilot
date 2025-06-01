@@ -1,5 +1,4 @@
-import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton"
 
 export default function BoardLoading() {
   // Define column colors matching the refined board design
@@ -32,7 +31,7 @@ export default function BoardLoading() {
       bg: "bg-orange-50/80 dark:bg-orange-900/40",
       border: "border-orange-200/70 dark:border-orange-700/60",
     }, // Withdrawn
-  ];
+  ]
 
   const columnTitles = [
     "Wishlist",
@@ -42,7 +41,7 @@ export default function BoardLoading() {
     "Offer",
     "Rejected",
     "Withdrawn",
-  ];
+  ]
 
   return (
     <div className="h-full flex flex-col bg-gradient-to-br from-slate-50/30 to-gray-100/20 dark:from-gray-950/50 dark:to-slate-950/30">
@@ -103,7 +102,7 @@ export default function BoardLoading() {
                       <Skeleton className="w-4 h-4 rounded bg-slate-200/60 dark:bg-slate-500/60" />
                     </div>
                   </div>
-                )
+                ),
               )}
 
               {/* Add empty state skeleton for some columns */}
@@ -119,5 +118,5 @@ export default function BoardLoading() {
         ))}
       </div>
     </div>
-  );
+  )
 }

@@ -1,29 +1,29 @@
-"use client";
+"use client"
 
-import { useSyncProgress } from "@/hooks/use-sync-progress";
-import { SyncProgressView } from "../../_components/sync-progress-view";
-import { FirstTimeSyncBanner } from "../../_components/first-time-sync-banner";
-import { createClient } from "@/lib/supabase/client";
-import { useEffect, useState } from "react";
+import { useSyncProgress } from "@/hooks/use-sync-progress"
+import { createClient } from "@/lib/supabase/client"
+import { useEffect, useState } from "react"
+import { FirstTimeSyncBanner } from "../../_components/first-time-sync-banner"
+import { SyncProgressView } from "../../_components/sync-progress-view"
 
 export function BoardWithRealtime() {
-  const [userId, setUserId] = useState<string | null>(null);
-  const { syncState, loading } = useSyncProgress(userId || undefined);
+  const [userId, setUserId] = useState<string | null>(null)
+  const { syncState, loading } = useSyncProgress(userId || undefined)
 
   useEffect(() => {
     const getUser = async () => {
-      const supabase = createClient();
+      const supabase = createClient()
       const {
         data: { user },
-      } = await supabase.auth.getUser();
-      setUserId(user?.id || null);
-    };
+      } = await supabase.auth.getUser()
+      setUserId(user?.id || null)
+    }
 
-    getUser();
-  }, []);
+    getUser()
+  }, [])
 
   if (loading || !userId) {
-    return null; // Let parent handle loading state
+    return null // Let parent handle loading state
   }
 
   // Show sync progress if currently syncing - but only if we have meaningful progress data
@@ -45,18 +45,18 @@ export function BoardWithRealtime() {
           emailsAnalyzed={syncState.summary.emails_analyzed}
           error={syncState.error}
         />
-      );
+      )
     }
 
     // Return null to let parent handle loading state until we have real data
-    return null;
+    return null
   }
 
   // Show first-time sync banner if no integration or no sync history
   if (!syncState.hasIntegration || !syncState.lastCompleted) {
-    return <FirstTimeSyncBanner />;
+    return <FirstTimeSyncBanner />
   }
 
   // Return null when not syncing - let parent show normal content
-  return null;
+  return null
 }

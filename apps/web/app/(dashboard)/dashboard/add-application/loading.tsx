@@ -1,6 +1,6 @@
-import { ApplicationFormSkeleton } from "./_components/application-form-skeleton";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
+import { ApplicationFormSkeleton } from "./_components/application-form-skeleton"
 
 export default function AddApplicationLoading() {
   return (
@@ -21,5 +21,5 @@ export default function AddApplicationLoading() {
         </CardContent>
       </Card>
     </div>
-  );
+  )
 }

@@ -1,13 +1,13 @@
-"use client";
+"use client"
 
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { AlertCircle, Mail, Calendar, User, RotateCcw } from "lucide-react";
-import type { FailedEmail } from "../../_lib/actions/failed-email-actions";
+import { Badge } from "@/components/ui/badge"
+import { Card } from "@/components/ui/card"
+import { AlertCircle, Calendar, Mail, RotateCcw, User } from "lucide-react"
+import type { FailedEmail } from "../../_lib/actions/failed-email-actions"
 
 interface FailedEmailCardProps {
-  failedEmail: FailedEmail;
-  onClick: (failedEmail: FailedEmail) => void;
+  failedEmail: FailedEmail
+  onClick: (failedEmail: FailedEmail) => void
 }
 
 export function FailedEmailCard({
@@ -15,16 +15,16 @@ export function FailedEmailCard({
   onClick,
 }: FailedEmailCardProps) {
   const formatDate = (dateString: string | null) => {
-    if (!dateString) return "Unknown date";
+    if (!dateString) return "Unknown date"
     try {
       return new Date(dateString).toLocaleDateString("en-US", {
         month: "short",
         day: "numeric",
-      });
+      })
     } catch {
-      return "Unknown date";
+      return "Unknown date"
     }
-  };
+  }
 
   return (
     <Card
@@ -117,5 +117,5 @@ export function FailedEmailCard({
         </div>
       </div>
     </Card>
-  );
+  )
 }

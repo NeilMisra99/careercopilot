@@ -1,45 +1,45 @@
-import { type NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server"; // Adjusted import path
+import { createClient } from "@/lib/supabase/server" // Adjusted import path
+import { type NextRequest, NextResponse } from "next/server"
 // SupabaseClient import will be removed if not used elsewhere after this revert
 
-export const runtime = "edge";
+export const runtime = "edge"
 
 interface SignUpApiResponse {
-  message: string;
-  email?: string; // To return the email for OTP step
+  message: string
+  email?: string // To return the email for OTP step
 }
 
 export async function POST(request: NextRequest) {
   // Reverted to simpler client initialization
-  const supabase = await createClient();
+  const supabase = await createClient()
 
   try {
-    const formData = await request.formData();
-    const emailInput = formData.get("email") as string;
-    const password = formData.get("password") as string;
+    const formData = await request.formData()
+    const emailInput = formData.get("email") as string
+    const password = formData.get("password") as string
 
     // Trim email
-    const email = emailInput?.trim();
+    const email = emailInput?.trim()
 
     // Basic validation
     if (!email || !password) {
       return NextResponse.json(
         { error: "Email and password are required." },
-        { status: 400 }
-      );
+        { status: 400 },
+      )
     }
     if (!/^\S+@\S+\.\S+$/.test(email)) {
       return NextResponse.json(
         { error: "Invalid email format." },
-        { status: 400 }
-      );
+        { status: 400 },
+      )
     }
     if (password.length < 8) {
       // Matching previous validation
       return NextResponse.json(
         { error: "Password must be at least 8 characters long." },
-        { status: 400 }
-      );
+        { status: 400 },
+      )
     }
 
     // Sign up the user
@@ -47,21 +47,21 @@ export async function POST(request: NextRequest) {
       {
         email,
         password,
-      }
-    );
+      },
+    )
 
     if (signUpError) {
       if (signUpError.message.includes("User already registered")) {
         return NextResponse.json(
           { error: "This email is already registered. Try logging in." },
-          { status: 409 }
-        );
+          { status: 409 },
+        )
       }
 
       return NextResponse.json(
         { error: `Authentication error: ${signUpError.message}` },
-        { status: 500 }
-      );
+        { status: 500 },
+      )
     }
 
     // Handle cases based on Supabase signUp response
@@ -82,8 +82,8 @@ export async function POST(request: NextRequest) {
           error:
             "This email address may already be in use or pending confirmation with a different method. Try logging in or use a different email.",
         },
-        { status: 409 }
-      );
+        { status: 409 },
+      )
     }
 
     if (signUpData.user) {
@@ -96,8 +96,8 @@ export async function POST(request: NextRequest) {
             "Confirmation email sent. Please check your inbox for the OTP.",
           email: email,
         },
-        { status: 200 }
-      );
+        { status: 200 },
+      )
     }
 
     if (signUpData.session) {
@@ -111,20 +111,20 @@ export async function POST(request: NextRequest) {
           email: email,
           // Potentially add a flag: autoConfirmed: true
         },
-        { status: 200 } // Or 400 if this is an invalid state for your app's logic
-      );
+        { status: 200 }, // Or 400 if this is an invalid state for your app's logic
+      )
     }
 
     // Fallback for unexpected scenarios
     return NextResponse.json(
       { error: "An unexpected error occurred during user registration setup." },
-      { status: 500 }
-    );
+      { status: 500 },
+    )
   } catch (error: unknown) {
-    let errorMessage = "An unexpected error occurred during registration.";
+    let errorMessage = "An unexpected error occurred during registration."
     if (error instanceof Error) {
-      errorMessage = error.message;
+      errorMessage = error.message
     }
-    return NextResponse.json({ error: errorMessage }, { status: 500 });
+    return NextResponse.json({ error: errorMessage }, { status: 500 })
   }
 }

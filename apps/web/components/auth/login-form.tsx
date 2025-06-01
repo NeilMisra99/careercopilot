@@ -1,14 +1,6 @@
-"use client";
+"use client"
 
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import Link from "next/link";
-import { toast } from "sonner";
-import { z } from "zod";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button"
 import {
   Form,
   FormControl,
@@ -16,18 +8,26 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form";
+} from "@/components/ui/form"
+import { Input } from "@/components/ui/input"
+import { zodResolver } from "@hookform/resolvers/zod"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { useState } from "react"
+import { useForm } from "react-hook-form"
+import { toast } from "sonner"
+import { z } from "zod"
 
 const loginFormSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
   password: z.string().min(1, { message: "Password is required." }), // Min 1 to ensure not empty
-});
+})
 
-type LoginFormValues = z.infer<typeof loginFormSchema>;
+type LoginFormValues = z.infer<typeof loginFormSchema>
 
 export function LoginForm() {
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const router = useRouter();
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const router = useRouter()
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginFormSchema),
@@ -35,40 +35,40 @@ export function LoginForm() {
       email: "",
       password: "",
     },
-  });
+  })
 
   const onSubmit = async (values: LoginFormValues) => {
-    setIsSubmitting(true);
-    const formData = new FormData();
-    formData.append("email", values.email);
-    formData.append("password", values.password);
+    setIsSubmitting(true)
+    const formData = new FormData()
+    formData.append("email", values.email)
+    formData.append("password", values.password)
 
     try {
       const response = await fetch("/api/auth/signin", {
         method: "POST",
         body: formData,
-      });
+      })
 
       if (!response.ok) {
-        const result = await response.json();
+        const result = await response.json()
         throw new Error(
           result.error ||
-            "Login failed. Please check your credentials and try again."
-        );
+            "Login failed. Please check your credentials and try again.",
+        )
       }
 
-      toast.success("Login successful! Redirecting...");
-      router.push("/");
+      toast.success("Login successful! Redirecting...")
+      router.push("/")
     } catch (error) {
       const errorMessage =
         error instanceof Error
           ? error.message
-          : "An unexpected login error occurred. Please try again.";
-      toast.error("Login Failed", { description: errorMessage });
+          : "An unexpected login error occurred. Please try again."
+      toast.error("Login Failed", { description: errorMessage })
     } finally {
-      setIsSubmitting(false);
+      setIsSubmitting(false)
     }
-  };
+  }
 
   return (
     <div className="w-full max-w-md p-8 space-y-8 bg-card rounded-lg shadow-md">
@@ -132,5 +132,5 @@ export function LoginForm() {
         </Link>
       </p>
     </div>
-  );
+  )
 }

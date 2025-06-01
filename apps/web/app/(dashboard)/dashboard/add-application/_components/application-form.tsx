@@ -1,26 +1,26 @@
-"use client";
+"use client"
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { toast } from "sonner";
+import { zodResolver } from "@hookform/resolvers/zod"
+import { useRouter } from "next/navigation"
+import { useState } from "react"
+import { useForm } from "react-hook-form"
+import { toast } from "sonner"
 
-import { Button } from "@/components/ui/button";
-import { Form } from "@/components/ui/form";
-import { Separator } from "@/components/ui/separator";
+import { Button } from "@/components/ui/button"
+import { Form } from "@/components/ui/form"
+import { Separator } from "@/components/ui/separator"
 
-import { JobDetailsSection } from "./job-details-section";
-import { AdditionalInfoSection } from "./additional-info-section";
-import { UrlImportSection } from "./url-import-section";
-import { createApplicationAction } from "../_lib/actions/create-application";
-import { applicationFormSchema, type ApplicationFormData } from "../_lib/types";
-import { formatDateToLocalString } from "@/components/ui/date-picker";
+import { formatDateToLocalString } from "@/components/ui/date-picker"
+import { createApplicationAction } from "../_lib/actions/create-application"
+import { applicationFormSchema, type ApplicationFormData } from "../_lib/types"
+import { AdditionalInfoSection } from "./additional-info-section"
+import { JobDetailsSection } from "./job-details-section"
+import { UrlImportSection } from "./url-import-section"
 
 export function ApplicationForm() {
-  const router = useRouter();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isImporting, setIsImporting] = useState(false);
+  const router = useRouter()
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isImporting, setIsImporting] = useState(false)
 
   const form = useForm<ApplicationFormData>({
     resolver: zodResolver(applicationFormSchema),
@@ -34,41 +34,41 @@ export function ApplicationForm() {
       salary: "",
       notes: "",
     },
-  });
+  })
 
   const onSubmit = async (data: ApplicationFormData) => {
-    if (isSubmitting) return;
+    if (isSubmitting) return
 
-    setIsSubmitting(true);
+    setIsSubmitting(true)
     try {
-      const result = await createApplicationAction(data);
+      const result = await createApplicationAction(data)
 
       if (result.error) {
         toast.error("Failed to create application", {
           description: result.error,
-        });
-        return;
+        })
+        return
       }
 
       toast.success("Application created successfully!", {
         description: `Added ${data.jobTitle} at ${data.companyName}`,
-      });
+      })
 
       // Redirect to board or dashboard
-      router.push("/dashboard/board");
+      router.push("/dashboard/board")
     } catch (error) {
       toast.error("Failed to create application", {
         description: "An unexpected error occurred. Please try again.",
-      });
+      })
     } finally {
-      setIsSubmitting(false);
+      setIsSubmitting(false)
     }
-  };
+  }
 
   const handleUrlImport = async (url: string) => {
-    if (isImporting) return;
+    if (isImporting) return
 
-    setIsImporting(true);
+    setIsImporting(true)
     try {
       // Call smart URL scraping endpoint via new worker proxy structure
       const response = await fetch(
@@ -78,26 +78,26 @@ export function ApplicationForm() {
           headers: {
             "Content-Type": "application/json",
           },
-        }
-      );
+        },
+      )
 
       if (!response.ok) {
-        throw new Error("Failed to scrape job URL");
+        throw new Error("Failed to scrape job URL")
       }
 
-      const result = await response.json();
+      const result = await response.json()
 
       if (result.error) {
         toast.error("Failed to import from URL", {
           description: result.error,
-        });
-        return;
+        })
+        return
       }
 
       // Populate form with scraped data
       if (result.data) {
-        const { companyName, jobTitle, location, salary } = result.data;
-        const extractionMethod = result.extractionMethod || "traditional";
+        const { companyName, jobTitle, location, salary } = result.data
+        const extractionMethod = result.extractionMethod || "traditional"
 
         // Count populated fields for better feedback
         const populatedFields = [
@@ -105,52 +105,52 @@ export function ApplicationForm() {
           jobTitle && "Job Title",
           location && "Location",
           salary && "Salary",
-        ].filter(Boolean);
+        ].filter(Boolean)
 
         // Create method-specific success message
-        let methodDescription = "";
+        let methodDescription = ""
         if (extractionMethod === "hybrid") {
-          methodDescription = "✨ Enhanced with AI for better accuracy";
+          methodDescription = "✨ Enhanced with AI for better accuracy"
         } else if (extractionMethod === "ai-enhanced") {
-          methodDescription = "🤖 Powered by AI extraction";
+          methodDescription = "🤖 Powered by AI extraction"
         } else {
-          methodDescription = "🔍 Traditional web scraping";
+          methodDescription = "🔍 Traditional web scraping"
         }
 
         // Show a brief success state with extraction method info
         toast.success(result.message || "Job details imported successfully!", {
           description: `${methodDescription} • ${populatedFields.length} fields found`,
           duration: 2500,
-        });
+        })
 
         // Small delay to show the success message, then populate fields
         setTimeout(() => {
-          if (companyName) form.setValue("companyName", companyName);
-          if (jobTitle) form.setValue("jobTitle", jobTitle);
-          if (location) form.setValue("location", location);
-          if (salary) form.setValue("salary", salary);
-          form.setValue("jobUrl", url);
+          if (companyName) form.setValue("companyName", companyName)
+          if (jobTitle) form.setValue("jobTitle", jobTitle)
+          if (location) form.setValue("location", location)
+          if (salary) form.setValue("salary", salary)
+          form.setValue("jobUrl", url)
 
           // Show final success message with populated fields
           const fieldsText =
             populatedFields.length > 0
               ? `Populated: ${populatedFields.join(", ")}`
-              : "Review and update the information as needed.";
+              : "Review and update the information as needed."
 
           toast.success("Form populated!", {
             description: fieldsText,
             duration: 3000,
-          });
-        }, 300);
+          })
+        }, 300)
       }
     } catch (error) {
       toast.error("Failed to import from URL", {
         description: "Please enter the details manually.",
-      });
+      })
     } finally {
-      setIsImporting(false);
+      setIsImporting(false)
     }
-  };
+  }
 
   return (
     <div className="relative">
@@ -207,5 +207,5 @@ export function ApplicationForm() {
         </form>
       </Form>
     </div>
-  );
+  )
 }

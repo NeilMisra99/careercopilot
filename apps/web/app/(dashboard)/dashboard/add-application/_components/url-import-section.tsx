@@ -1,47 +1,47 @@
-"use client";
+"use client"
 
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, Link, Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Loader2, Sparkles } from "lucide-react"
+import { useState } from "react"
 
 interface UrlImportSectionProps {
-  onImport: (url: string) => void;
-  isImporting: boolean;
+  onImport: (url: string) => void
+  isImporting: boolean
 }
 
 export function UrlImportSection({
   onImport,
   isImporting,
 }: UrlImportSectionProps) {
-  const [url, setUrl] = useState("");
-  const [isValidUrl, setIsValidUrl] = useState(false);
+  const [url, setUrl] = useState("")
+  const [isValidUrl, setIsValidUrl] = useState(false)
 
   const handleUrlChange = (value: string) => {
-    setUrl(value);
+    setUrl(value)
 
     // Basic URL validation
     try {
-      new URL(value);
-      setIsValidUrl(true);
+      new URL(value)
+      setIsValidUrl(true)
     } catch {
-      setIsValidUrl(false);
+      setIsValidUrl(false)
     }
-  };
+  }
 
   const handleImport = () => {
     if (isValidUrl && !isImporting) {
-      onImport(url);
+      onImport(url)
     }
-  };
+  }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && isValidUrl && !isImporting) {
-      handleImport();
+      handleImport()
     }
-  };
+  }
 
   const supportedSites = [
     "LinkedIn Jobs",
@@ -50,7 +50,7 @@ export function UrlImportSection({
     "AngelList",
     "Remote.co",
     "Company career pages",
-  ];
+  ]
 
   return (
     <Card className="border-dashed relative">
@@ -145,5 +145,5 @@ export function UrlImportSection({
         </div>
       </CardContent>
     </Card>
-  );
+  )
 }

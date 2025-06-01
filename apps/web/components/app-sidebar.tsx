@@ -1,38 +1,38 @@
-"use client";
+"use client"
 
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarHeader,
   SidebarMenu,
-  SidebarMenuItem,
   SidebarMenuButton,
-  SidebarFooter,
-} from "@/components/ui/sidebar";
+  SidebarMenuItem,
+} from "@/components/ui/sidebar"
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Home, Kanban } from "lucide-react";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Home, Kanban } from "lucide-react"
 
 interface User {
-  id: string;
-  email?: string;
+  id: string
+  email?: string
 }
 
 interface AppSidebarProps {
-  user: User;
+  user: User
 }
 
 export function AppSidebar({ user }: AppSidebarProps) {
   const getInitials = (email?: string) => {
-    if (!email) return "U";
+    if (!email) return "U"
     return email
       .split("@")[0]
       .split(".")
       .map((part) => part[0])
       .join("")
       .toUpperCase()
-      .slice(0, 2);
-  };
+      .slice(0, 2)
+  }
 
   return (
     <Sidebar>
@@ -92,5 +92,5 @@ export function AppSidebar({ user }: AppSidebarProps) {
         </SidebarMenu>
       </SidebarFooter>
     </Sidebar>
-  );
+  )
 }

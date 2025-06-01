@@ -1,36 +1,36 @@
-"use client";
+"use client"
 
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { LogOut, Settings } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { LogOut, Settings } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { toast } from "sonner"
 
 export default function SettingsPage() {
-  const router = useRouter();
+  const router = useRouter()
 
   const handleSignOut = async () => {
     try {
       const response = await fetch("/api/auth/signout", {
         method: "POST",
-      });
+      })
 
-      const data = await response.json();
+      const data = await response.json()
 
       if (data.success) {
-        toast.success("Signed out successfully");
-        router.push("/");
+        toast.success("Signed out successfully")
+        router.push("/")
       } else {
         toast.error("Failed to sign out", {
           description: data.message,
-        });
+        })
       }
     } catch (error) {
       toast.error("Network error", {
         description: "Failed to sign out. Please try again.",
-      });
+      })
     }
-  };
+  }
 
   return (
     <div className="h-full bg-stone-50 dark:bg-stone-900">
@@ -97,5 +97,5 @@ export default function SettingsPage() {
         </div>
       </div>
     </div>
-  );
+  )
 }

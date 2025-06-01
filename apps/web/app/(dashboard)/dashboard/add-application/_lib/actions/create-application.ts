@@ -1,42 +1,42 @@
-"use server";
+"use server"
 
-import { redirect } from "next/navigation";
-import { ApplicationFormData } from "../types";
-import { getWorkerUrl } from "@/lib/worker-utils";
-import { cookies } from "next/headers";
-import { revalidateTag, revalidatePath } from "next/cache";
-import { CACHE_TAGS } from "@/lib/cache";
+import { CACHE_TAGS } from "@/lib/cache"
+import { getWorkerUrl } from "@/lib/worker-utils"
+import { revalidatePath, revalidateTag } from "next/cache"
+import { cookies } from "next/headers"
+import { redirect } from "next/navigation"
+import { ApplicationFormData } from "../types"
 
 interface CreateApplicationResult {
-  success?: boolean;
-  error?: string;
+  success?: boolean
+  error?: string
   data?: {
-    id: string;
-    company_name: string;
-    role: string;
-    status: string;
-    application_date: string;
-    applied_at: string;
-    job_url?: string | null;
-    location?: string | null;
-    salary_range?: string | null;
-    notes?: string | null;
-  };
+    id: string
+    company_name: string
+    role: string
+    status: string
+    application_date: string
+    applied_at: string
+    job_url?: string | null
+    location?: string | null
+    salary_range?: string | null
+    notes?: string | null
+  }
 }
 
 export async function createApplicationAction(
-  formData: ApplicationFormData
+  formData: ApplicationFormData,
 ): Promise<CreateApplicationResult> {
   try {
-    const workerUrl = getWorkerUrl();
+    const workerUrl = getWorkerUrl()
     if (!workerUrl) {
       return {
         success: false,
         error: "Worker URL not configured",
-      };
+      }
     }
 
-    const cookieStore = await cookies();
+    const cookieStore = await cookies()
     const response = await fetch(`${workerUrl}/api/applications`, {
       method: "POST",
       headers: {
@@ -53,42 +53,42 @@ export async function createApplicationAction(
         salary: formData.salary,
         notes: formData.notes,
       }),
-    });
+    })
 
     if (!response.ok) {
-      const errorText = await response.text();
+      const errorText = await response.text()
       return {
         success: false,
         error: `Failed to create application: ${response.status}`,
-      };
+      }
     }
 
-    const result = await response.json();
+    const result = await response.json()
 
     if (!result.success) {
       return {
         success: false,
         error: result.error || "Unknown error from worker",
-      };
+      }
     }
 
     if (result.success && result.data) {
       // Revalidate relevant data and redirect
-      revalidateTag(CACHE_TAGS.APPLICATIONS_DATA);
-      revalidateTag(CACHE_TAGS.DASHBOARD_DATA);
-      revalidatePath("/dashboard");
-      revalidatePath("/dashboard/board");
+      revalidateTag(CACHE_TAGS.APPLICATIONS_DATA)
+      revalidateTag(CACHE_TAGS.DASHBOARD_DATA)
+      revalidatePath("/dashboard")
+      revalidatePath("/dashboard/board")
 
-      redirect("/dashboard/board");
+      redirect("/dashboard/board")
     } else {
       return {
         error: result.error || "Failed to create application",
-      };
+      }
     }
   } catch (error: any) {
     return {
       success: false,
       error: "Unexpected error occurred",
-    };
+    }
   }
 }

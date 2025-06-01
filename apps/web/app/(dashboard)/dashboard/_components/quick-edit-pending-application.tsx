@@ -1,33 +1,33 @@
-"use client";
+"use client"
 
-import React, { useState } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
+import { Button } from "@/components/ui/button"
+import {
+  DatePicker,
+  formatDateToLocalString,
+  parseDateFromLocalString,
+} from "@/components/ui/date-picker"
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  DatePicker,
-  parseDateFromLocalString,
-  formatDateToLocalString,
-} from "@/components/ui/date-picker";
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { toast } from "sonner";
-import { PencilIcon } from "lucide-react";
+} from "@/components/ui/select"
+import { Textarea } from "@/components/ui/textarea"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { PencilIcon } from "lucide-react"
+import { useState } from "react"
+import { useForm } from "react-hook-form"
+import { toast } from "sonner"
+import { z } from "zod"
 
 const quickEditSchema = z.object({
   companyName: z.string().min(1, "Company name is required"),
@@ -47,39 +47,39 @@ const quickEditSchema = z.object({
   location: z.string().optional(),
   salary: z.string().optional(),
   notes: z.string().optional(),
-});
+})
 
-type QuickEditFormData = z.infer<typeof quickEditSchema>;
+type QuickEditFormData = z.infer<typeof quickEditSchema>
 
 interface PendingApplication {
-  id: string;
-  company_name: string;
-  role: string;
-  status: string;
-  applied_at: string;
-  ai_suggested: boolean;
-  ai_confidence: number;
-  ai_reasoning: string;
-  needs_user_review: boolean;
-  source_email_id?: string;
-  source_thread_id?: string;
-  job_url?: string;
-  location?: string;
-  salary_range?: string;
-  notes?: string;
+  id: string
+  company_name: string
+  role: string
+  status: string
+  applied_at: string
+  ai_suggested: boolean
+  ai_confidence: number
+  ai_reasoning: string
+  needs_user_review: boolean
+  source_email_id?: string
+  source_thread_id?: string
+  job_url?: string
+  location?: string
+  salary_range?: string
+  notes?: string
 }
 
 interface QuickEditPendingApplicationProps {
-  application: PendingApplication;
-  onApplicationUpdated?: () => void;
+  application: PendingApplication
+  onApplicationUpdated?: () => void
 }
 
 export function QuickEditPendingApplication({
   application,
   onApplicationUpdated,
 }: QuickEditPendingApplicationProps) {
-  const [open, setOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [open, setOpen] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const form = useForm<QuickEditFormData>({
     resolver: zodResolver(quickEditSchema),
@@ -95,10 +95,10 @@ export function QuickEditPendingApplication({
       salary: application.salary_range || "",
       notes: application.notes || "",
     },
-  });
+  })
 
   const onSubmit = async (data: QuickEditFormData) => {
-    setIsSubmitting(true);
+    setIsSubmitting(true)
     try {
       const response = await fetch(
         `/api/worker_proxy/applications/${application.id}`,
@@ -117,24 +117,24 @@ export function QuickEditPendingApplication({
             salary: data.salary || null,
             notes: data.notes || null,
           }),
-        }
-      );
+        },
+      )
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to update application");
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to update application")
       }
 
-      toast.success("Application updated successfully");
-      setOpen(false);
-      onApplicationUpdated?.();
+      toast.success("Application updated successfully")
+      setOpen(false)
+      onApplicationUpdated?.()
     } catch (error: any) {
-      console.error("Error updating application:", error);
-      toast.error(error.message || "Failed to update application");
+      console.error("Error updating application:", error)
+      toast.error(error.message || "Failed to update application")
     } finally {
-      setIsSubmitting(false);
+      setIsSubmitting(false)
     }
-  };
+  }
 
   return (
     <>
@@ -195,7 +195,7 @@ export function QuickEditPendingApplication({
                   onValueChange={(value) =>
                     form.setValue(
                       "status",
-                      value as QuickEditFormData["status"]
+                      value as QuickEditFormData["status"],
                     )
                   }
                 >
@@ -229,8 +229,8 @@ export function QuickEditPendingApplication({
                   onDateChange={(date) => {
                     form.setValue(
                       "applicationDate",
-                      date ? formatDateToLocalString(date) : ""
-                    );
+                      date ? formatDateToLocalString(date) : "",
+                    )
                   }}
                   placeholder="Select application date"
                 />
@@ -308,5 +308,5 @@ export function QuickEditPendingApplication({
         </DialogContent>
       </Dialog>
     </>
-  );
+  )
 }

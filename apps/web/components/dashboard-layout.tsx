@@ -1,40 +1,40 @@
-"use client";
+"use client"
 
-import React, { useState } from "react";
+import { ThemeToggle } from "@/components/theme-toggle"
 import {
   Sidebar,
   SidebarBody,
   SidebarLink,
-} from "@/components/ui/animated-sidebar";
-import { Home, Kanban, Settings } from "lucide-react";
-import Link from "next/link";
-import { motion } from "framer-motion";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { ThemeToggle } from "@/components/theme-toggle";
+} from "@/components/ui/animated-sidebar"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { motion } from "framer-motion"
+import { Home, Kanban, Settings } from "lucide-react"
+import Link from "next/link"
+import React, { useState } from "react"
 
 interface User {
-  id: string;
-  email?: string;
+  id: string
+  email?: string
 }
 
 interface DashboardLayoutProps {
-  children: React.ReactNode;
-  user: User;
+  children: React.ReactNode
+  user: User
 }
 
 export function DashboardLayout({ children, user }: DashboardLayoutProps) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(false)
 
   const getInitials = (email?: string) => {
-    if (!email) return "U";
+    if (!email) return "U"
     return email
       .split("@")[0]
       .split(".")
       .map((part) => part[0])
       .join("")
       .toUpperCase()
-      .slice(0, 2);
-  };
+      .slice(0, 2)
+  }
 
   const links = [
     {
@@ -54,7 +54,7 @@ export function DashboardLayout({ children, user }: DashboardLayoutProps) {
         <Settings className="text-muted-foreground h-6 w-6 flex-shrink-0" />
       ),
     },
-  ];
+  ]
 
   return (
     <div className="h-screen grid grid-cols-[auto_1fr] bg-background">
@@ -104,7 +104,7 @@ export function DashboardLayout({ children, user }: DashboardLayoutProps) {
         <main className="flex-1 min-h-0 overflow-hidden">{children}</main>
       </div>
     </div>
-  );
+  )
 }
 
 export const Logo = () => {
@@ -124,8 +124,8 @@ export const Logo = () => {
         TrackFlow
       </motion.span>
     </Link>
-  );
-};
+  )
+}
 
 export const LogoIcon = () => {
   return (
@@ -137,5 +137,5 @@ export const LogoIcon = () => {
         <span className="text-white font-bold text-sm">T</span>
       </div>
     </Link>
-  );
-};
+  )
+}
