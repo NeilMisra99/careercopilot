@@ -1,15 +1,34 @@
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import postgres from 'postgres';
-
-// Global connection cache to prevent recreating connections
-const connectionCache = new Map<string, postgres.Sql>();
+import { SupabaseClient, createClient } from '@supabase/supabase-js';
 
 // Function to get a Supabase client, configured for server-side/admin tasks
 export function getSupabaseClient(supabaseUrl: string, serviceRoleKey: string): SupabaseClient {
+	if (!supabaseUrl || !serviceRoleKey) {
+		throw new Error('Supabase URL or Service Role Key is missing for creating admin client.');
+	}
+	// console.log("Creating Supabase admin client for worker");
 	return createClient(supabaseUrl, serviceRoleKey, {
 		auth: {
-			autoRefreshToken: false,
 			persistSession: false,
+			autoRefreshToken: false,
+		},
+		global: {
+			headers: { 'X-Client-Info': 'trackflow-worker/1.0.0' }, // Identify the client
+			// Custom fetch with timeout for Supabase client requests
+			fetch: async (url, options = {}) => {
+				const controller = new AbortController();
+				const timeoutId = setTimeout(() => controller.abort(), 3000); // 3-second timeout
+
+				const fetchPromise = fetch(url, {
+					...options,
+					signal: controller.signal,
+					cf: { cacheTtl: 0, cacheEverything: false }, // Ensure no caching for API calls via client
+				});
+
+				return fetchPromise.finally(() => {
+					clearTimeout(timeoutId);
+				});
+			},
 		},
 	});
 }
@@ -21,8 +40,6 @@ export function getHyperdriveNonPooled(connectionString: string): postgres.Sql {
 	}
 
 	const options: postgres.Options<Record<string, postgres.PostgresType>> = {
-		max: 5, // Cloudflare Workers limit on concurrent external connections
-		fetch_types: false, // Avoid additional round-trip if not using array types
 		connect_timeout: 5, // 5 seconds, as per recommendation
 		idle_timeout: 15, // 15 seconds (converted from 15_000 ms in recommendation)
 		max_lifetime: 10 * 60, // 10 minutes (converted from 10 * 60_000 ms)
@@ -42,10 +59,6 @@ export function getHyperdriveNonPooled(connectionString: string): postgres.Sql {
 		// By not setting options.ssl, postgres.js will attempt a plain connection if the server doesn't force SSL.
 	}
 
-	console.log('Creating non-pooled Hyperdrive connection with Cloudflare-recommended options:', {
-		max: options.max,
-		fetch_types: options.fetch_types,
-		connect_timeout: options.connect_timeout,
-	});
+	// console.log("Creating non-pooled Hyperdrive connection for worker with options:", options);
 	return postgres(connectionString, options);
 }
