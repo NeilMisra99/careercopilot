@@ -4,8 +4,8 @@ import { getKeyMaterial } from '../../crypto';
 import {
 	getValidGmailAccessToken,
 	generateOAuthState,
-	setOAuthStateCookie,
-	validateOAuthState,
+	setOAuthStateKV,
+	validateOAuthStateKV,
 	createAuthorizationUrl,
 	exchangeOAuthCode,
 	fetchGoogleUserInfo,
@@ -32,8 +32,8 @@ export async function initiateGmailOAuth(c: Context<Env>) {
 	const state = generateOAuthState();
 	console.log(`[OAuth Init] Generated state: ${state}`);
 
-	setOAuthStateCookie(c, state);
-	console.log(`[OAuth Init] Cookie set, response headers:`, Object.fromEntries(c.res.headers.entries()));
+	await setOAuthStateKV(c, state);
+	console.log(`[OAuth Init] State stored in KV`);
 
 	const authUrl = createAuthorizationUrl(clientId, redirectUri, state);
 	console.log(`[OAuth Init] Authorization URL: ${authUrl}`);
@@ -60,7 +60,7 @@ export async function handleGmailOAuthCallback(c: Context<Env>) {
 		return c.redirect(`${appBaseUrl}/auth/onboarding/connect-email?error=missing_code`, 302);
 	}
 
-	if (!validateOAuthState(c, receivedState || '')) {
+	if (!(await validateOAuthStateKV(c, receivedState || ''))) {
 		console.error('Invalid OAuth state. Potential CSRF attack.');
 		return c.redirect(`${appBaseUrl}/auth/onboarding/connect-email?error=invalid_state`, 302);
 	}

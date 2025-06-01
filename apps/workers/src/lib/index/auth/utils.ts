@@ -120,7 +120,75 @@ export function generateOAuthState(): string {
 }
 
 /**
- * Set OAuth state cookie
+ * Set OAuth state using KV storage instead of cookies
+ */
+export async function setOAuthStateKV(c: Context<Env>, state: string): Promise<void> {
+	const isLocalhost = c.req.url.startsWith('http://localhost') || c.req.url.includes('127.0.0.1');
+
+	console.log(`[OAuth] Setting OAuth state in KV: ${state.substring(0, 8)}... (localhost: ${isLocalhost})`);
+
+	// Store in KV with 10 minute expiration
+	const kv = c.env.TOKEN_KV;
+	if (kv) {
+		await kv.put(
+			`oauth_state:${state}`,
+			JSON.stringify({
+				timestamp: Date.now(),
+				state: state,
+			}),
+			{ expirationTtl: 600 },
+		); // 10 minutes
+		console.log(`[OAuth] State stored in KV successfully`);
+	} else {
+		console.error(`[OAuth] TOKEN_KV not available, falling back to cookie`);
+		// Fallback to cookie for development/testing
+		setOAuthStateCookie(c, state);
+	}
+}
+
+/**
+ * Validate OAuth state from KV storage
+ */
+export async function validateOAuthStateKV(c: Context<Env>, receivedState: string): Promise<boolean> {
+	const isLocalhost = c.req.url.startsWith('http://localhost') || c.req.url.includes('127.0.0.1');
+
+	console.log(`[OAuth] Validating OAuth state from KV:`);
+	console.log(`[OAuth] Received state: ${receivedState ? receivedState.substring(0, 8) + '...' : 'null'}`);
+	console.log(`[OAuth] Environment: ${isLocalhost ? 'localhost' : 'production'}`);
+
+	if (!receivedState) {
+		console.log(`[OAuth] No state received`);
+		return false;
+	}
+
+	const kv = c.env.TOKEN_KV;
+	if (kv) {
+		try {
+			const storedData = await kv.get(`oauth_state:${receivedState}`);
+			console.log(`[OAuth] KV lookup result: ${storedData ? 'found' : 'not found'}`);
+
+			if (storedData) {
+				// Clean up the used state
+				await kv.delete(`oauth_state:${receivedState}`);
+				console.log(`[OAuth] State validated successfully and cleaned up`);
+				return true;
+			} else {
+				console.log(`[OAuth] State not found in KV - may have expired or been used`);
+				return false;
+			}
+		} catch (error) {
+			console.error(`[OAuth] Error validating state from KV:`, error);
+			return false;
+		}
+	} else {
+		console.log(`[OAuth] TOKEN_KV not available, falling back to cookie validation`);
+		// Fallback to cookie validation
+		return validateOAuthState(c, receivedState);
+	}
+}
+
+/**
+ * Set OAuth state cookie (original implementation for fallback)
  */
 export function setOAuthStateCookie(c: Context<Env>, state: string): void {
 	const cookieMaxAge = 10 * 60; // 10 minutes in seconds
@@ -153,49 +221,6 @@ export function setOAuthStateCookie(c: Context<Env>, state: string): void {
 		});
 		console.log(`[OAuth] Set backup cookie for debugging`);
 	}
-}
-
-/**
- * Validate OAuth state and clean up cookie
- */
-export function validateOAuthState(c: Context<Env>, receivedState: string): boolean {
-	const storedState = getCookie(c, 'oauth_state_csrf');
-	const backupState = getCookie(c, 'oauth_state_backup');
-	const isLocalhost = c.req.url.startsWith('http://localhost') || c.req.url.includes('127.0.0.1');
-
-	console.log(`[OAuth] Validating OAuth state:`);
-	console.log(`[OAuth] Received state: ${receivedState ? receivedState.substring(0, 8) + '...' : 'null'}`);
-	console.log(`[OAuth] Stored state: ${storedState ? storedState.substring(0, 8) + '...' : 'null'}`);
-	console.log(`[OAuth] Backup state: ${backupState ? backupState.substring(0, 8) + '...' : 'null'}`);
-	console.log(`[OAuth] Environment: ${isLocalhost ? 'localhost' : 'production'}`);
-	console.log(`[OAuth] All request cookies: ${c.req.raw.headers.get('cookie') || 'none'}`);
-
-	// Clean up cookies
-	deleteCookie(c, 'oauth_state_csrf', {
-		path: '/',
-		secure: !isLocalhost,
-		httpOnly: true,
-		sameSite: isLocalhost ? ('Lax' as const) : ('None' as const),
-	});
-
-	if (!isLocalhost) {
-		deleteCookie(c, 'oauth_state_backup', {
-			path: '/',
-			secure: true,
-			httpOnly: false,
-		});
-	}
-
-	// Try both primary and backup state validation
-	const primaryValid = !!(receivedState && storedState && receivedState === storedState);
-	const backupValid = !!(receivedState && backupState && receivedState === backupState);
-	const isValid = primaryValid || backupValid;
-
-	console.log(`[OAuth] Primary validation result: ${primaryValid}`);
-	console.log(`[OAuth] Backup validation result: ${backupValid}`);
-	console.log(`[OAuth] Final validation result: ${isValid}`);
-
-	return isValid;
 }
 
 /**
@@ -256,4 +281,47 @@ export async function fetchGoogleUserInfo(accessToken: string): Promise<GoogleUs
 	});
 
 	return await userInfoResponse.json<GoogleUserInfoResponse>();
+}
+
+/**
+ * Validate OAuth state and clean up cookie (original implementation for fallback)
+ */
+export function validateOAuthState(c: Context<Env>, receivedState: string): boolean {
+	const storedState = getCookie(c, 'oauth_state_csrf');
+	const backupState = getCookie(c, 'oauth_state_backup');
+	const isLocalhost = c.req.url.startsWith('http://localhost') || c.req.url.includes('127.0.0.1');
+
+	console.log(`[OAuth] Validating OAuth state from cookies:`);
+	console.log(`[OAuth] Received state: ${receivedState ? receivedState.substring(0, 8) + '...' : 'null'}`);
+	console.log(`[OAuth] Stored state: ${storedState ? storedState.substring(0, 8) + '...' : 'null'}`);
+	console.log(`[OAuth] Backup state: ${backupState ? backupState.substring(0, 8) + '...' : 'null'}`);
+	console.log(`[OAuth] Environment: ${isLocalhost ? 'localhost' : 'production'}`);
+	console.log(`[OAuth] All request cookies: ${c.req.raw.headers.get('cookie') || 'none'}`);
+
+	// Clean up cookies
+	deleteCookie(c, 'oauth_state_csrf', {
+		path: '/',
+		secure: !isLocalhost,
+		httpOnly: true,
+		sameSite: isLocalhost ? ('Lax' as const) : ('None' as const),
+	});
+
+	if (!isLocalhost) {
+		deleteCookie(c, 'oauth_state_backup', {
+			path: '/',
+			secure: true,
+			httpOnly: false,
+		});
+	}
+
+	// Try both primary and backup state validation
+	const primaryValid = !!(receivedState && storedState && receivedState === storedState);
+	const backupValid = !!(receivedState && backupState && receivedState === backupState);
+	const isValid = primaryValid || backupValid;
+
+	console.log(`[OAuth] Primary validation result: ${primaryValid}`);
+	console.log(`[OAuth] Backup validation result: ${backupValid}`);
+	console.log(`[OAuth] Final validation result: ${isValid}`);
+
+	return isValid;
 }
