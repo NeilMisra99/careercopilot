@@ -100,6 +100,6 @@ export interface AIProcessingResult {
 // === Constants ===
 export const GMAIL_API_BASE_URL = 'https://www.googleapis.com/gmail/v1/users';
 export const MAX_RESULTS_PER_PAGE = 100;
-export const INITIAL_FETCH_MAX_MESSAGES = 100;
+export const INITIAL_FETCH_MAX_MESSAGES = 500;
 export const INITIAL_FETCH_MAX_DAYS = 30;
 export const SYNC_INTERVAL_MINUTES = 4;
