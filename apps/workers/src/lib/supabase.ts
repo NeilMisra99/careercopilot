@@ -1,5 +1,8 @@
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import postgres from 'postgres';
-import { SupabaseClient, createClient } from '@supabase/supabase-js';
+
+// Global connection cache to prevent recreating connections
+const connectionCache = new Map<string, postgres.Sql>();
 
 // Function to get a Supabase client, configured for server-side/admin tasks
 export function getSupabaseClient(supabaseUrl: string, serviceRoleKey: string): SupabaseClient {
@@ -33,19 +36,31 @@ export function getSupabaseClient(supabaseUrl: string, serviceRoleKey: string): 
 	});
 }
 
-// Function to get a direct Hyperdrive connection (non-pooled for typical cron usage)
+// Function to get a cached or new Hyperdrive connection
 export function getHyperdriveNonPooled(connectionString: string): postgres.Sql {
 	if (!connectionString) {
 		throw new Error('Hyperdrive connection string is undefined or empty.');
 	}
 
+	// Use connection string as cache key
+	const cacheKey = connectionString;
+
+	// Return cached connection if it exists and is still alive
+	if (connectionCache.has(cacheKey)) {
+		const cachedConnection = connectionCache.get(cacheKey)!;
+		console.log('[DB] Reusing cached Hyperdrive connection');
+		return cachedConnection;
+	}
+
+	console.log('[DB] Creating new Hyperdrive connection');
+
 	const options: postgres.Options<Record<string, postgres.PostgresType>> = {
-		max: 3, // Lower for transaction pooler to avoid overwhelming it
+		max: 1, // Reduce to 1 for singleton pattern
 		fetch_types: false, // Avoid additional round-trip if not using array types
-		prepare: false, // Disable prepared statements for transaction pooler
-		connect_timeout: 10, // Slightly longer for pooler connection establishment
-		idle_timeout: 20, // Shorter idle timeout for transaction pooler
-		max_lifetime: 5 * 60, // Shorter lifetime for transaction pooler (5 minutes)
+		prepare: false, // Critical: Disable prepared statements for transaction pooler
+		connect_timeout: 15, // Increase timeout for more reliability
+		idle_timeout: 30, // Keep connections alive longer
+		max_lifetime: 10 * 60, // 10 minutes lifetime
 		// SSL options will be set conditionally below
 	};
 
@@ -58,8 +73,6 @@ export function getHyperdriveNonPooled(connectionString: string): postgres.Sql {
 		console.log(
 			"[getHyperdriveNonPooled] Local connection string detected. SSL 'require' NOT enforced by client options (will connect plain if server allows).",
 		);
-		// For local PostgreSQL (often via Hyperdrive proxy in dev), SSL is typically not enabled by default on the PG server.
-		// By not setting options.ssl, postgres.js will attempt a plain connection if the server doesn't force SSL.
 	}
 
 	console.log('Creating Hyperdrive connection optimized for Supabase Transaction Pooler:', {
@@ -78,6 +91,8 @@ export function getHyperdriveNonPooled(connectionString: string): postgres.Sql {
 
 	sql.listen('disconnect', () => {
 		console.log('[DB] Disconnected from Hyperdrive');
+		// Remove from cache when disconnected
+		connectionCache.delete(cacheKey);
 	});
 
 	sql.listen('error', (error: any) => {
@@ -86,7 +101,12 @@ export function getHyperdriveNonPooled(connectionString: string): postgres.Sql {
 			code: error?.code,
 			timeout: error?.message?.includes('timeout') || error?.code === 'CONNECT_TIMEOUT',
 		});
+		// Remove from cache on error
+		connectionCache.delete(cacheKey);
 	});
+
+	// Cache the connection
+	connectionCache.set(cacheKey, sql);
 
 	return sql;
 }

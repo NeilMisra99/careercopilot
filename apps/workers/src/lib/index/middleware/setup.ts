@@ -7,6 +7,7 @@ import { KvTokenRepository } from '../../kv-token-repository';
 import { SupabaseTokenRepository } from '../../supabase-token-repository';
 import type { Env } from '../types';
 import type { TokenRepository } from '../../token-repository';
+import { getHyperdriveNonPooled } from '../../supabase';
 
 /**
  * Setup CORS middleware
@@ -49,31 +50,10 @@ export function setupSupabaseAuth() {
 export function setupHyperdrive() {
 	return async (c: Context, next: Next) => {
 		if (c.env.HYPERDRIVE_SUPABASE) {
-			// Get the Hyperdrive connection string (postgres://....)
-			const connectionString = c.env.HYPERDRIVE_SUPABASE.connectionString;
-
-			const options: postgres.Options<Record<string, postgres.PostgresType>> = {
-				max: 3, // Lower for transaction pooler
-				fetch_types: false,
-				prepare: false, // Disable prepared statements for transaction pooler
-				connect_timeout: 10, // Longer timeout for pooler
-				idle_timeout: 20, // Reasonable for short-lived Workers
-				max_lifetime: 5 * 60, // 5 minutes for transaction pooler
-			};
-
-			// Don't enforce SSL on localhost/127.0.0.1 (local dev)
-			if (!connectionString.includes('127.0.0.1') && !connectionString.includes('localhost')) {
-				options.ssl = 'require';
-			}
-
-			console.log('Setting up Hyperdrive for Supabase Transaction Pooler:', {
-				max: options.max,
-				prepare: options.prepare,
-				connect_timeout: options.connect_timeout,
-			});
-
-			const db = postgres(connectionString, options);
+			// Use the singleton connection from our utility function
+			const db = getHyperdriveNonPooled(c.env.HYPERDRIVE_SUPABASE.connectionString);
 			c.set('db', db);
+			console.log('[DB] Hyperdrive middleware setup completed');
 		} else {
 			console.warn('HYPERDRIVE_SUPABASE binding not available');
 		}
