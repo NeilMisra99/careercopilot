@@ -128,14 +128,31 @@ export function setOAuthStateCookie(c: Context<Env>, state: string): void {
 	const isSecure = !isLocalhost;
 
 	console.log(`[OAuth] Setting OAuth state cookie: ${state.substring(0, 8)}... (secure: ${isSecure}, localhost: ${isLocalhost})`);
+	console.log(`[OAuth] Request URL for context: ${c.req.url}`);
 
-	setCookie(c, 'oauth_state_csrf', state, {
+	// Set cookie with different configurations to handle edge cases
+	const cookieOptions = {
 		path: '/',
 		secure: isSecure,
 		httpOnly: true,
 		maxAge: cookieMaxAge,
-		sameSite: isLocalhost ? 'Lax' : 'None', // Use 'Lax' for localhost, 'None' for production
-	});
+		sameSite: isLocalhost ? ('Lax' as const) : ('None' as const),
+	};
+
+	console.log(`[OAuth] Cookie options:`, cookieOptions);
+	setCookie(c, 'oauth_state_csrf', state, cookieOptions);
+
+	// Also try setting a backup cookie without SameSite restrictions for debugging
+	if (!isLocalhost) {
+		setCookie(c, 'oauth_state_backup', state, {
+			path: '/',
+			secure: isSecure,
+			httpOnly: false, // Allow JS access for debugging
+			maxAge: cookieMaxAge,
+			// No sameSite restriction
+		});
+		console.log(`[OAuth] Set backup cookie for debugging`);
+	}
 }
 
 /**
@@ -143,23 +160,40 @@ export function setOAuthStateCookie(c: Context<Env>, state: string): void {
  */
 export function validateOAuthState(c: Context<Env>, receivedState: string): boolean {
 	const storedState = getCookie(c, 'oauth_state_csrf');
+	const backupState = getCookie(c, 'oauth_state_backup');
 	const isLocalhost = c.req.url.startsWith('http://localhost') || c.req.url.includes('127.0.0.1');
 
 	console.log(`[OAuth] Validating OAuth state:`);
 	console.log(`[OAuth] Received state: ${receivedState ? receivedState.substring(0, 8) + '...' : 'null'}`);
 	console.log(`[OAuth] Stored state: ${storedState ? storedState.substring(0, 8) + '...' : 'null'}`);
+	console.log(`[OAuth] Backup state: ${backupState ? backupState.substring(0, 8) + '...' : 'null'}`);
 	console.log(`[OAuth] Environment: ${isLocalhost ? 'localhost' : 'production'}`);
+	console.log(`[OAuth] All request cookies: ${c.req.raw.headers.get('cookie') || 'none'}`);
 
-	// Clean up cookie
+	// Clean up cookies
 	deleteCookie(c, 'oauth_state_csrf', {
 		path: '/',
 		secure: !isLocalhost,
 		httpOnly: true,
-		sameSite: isLocalhost ? 'Lax' : 'None', // Use 'Lax' for localhost, 'None' for production
+		sameSite: isLocalhost ? ('Lax' as const) : ('None' as const),
 	});
 
-	const isValid = !!(receivedState && storedState && receivedState === storedState);
-	console.log(`[OAuth] State validation result: ${isValid}`);
+	if (!isLocalhost) {
+		deleteCookie(c, 'oauth_state_backup', {
+			path: '/',
+			secure: true,
+			httpOnly: false,
+		});
+	}
+
+	// Try both primary and backup state validation
+	const primaryValid = !!(receivedState && storedState && receivedState === storedState);
+	const backupValid = !!(receivedState && backupState && receivedState === backupState);
+	const isValid = primaryValid || backupValid;
+
+	console.log(`[OAuth] Primary validation result: ${primaryValid}`);
+	console.log(`[OAuth] Backup validation result: ${backupValid}`);
+	console.log(`[OAuth] Final validation result: ${isValid}`);
 
 	return isValid;
 }

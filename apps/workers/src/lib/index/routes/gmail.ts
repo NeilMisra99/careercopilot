@@ -20,15 +20,24 @@ export async function initiateGmailOAuth(c: Context<Env>) {
 	const clientId = c.env.GOOGLE_CLIENT_ID;
 	const redirectUri = c.env.WORKER_GOOGLE_REDIRECT_URI;
 
+	console.log(`[OAuth Init] Starting OAuth initiation`);
+	console.log(`[OAuth Init] Client ID: ${clientId ? 'present' : 'missing'}`);
+	console.log(`[OAuth Init] Redirect URI: ${redirectUri}`);
+
 	if (!clientId || !redirectUri) {
 		console.error('Google OAuth environment variables for worker are not set.');
 		return c.json({ message: 'OAuth configuration error on server.' }, 500);
 	}
 
 	const state = generateOAuthState();
+	console.log(`[OAuth Init] Generated state: ${state}`);
+
 	setOAuthStateCookie(c, state);
+	console.log(`[OAuth Init] Cookie set, response headers:`, Object.fromEntries(c.res.headers.entries()));
 
 	const authUrl = createAuthorizationUrl(clientId, redirectUri, state);
+	console.log(`[OAuth Init] Authorization URL: ${authUrl}`);
+
 	return c.json({ authorizeUrl: authUrl });
 }
 
@@ -40,7 +49,14 @@ export async function handleGmailOAuthCallback(c: Context<Env>) {
 	const receivedState = c.req.query('state');
 	const appBaseUrl = c.env.APP_BASE_URL || 'http://localhost:3000';
 
+	// Debug logging for OAuth callback
+	console.log(`[OAuth Callback] Starting OAuth callback process`);
+	console.log(`[OAuth Callback] Request URL: ${c.req.url}`);
+	console.log(`[OAuth Callback] Headers:`, Object.fromEntries(c.req.raw.headers.entries()));
+	console.log(`[OAuth Callback] All cookies:`, c.req.raw.headers.get('cookie') || 'No cookies found');
+
 	if (!code) {
+		console.error('[OAuth Callback] Missing authorization code');
 		return c.redirect(`${appBaseUrl}/auth/onboarding/connect-email?error=missing_code`, 302);
 	}
 
