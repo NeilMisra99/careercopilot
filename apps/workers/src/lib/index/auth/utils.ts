@@ -124,14 +124,17 @@ export function generateOAuthState(): string {
  */
 export function setOAuthStateCookie(c: Context<Env>, state: string): void {
 	const cookieMaxAge = 10 * 60; // 10 minutes in seconds
-	const isLocalhost = c.req.url.startsWith('http://localhost');
+	const isLocalhost = c.req.url.startsWith('http://localhost') || c.req.url.includes('127.0.0.1');
+	const isSecure = !isLocalhost;
+
+	console.log(`[OAuth] Setting OAuth state cookie: ${state.substring(0, 8)}... (secure: ${isSecure}, localhost: ${isLocalhost})`);
 
 	setCookie(c, 'oauth_state_csrf', state, {
 		path: '/',
-		secure: !isLocalhost,
+		secure: isSecure,
 		httpOnly: true,
 		maxAge: cookieMaxAge,
-		sameSite: 'Lax',
+		sameSite: isLocalhost ? 'Lax' : 'None', // Use 'Lax' for localhost, 'None' for production
 	});
 }
 
@@ -140,16 +143,25 @@ export function setOAuthStateCookie(c: Context<Env>, state: string): void {
  */
 export function validateOAuthState(c: Context<Env>, receivedState: string): boolean {
 	const storedState = getCookie(c, 'oauth_state_csrf');
+	const isLocalhost = c.req.url.startsWith('http://localhost') || c.req.url.includes('127.0.0.1');
+
+	console.log(`[OAuth] Validating OAuth state:`);
+	console.log(`[OAuth] Received state: ${receivedState ? receivedState.substring(0, 8) + '...' : 'null'}`);
+	console.log(`[OAuth] Stored state: ${storedState ? storedState.substring(0, 8) + '...' : 'null'}`);
+	console.log(`[OAuth] Environment: ${isLocalhost ? 'localhost' : 'production'}`);
 
 	// Clean up cookie
 	deleteCookie(c, 'oauth_state_csrf', {
 		path: '/',
-		secure: !c.req.url.startsWith('http://localhost'),
+		secure: !isLocalhost,
 		httpOnly: true,
-		sameSite: 'Lax',
+		sameSite: isLocalhost ? 'Lax' : 'None', // Use 'Lax' for localhost, 'None' for production
 	});
 
-	return !!(receivedState && storedState && receivedState === storedState);
+	const isValid = !!(receivedState && storedState && receivedState === storedState);
+	console.log(`[OAuth] State validation result: ${isValid}`);
+
+	return isValid;
 }
 
 /**
