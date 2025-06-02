@@ -96,7 +96,7 @@
 	"hyperdrive": [
 		{
 			"binding": "HYPERDRIVE_SUPABASE",
-			"id": "b4c32956ea774f28b5b2c55d99eb3036",
+			"id": "9566d4c1943e4e2da7062c57df7fb891",
 			"localConnectionString": "postgresql://postgres:postgres@127.0.0.1:54322/postgres",
 		},
 	],
