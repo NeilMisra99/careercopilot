@@ -1,4 +1,4 @@
-import type { Queue } from '@cloudflare/workers-types';
+import type { Queue, Hyperdrive, KVNamespace } from '@cloudflare/workers-types';
 import type postgres from 'postgres';
 import type { Ai } from '@cloudflare/workers-types';
 import type { TokenRepository } from '../token-repository';
@@ -41,6 +41,7 @@ export interface ScheduledWorkerEnv {
 	TOKEN_KV?: KVNamespace; // Required if TOKEN_BACKEND is 'kv'
 	EMAIL_PARSE_QUEUE: Queue<QueueMessage>;
 	AI: Ai; // AI binding for direct email processing
+	NODE_ENV?: string; // Environment detection for local development
 
 	// Variables that might be set by middleware or context
 	db?: postgres.Sql;
@@ -49,7 +50,6 @@ export interface ScheduledWorkerEnv {
 	// For testing/dev
 	SUPABASE_URL?: string;
 	SUPABASE_ANON_KEY?: string;
-	WRANGLER_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE_SUPABASE?: string;
 }
 
 // === Database Types ===

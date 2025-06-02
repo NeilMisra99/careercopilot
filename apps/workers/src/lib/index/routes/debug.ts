@@ -70,8 +70,6 @@ export async function triggerManualSync(c: Context<Env>) {
 			TOKEN_BACKEND: c.env.TOKEN_BACKEND,
 			TOKEN_KV: c.env.TOKEN_KV,
 			EMAIL_PARSE_QUEUE: c.env.EMAIL_PARSE_QUEUE,
-			WRANGLER_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE_SUPABASE:
-				process.env.WRANGLER_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE_SUPABASE,
 		};
 
 		// Execute the scheduled handler

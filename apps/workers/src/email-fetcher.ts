@@ -19,15 +19,10 @@ export default {
 		console.log(`[email-fetcher] Scheduled function START. Invoked at: ${new Date().toISOString()}, cron: ${controller.cron}`);
 
 		// Initialize DB client
-		let connectionString = env.HYPERDRIVE_SUPABASE.connectionString;
-		if (connectionString.includes('.hyperdrive.local') && env.WRANGLER_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE_SUPABASE) {
-			connectionString = env.WRANGLER_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE_SUPABASE;
-		}
-		const db = getHyperdriveNonPooled(connectionString);
+		const connectionString = env.HYPERDRIVE_SUPABASE.connectionString;
+		const db = getHyperdriveNonPooled(connectionString, env);
 		env.db = db;
-		console.log(
-			`[email-fetcher] Database client initialized. Using: ${connectionString.includes('.hyperdrive.local') || connectionString.includes('127.0.0.1') || connectionString.includes('localhost') ? 'local Hyperdrive config' : 'production Hyperdrive config'}`,
-		);
+		console.log(`[email-fetcher] Database client initialized.`);
 
 		// Initialize TokenRepository on env
 		const backendType = env.TOKEN_BACKEND || 'supabase';

@@ -34,9 +34,18 @@ export function getSupabaseClient(supabaseUrl: string, serviceRoleKey: string): 
 }
 
 // Function to get a direct Hyperdrive connection (non-pooled for typical cron usage)
-export function getHyperdriveNonPooled(connectionString: string): postgres.Sql {
+export function getHyperdriveNonPooled(connectionString: string, env?: any): postgres.Sql {
 	if (!connectionString) {
 		throw new Error('Hyperdrive connection string is undefined or empty.');
+	}
+
+	// For local development, if we detect hyperdrive.local in the connection string,
+	// fall back to direct local connection to avoid proxy issues
+	let actualConnectionString = connectionString;
+
+	if (connectionString.includes('.hyperdrive.local') && env?.NODE_ENV === 'development') {
+		console.log('[getHyperdriveNonPooled] Detected local development with Hyperdrive proxy. Using direct local connection instead.');
+		actualConnectionString = 'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
 	}
 
 	const options: postgres.Options<Record<string, postgres.PostgresType>> = {
@@ -48,7 +57,7 @@ export function getHyperdriveNonPooled(connectionString: string): postgres.Sql {
 
 	// If the connection string does NOT point to a local database, then enforce SSL.
 	// Local database connection strings used for Hyperdrive local proxy typically contain 127.0.0.1 or localhost.
-	if (!connectionString.includes('127.0.0.1') && !connectionString.includes('localhost')) {
+	if (!actualConnectionString.includes('127.0.0.1') && !actualConnectionString.includes('localhost')) {
 		options.ssl = 'require'; // Enforce SSL for actual Supabase via Hyperdrive or other remote PG
 		console.log("[getHyperdriveNonPooled] Non-local connection string detected. Using SSL 'require'.");
 	} else {
@@ -59,6 +68,8 @@ export function getHyperdriveNonPooled(connectionString: string): postgres.Sql {
 		// By not setting options.ssl, postgres.js will attempt a plain connection if the server doesn't force SSL.
 	}
 
-	// console.log("Creating non-pooled Hyperdrive connection for worker with options:", options);
-	return postgres(connectionString, options);
+	console.log(
+		`[getHyperdriveNonPooled] Creating connection to: ${actualConnectionString.includes('127.0.0.1') ? 'local database' : 'remote database via Hyperdrive'}`,
+	);
+	return postgres(actualConnectionString, options);
 }

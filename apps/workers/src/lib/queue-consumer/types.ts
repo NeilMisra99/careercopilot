@@ -10,7 +10,7 @@ export interface QueueConsumerEnv {
 	SUPABASE_URL?: string; // If using Supabase client for RPCs/admin tasks
 	SUPABASE_SERVICE_ROLE_KEY?: string; // If using Supabase client
 	AI: Ai; // Ensure AI binding is explicitly part of this Env for clarity with Vercel SDK
-	WRANGLER_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE_SUPABASE?: string; // Local Hyperdrive override
+	NODE_ENV?: string; // Environment detection for local development
 
 	// Added for force sync functionality
 	TOKEN_ENCRYPTION_KEY: string;

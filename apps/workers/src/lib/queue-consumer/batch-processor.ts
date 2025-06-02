@@ -37,15 +37,9 @@ function sortMessagesByDate(messages: readonly Message<QueueMessage>[]): Message
  * Initialize database connection with hyperdrive support
  */
 function initializeDatabase(env: QueueConsumerEnv) {
-	const rawConnectionString = env.HYPERDRIVE_SUPABASE.connectionString;
-	let connectionString = rawConnectionString;
-
-	if (connectionString.includes('.hyperdrive.local') && env.WRANGLER_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE_SUPABASE) {
-		console.log('[queue-consumer] Detected local Hyperdrive hostname. Switching to local connection string override.');
-		connectionString = env.WRANGLER_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE_SUPABASE;
-	}
-
-	return getHyperdriveNonPooled(connectionString);
+	const connectionString = env.HYPERDRIVE_SUPABASE.connectionString;
+	console.log('connectionString', connectionString);
+	return getHyperdriveNonPooled(connectionString, env);
 }
 
 /**

@@ -5,19 +5,15 @@ import postgres from 'postgres';
 
 interface DLQConsumerEnv {
 	HYPERDRIVE_SUPABASE: Hyperdrive;
-	WRANGLER_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE_SUPABASE?: string;
+	NODE_ENV?: string; // Environment detection for local development
 }
 
 export async function handleDLQBatch(batch: MessageBatch<QueueMessage>, env: DLQConsumerEnv, ctx: ExecutionContext): Promise<void> {
 	console.log(`[dlq-consumer] DLQ consumer invoked. Batch size: ${batch.messages.length}`);
 
-	const rawConnectionString = env.HYPERDRIVE_SUPABASE.connectionString;
-	let connectionString = rawConnectionString;
-	if (connectionString.includes('.hyperdrive.local') && env.WRANGLER_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE_SUPABASE) {
-		console.log('[dlq-consumer] Detected local Hyperdrive hostname. Switching to local connection string override.');
-		connectionString = env.WRANGLER_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE_SUPABASE;
-	}
-	const db = getHyperdriveNonPooled(connectionString);
+	const connectionString = env.HYPERDRIVE_SUPABASE.connectionString;
+	const db = getHyperdriveNonPooled(connectionString, env);
+	console.log('DB', db);
 
 	for (const message of batch.messages) {
 		const queueMessage: QueueMessage = message.body;
