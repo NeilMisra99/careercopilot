@@ -57,51 +57,68 @@ export async function saveFailedEmail(db: postgres.Sql, emailToParse: EmailToPar
 }
 
 /**
- * Update email analyzed count in sync summary
+ * Update email analyzed count in sync summary - ATOMIC to prevent race conditions
  */
 export async function updateEmailAnalyzedCount(db: postgres.Sql, userId: string): Promise<void> {
 	try {
-		await db`
+		// Use atomic JSON increment with proper isolation to prevent race conditions
+		const result = await db`
 			UPDATE public.user_email_integrations
 			SET last_sync_summary = 
 				CASE 
-					WHEN last_sync_summary IS NULL THEN jsonb_build_object('emails_analyzed', 1)
-					ELSE jsonb_set(
-						last_sync_summary, 
-						'{emails_analyzed}', 
-						to_jsonb(COALESCE((last_sync_summary->>'emails_analyzed')::int, 0) + 1)
-					)
+					WHEN last_sync_summary IS NULL THEN 
+						jsonb_build_object('emails_analyzed', 1)
+					ELSE 
+						last_sync_summary || jsonb_build_object(
+							'emails_analyzed', 
+							COALESCE((last_sync_summary->>'emails_analyzed')::int, 0) + 1
+						)
 				END
-			WHERE user_id = ${userId} AND provider = 'gmail' AND sync_status = 'active'
+			WHERE user_id = ${userId} 
+				AND provider = 'gmail' 
+				AND sync_status = 'active'
+				AND sync_in_progress = TRUE
+			RETURNING id, (last_sync_summary->>'emails_analyzed')::int as new_count
 		`;
+
+		if (result.length > 0) {
+			console.log(`[queue-consumer] ✅ Atomically incremented emails_analyzed for user ${userId} to ${result[0].new_count}`);
+		}
 	} catch (error: any) {
 		console.warn(`[queue-consumer] Failed to update emails_analyzed count: ${error.message}`);
 	}
 }
 
 /**
- * Update sync summary with application found status
+ * Update sync summary with application found status - ATOMIC to prevent race conditions
  */
 export async function updateSyncSummary(db: postgres.Sql, userId: string, wasNewApplication: boolean): Promise<void> {
 	try {
 		if (wasNewApplication) {
-			await db`
+			const result = await db`
 				UPDATE public.user_email_integrations
 				SET last_sync_summary = 
 					CASE 
-						WHEN last_sync_summary IS NULL THEN jsonb_build_object('applications_found', 1, 'emails_analyzed', 1)
-						ELSE jsonb_set(
-							jsonb_set(
-								last_sync_summary, 
-								'{applications_found}', 
-								to_jsonb(COALESCE((last_sync_summary->>'applications_found')::int, 0) + 1)
-							),
-							'{emails_analyzed}',
-							to_jsonb(COALESCE((last_sync_summary->>'emails_analyzed')::int, 0) + 1)
-						)
+						WHEN last_sync_summary IS NULL THEN 
+							jsonb_build_object('applications_found', 1, 'emails_analyzed', 1)
+						ELSE 
+							last_sync_summary || jsonb_build_object(
+								'applications_found', COALESCE((last_sync_summary->>'applications_found')::int, 0) + 1,
+								'emails_analyzed', COALESCE((last_sync_summary->>'emails_analyzed')::int, 0) + 1
+							)
 					END
-				WHERE user_id = ${userId} AND provider = 'gmail' AND sync_status = 'active'
+				WHERE user_id = ${userId} 
+					AND provider = 'gmail' 
+					AND sync_status = 'active'
+					AND sync_in_progress = TRUE
+				RETURNING id, (last_sync_summary->>'applications_found')::int as app_count, (last_sync_summary->>'emails_analyzed')::int as email_count
 			`;
+
+			if (result.length > 0) {
+				console.log(
+					`[queue-consumer] ✅ Atomically incremented applications_found for user ${userId} to ${result[0].app_count}, emails_analyzed to ${result[0].email_count}`,
+				);
+			}
 		} else {
 			await updateEmailAnalyzedCount(db, userId);
 		}
