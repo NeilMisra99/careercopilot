@@ -325,6 +325,11 @@ export async function handleEmailParseQueueBatch(
 			}
 		}
 
+		// IMPORTANT: Ensure all database transactions are committed before checking sync completion
+		// This prevents race conditions where sync completes before the current batch's database updates are visible
+		console.log(`[queue-consumer] 🔄 All batch messages processed, ensuring database commits are complete...`);
+		await new Promise((resolve) => setTimeout(resolve, 1000)); // Small delay for DB commit consistency
+
 		// Check for syncs that should be completed after each batch
 		await checkAndCompleteStuckSyncs(db);
 

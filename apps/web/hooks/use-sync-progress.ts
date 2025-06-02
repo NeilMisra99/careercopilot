@@ -1,28 +1,28 @@
-"use client"
+"use client";
 
-import { revalidateSyncDataAction } from "@/app/(dashboard)/dashboard/_lib/actions/sync-actions"
-import { createClient } from "@/lib/supabase/client"
-import { useRouter } from "next/navigation"
-import { useEffect, useState } from "react"
+import { revalidateSyncDataAction } from "@/app/(dashboard)/dashboard/_lib/actions/sync-actions";
+import { createClient } from "@/lib/supabase/client";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 interface SyncSummary {
-  emails_processed: number
-  emails_sent_to_queue?: number
-  emails_analyzed?: number
-  applications_found: number
-  error: string | null
-  sync_type: "manual" | "scheduled"
-  status?: string // 'ai_processing' | 'completed' | etc
-  last_ai_processing_at?: string
-  completed_at?: string
+  emails_processed: number;
+  emails_sent_to_queue?: number;
+  emails_analyzed?: number;
+  applications_found: number;
+  error: string | null;
+  sync_type: "manual" | "scheduled";
+  status?: string; // 'ai_processing' | 'completed' | etc
+  last_ai_processing_at?: string;
+  completed_at?: string;
 }
 
 interface SyncState {
-  inProgress: boolean
-  summary: SyncSummary | null
-  error: string | null
-  hasIntegration: boolean
-  lastCompleted: string | null
+  inProgress: boolean;
+  summary: SyncSummary | null;
+  error: string | null;
+  hasIntegration: boolean;
+  lastCompleted: string | null;
 }
 
 export function useSyncProgress(userId?: string) {
@@ -32,22 +32,23 @@ export function useSyncProgress(userId?: string) {
     error: null,
     hasIntegration: false,
     lastCompleted: null,
-  })
-  const [loading, setLoading] = useState(true)
-  const router = useRouter()
+  });
+  const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   // Enhanced setSyncState with logging
-  const setSyncStateWithLogging = (newState: SyncState, reason: string) => {
-    setSyncState(newState)
-  }
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const setSyncStateWithLogging = (newState: SyncState, _reason: string) => {
+    setSyncState(newState);
+  };
 
   useEffect(() => {
     if (!userId) {
-      setLoading(false)
-      return
+      setLoading(false);
+      return;
     }
 
-    const supabase = createClient()
+    const supabase = createClient();
 
     // Subscribe to realtime changes - use unique channel name to avoid conflicts
     const channel = supabase
@@ -62,19 +63,19 @@ export function useSyncProgress(userId?: string) {
         },
         (payload) => {
           const integration = payload.new as {
-            sync_in_progress: boolean
-            last_sync_summary: SyncSummary | null
-            sync_error_message: string | null
-            last_sync_completed_at: string | null
-          }
+            sync_in_progress: boolean;
+            last_sync_summary: SyncSummary | null;
+            sync_error_message: string | null;
+            last_sync_completed_at: string | null;
+          };
 
           // Parse the JSON summary if it's a string
-          let parsedSummary = integration.last_sync_summary
+          let parsedSummary = integration.last_sync_summary;
           if (typeof parsedSummary === "string") {
             try {
-              parsedSummary = JSON.parse(parsedSummary)
-            } catch (e) {
-              parsedSummary = null
+              parsedSummary = JSON.parse(parsedSummary);
+            } catch {
+              parsedSummary = null;
             }
           }
 
@@ -84,24 +85,24 @@ export function useSyncProgress(userId?: string) {
             error: integration.sync_error_message,
             lastCompleted: integration.last_sync_completed_at,
             hasIntegration: true, // If we get an update, integration exists
-          }
+          };
 
           // Check if sync just completed (was in progress, now not)
-          const wasInProgress = syncState.inProgress
-          const isNowComplete = !integration.sync_in_progress
+          const wasInProgress = syncState.inProgress;
+          const isNowComplete = !integration.sync_in_progress;
 
           // Also check if this is a recently completed sync (within last 30 seconds)
           const lastCompleted = integration.last_sync_completed_at
             ? new Date(integration.last_sync_completed_at)
-            : null
+            : null;
           const isRecentlyCompleted =
-            lastCompleted && Date.now() - lastCompleted.getTime() < 30000 // 30 seconds
+            lastCompleted && Date.now() - lastCompleted.getTime() < 30000; // 30 seconds
 
           // Check if we haven't handled this completion yet
           const hasntHandledThisCompletion =
             !syncState.lastCompleted ||
             (lastCompleted &&
-              syncState.lastCompleted !== integration.last_sync_completed_at)
+              syncState.lastCompleted !== integration.last_sync_completed_at);
 
           // Enhanced completion detection:
           // 1. We witnessed the sync completion (wasInProgress && isNowComplete)
@@ -109,45 +110,31 @@ export function useSyncProgress(userId?: string) {
           // 3. OR sync just transitioned from in-progress to complete (even if we missed the initial state)
           const syncJustFinished =
             syncState.inProgress === true &&
-            integration.sync_in_progress === false
+            integration.sync_in_progress === false;
 
           const shouldRevalidate =
             (wasInProgress && isNowComplete) ||
             (isNowComplete &&
               isRecentlyCompleted &&
               hasntHandledThisCompletion) ||
-            syncJustFinished
+            syncJustFinished;
 
           if (shouldRevalidate) {
-            let reason = "unknown"
-            if (wasInProgress && isNowComplete) {
-              reason = "witnessed completion"
-            } else if (syncJustFinished) {
-              reason = "state transition detected"
-            } else if (
-              isNowComplete &&
-              isRecentlyCompleted &&
-              hasntHandledThisCompletion
-            ) {
-              reason = "recently completed sync detected"
-            }
-
             // Sync just completed - revalidate cache (router refresh not needed)
             setTimeout(async () => {
               try {
-                const revalidationResult = await revalidateSyncDataAction()
-              } catch (error) {
+                await revalidateSyncDataAction();
+              } catch {
                 // Fallback to router refresh if revalidation fails
-                router.refresh()
+                router.refresh();
               }
-            }, 500) // Small delay to ensure DB writes are complete
-          } else {
+            }, 500); // Small delay to ensure DB writes are complete
           }
 
-          setSyncStateWithLogging(newState, "realtime update")
+          setSyncStateWithLogging(newState, "realtime update");
         },
       )
-      .subscribe()
+      .subscribe();
 
     // Fetch initial state with delay to prevent 0-value flash
     const fetchInitialState = async () => {
@@ -158,7 +145,7 @@ export function useSyncProgress(userId?: string) {
         )
         .eq("user_id", userId)
         .eq("provider", "gmail")
-        .single()
+        .single();
 
       if (error) {
         const newState = {
@@ -167,16 +154,16 @@ export function useSyncProgress(userId?: string) {
           error: null,
           hasIntegration: false,
           lastCompleted: null,
-        }
-        setSyncStateWithLogging(newState, "initial fetch error")
+        };
+        setSyncStateWithLogging(newState, "initial fetch error");
       } else if (data) {
         // Parse the JSON summary if it's a string
-        let parsedSummary = data.last_sync_summary
+        let parsedSummary = data.last_sync_summary;
         if (typeof parsedSummary === "string") {
           try {
-            parsedSummary = JSON.parse(parsedSummary)
-          } catch (e) {
-            parsedSummary = null
+            parsedSummary = JSON.parse(parsedSummary);
+          } catch {
+            parsedSummary = null;
           }
         }
 
@@ -186,28 +173,28 @@ export function useSyncProgress(userId?: string) {
           error: data.sync_error_message,
           lastCompleted: data.last_sync_completed_at,
           hasIntegration: true,
-        }
+        };
 
         // Check if this is a recently completed sync on page load
         const lastCompleted = data.last_sync_completed_at
           ? new Date(data.last_sync_completed_at)
-          : null
+          : null;
         const isRecentlyCompleted =
-          lastCompleted && Date.now() - lastCompleted.getTime() < 30000 // 30 seconds
-        const syncJustFinished = !data.sync_in_progress && isRecentlyCompleted
+          lastCompleted && Date.now() - lastCompleted.getTime() < 30000; // 30 seconds
+        const syncJustFinished = !data.sync_in_progress && isRecentlyCompleted;
 
         if (syncJustFinished) {
           setTimeout(async () => {
             try {
-              const revalidationResult = await revalidateSyncDataAction()
-            } catch (error) {
+              await revalidateSyncDataAction();
+            } catch {
               // Fallback to router refresh if revalidation fails
-              router.refresh()
+              router.refresh();
             }
-          }, 1000) // Slightly longer delay for page load
+          }, 1000); // Slightly longer delay for page load
         }
 
-        setSyncStateWithLogging(newState, "initial fetch success")
+        setSyncStateWithLogging(newState, "initial fetch success");
       } else {
         const newState = {
           inProgress: false,
@@ -215,23 +202,23 @@ export function useSyncProgress(userId?: string) {
           error: null,
           hasIntegration: false,
           lastCompleted: null,
-        }
-        setSyncStateWithLogging(newState, "initial fetch no data")
+        };
+        setSyncStateWithLogging(newState, "initial fetch no data");
       }
-    }
+    };
 
-    fetchInitialState()
+    fetchInitialState();
 
     // Add small delay before setting loading to false to prevent flash
     const timer = setTimeout(() => {
-      setLoading(false)
-    }, 200)
+      setLoading(false);
+    }, 200);
 
     return () => {
-      clearTimeout(timer)
-      supabase.removeChannel(channel)
-    }
-  }, [userId])
+      clearTimeout(timer);
+      supabase.removeChannel(channel);
+    };
+  }, [userId]);
 
-  return { syncState, loading }
+  return { syncState, loading };
 }

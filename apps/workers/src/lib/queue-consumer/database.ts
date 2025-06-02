@@ -77,7 +77,6 @@ export async function updateEmailAnalyzedCount(db: postgres.Sql, userId: string)
 			WHERE user_id = ${userId} 
 				AND provider = 'gmail' 
 				AND sync_status = 'active'
-				AND sync_in_progress = TRUE
 			RETURNING id, (last_sync_summary->>'emails_analyzed')::int as new_count
 		`;
 
@@ -132,7 +131,6 @@ export async function updateSyncSummary(db: postgres.Sql, userId: string, wasNew
 				WHERE user_id = ${userId} 
 					AND provider = 'gmail' 
 					AND sync_status = 'active'
-					AND sync_in_progress = TRUE
 				RETURNING id, (last_sync_summary->>'applications_found')::int as app_count, (last_sync_summary->>'emails_analyzed')::int as email_count, (last_sync_summary->>'emails_sent_to_queue')::int as queue_count
 			`;
 
@@ -142,9 +140,7 @@ export async function updateSyncSummary(db: postgres.Sql, userId: string, wasNew
 			});
 
 			if (result.count === 0) {
-				console.log(
-					`[database.ts] ⚠️ No rows were updated! This means either: user not found, not gmail provider, not active, or sync_in_progress=FALSE`,
-				);
+				console.log(`[database.ts] ⚠️ No rows were updated! This means either: user not found, not gmail provider, or not active`);
 
 				// Debug: Check what the current integration state is AFTER failed update
 				const debugIntegration = await db`
@@ -165,7 +161,6 @@ export async function updateSyncSummary(db: postgres.Sql, userId: string, wasNew
 							hasUser: !!row.user_id,
 							isGmail: row.provider === 'gmail',
 							isActive: row.sync_status === 'active',
-							syncInProgress: row.sync_in_progress,
 						},
 					})),
 				);
