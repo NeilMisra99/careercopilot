@@ -188,6 +188,15 @@ export type ApplicationReviewAction = 'approve' | 'delete';
 /**
  * Valid application statuses
  */
-export const VALID_APPLICATION_STATUSES = ['Wishlist', 'Applied', 'Screening', 'Interviewing', 'Offer', 'Rejected', 'Withdrawn'] as const;
+export const VALID_APPLICATION_STATUSES = [
+	'Opportunity',
+	'Wishlist',
+	'Applied',
+	'Screening',
+	'Interviewing',
+	'Offer',
+	'Rejected',
+	'Withdrawn',
+] as const;
 
 export type ApplicationStatus = (typeof VALID_APPLICATION_STATUSES)[number];

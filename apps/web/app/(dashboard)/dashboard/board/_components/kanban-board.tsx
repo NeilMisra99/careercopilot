@@ -25,6 +25,7 @@ import {
   FileX,
   ListTodo,
   Phone,
+  Users,
   Video,
   XCircle,
 } from "lucide-react";
@@ -61,6 +62,7 @@ interface Application {
 
 interface KanbanBoardProps {
   applicationsByStatus: {
+    Opportunity: Application[];
     Wishlist: Application[];
     Applied: Application[];
     Screening: Application[];
@@ -320,6 +322,14 @@ export function KanbanBoard({
       color: "text-orange-500",
       bgColor: "bg-orange-500/10",
       isFailedEmails: true,
+    },
+    {
+      id: "Opportunity",
+      title: "Opportunity",
+      icon: <Users className="h-4 w-4 text-cyan-500" />,
+      count: appsByStatus.Opportunity.length,
+      color: "text-cyan-500",
+      bgColor: "bg-cyan-500/10",
     },
     {
       id: "Wishlist",

@@ -91,6 +91,7 @@ export default async function BoardPage() {
 
   // Group applications by status for kanban board
   const applicationsByStatus = {
+    Opportunity: applications.filter((app) => app.status === "Opportunity"),
     Wishlist: applications.filter((app) => app.status === "Wishlist"),
     Applied: applications.filter((app) => app.status === "Applied"),
     Screening: applications.filter((app) => app.status === "Screening"),

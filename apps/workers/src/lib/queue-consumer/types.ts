@@ -34,6 +34,7 @@ export const JobEmailClassificationSchema = z.object({
 });
 
 export const AIParsedApplicationStatusEnum = z.enum([
+	'Opportunity',
 	'Applied',
 	'Screening',
 	'Interviewing',
@@ -127,6 +128,7 @@ export const MAX_RETRIES = 3;
 // === Status Priority Map ===
 export const STATUS_PRIORITY: Record<string, number> = {
 	Wishlist: 0,
+	Opportunity: 0.5,
 	Applied: 1,
 	Screening: 2,
 	Interviewing: 3,

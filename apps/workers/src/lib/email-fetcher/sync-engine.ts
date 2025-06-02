@@ -232,6 +232,29 @@ export async function syncGmailIntegration(
 								console.log(
 									`[sync-engine] ${syncType}: Sent batch of ${batchToSend.length} structured applications to queue for integration ${integration.id}`,
 								);
+
+								// Update emails_sent_to_queue count after successful batch send
+								const currentIntegration = await db`
+									SELECT last_sync_summary FROM public.user_email_integrations WHERE id = ${integration.id}
+								`;
+								const currentSummary = currentIntegration[0]?.last_sync_summary || {};
+								const currentEmailsSentToQueue = currentSummary.emails_sent_to_queue || 0;
+
+								console.log(
+									`[sync-engine.ts] 🔍 Before batch update - current emails_sent_to_queue: ${currentEmailsSentToQueue}, adding: ${batchToSend.length}`,
+								);
+
+								await db`
+									UPDATE public.user_email_integrations
+									SET last_sync_summary = ${db.json({
+										...currentSummary,
+										emails_sent_to_queue: currentEmailsSentToQueue + batchToSend.length,
+									})}
+									WHERE id = ${integration.id}
+								`;
+								console.log(
+									`[sync-engine.ts] ✅ Updated emails_sent_to_queue to ${currentEmailsSentToQueue + batchToSend.length} for integration ${integration.id}`,
+								);
 							} catch (batchError: any) {
 								console.error(`[sync-engine] ${syncType}: Failed to send application batch:`, batchError);
 								processedApplications.push(...batchToSend);
@@ -302,6 +325,8 @@ export async function syncGmailIntegration(
 			);
 
 			const queueBatchSize = 5;
+			let totalSentToQueue = 0;
+
 			for (let i = 0; i < processedApplications.length; i += queueBatchSize) {
 				const batchToSend = processedApplications.slice(i, i + queueBatchSize);
 				console.log(
@@ -312,37 +337,93 @@ export async function syncGmailIntegration(
 				console.log(
 					`[sync-engine] Successfully sent final batch of ${batchToSend.length} structured applications to EMAIL_PARSE_QUEUE for integration ID ${integration.id}.`,
 				);
+				totalSentToQueue += batchToSend.length;
 			}
+
+			// Update emails_sent_to_queue count after sending all remaining applications
+			const currentIntegration = await db`
+				SELECT last_sync_summary FROM public.user_email_integrations WHERE id = ${integration.id}
+			`;
+			const currentSummary = currentIntegration[0]?.last_sync_summary || {};
+			const currentEmailsSentToQueue = currentSummary.emails_sent_to_queue || 0;
+
 			console.log(
-				`[sync-engine] 🎉 BREAKTHROUGH COMPLETE: Successfully sent all ${processedApplications.length} AI-processed applications to EMAIL_PARSE_QUEUE for integration ID ${integration.id}.`,
+				`[sync-engine.ts] 🔍 Before final update - current emails_sent_to_queue: ${currentEmailsSentToQueue}, adding: ${totalSentToQueue}`,
+			);
+
+			await db`
+				UPDATE public.user_email_integrations
+				SET last_sync_summary = ${db.json({
+					...currentSummary,
+					emails_sent_to_queue: currentEmailsSentToQueue + totalSentToQueue,
+					sync_engine_finished: true, // Signal that sync-engine is done
+				})}
+				WHERE id = ${integration.id}
+			`;
+
+			console.log(
+				`[sync-engine.ts] 🎉 BREAKTHROUGH COMPLETE: Successfully sent all ${processedApplications.length} AI-processed applications to EMAIL_PARSE_QUEUE for integration ID ${integration.id}. Total emails_sent_to_queue: ${currentEmailsSentToQueue + totalSentToQueue}. Sync engine finished.`,
 			);
 		}
 
-		// Finalize sync - mark as completed
+		// Finalize sync - conditional completion based on whether applications are being processed
 		// First get current summary to preserve applications_found count
 		const currentIntegration = await db`
 			SELECT last_sync_summary FROM public.user_email_integrations WHERE id = ${integration.id}
 		`;
 		const currentSummary = currentIntegration[0]?.last_sync_summary || {};
+		const emailsSentToQueue = currentSummary.emails_sent_to_queue || 0;
 
-		await db`
-			UPDATE public.user_email_integrations
-			SET 
-				last_history_id = ${latestHistoryIdProcessed},
-				last_history_synced_at = NOW(),
-				sync_status = 'active',
-				sync_in_progress = FALSE,
-				last_sync_completed_at = NOW(),
-				first_sync_completed = TRUE,
-				last_sync_summary = ${db.json({
-					...currentSummary, // Preserve existing fields like applications_found
-					emails_processed: messagesFetchedCount,
-					emails_analyzed: aiProcessedCount,
-					status: 'completed',
-					sync_type: forceSync ? 'manual' : 'scheduled',
-				})}
-			WHERE id = ${integration.id}
-		`;
+		if (emailsSentToQueue > 0) {
+			// Applications are being processed by queue - keep sync in progress
+			console.log(
+				`[sync-engine] 🔄 Sync for integration ${integration.id} has ${emailsSentToQueue} emails in queue. Keeping sync_in_progress=TRUE for queue completion.`,
+			);
+
+			await db`
+				UPDATE public.user_email_integrations
+				SET 
+					last_history_id = ${latestHistoryIdProcessed},
+					last_history_synced_at = NOW(),
+					sync_status = 'active',
+					last_sync_summary = ${db.json({
+						...currentSummary, // Preserve existing fields like applications_found
+						emails_processed: messagesFetchedCount,
+						emails_analyzed: aiProcessedCount,
+						status: 'ai_first_processing', // Keep in processing state for queue
+						sync_type: forceSync ? 'manual' : 'scheduled',
+						sync_engine_finished: true, // Signal that sync-engine is done
+					})}
+				WHERE id = ${integration.id}
+			`;
+
+			console.log(
+				`[sync-engine] 🎯 Sync engine finished processing but keeping sync active for queue completion. Integration ${integration.id} will be completed by queue processor.`,
+			);
+		} else {
+			// No applications to process - complete immediately
+			console.log(`[sync-engine] ✅ No applications found. Completing sync immediately for integration ${integration.id}.`);
+
+			await db`
+				UPDATE public.user_email_integrations
+				SET 
+					last_history_id = ${latestHistoryIdProcessed},
+					last_history_synced_at = NOW(),
+					sync_status = 'active',
+					sync_in_progress = FALSE,
+					last_sync_completed_at = NOW(),
+					first_sync_completed = TRUE,
+					last_sync_summary = ${db.json({
+						...currentSummary, // Preserve existing fields like applications_found
+						emails_processed: messagesFetchedCount,
+						emails_analyzed: aiProcessedCount,
+						status: 'completed',
+						sync_type: forceSync ? 'manual' : 'scheduled',
+						sync_engine_finished: true, // Signal that sync-engine is done
+					})}
+				WHERE id = ${integration.id}
+			`;
+		}
 	} catch (syncError: any) {
 		console.error(
 			`[sync-engine] Error during AI-first sync for integration ID ${integration.id} (${integration.email_address}): ${syncError.message}`,

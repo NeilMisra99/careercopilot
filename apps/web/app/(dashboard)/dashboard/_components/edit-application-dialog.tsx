@@ -33,6 +33,7 @@ const editApplicationSchema = z.object({
   jobTitle: z.string().min(1, "Job title is required"),
   status: z.enum([
     "Pending Review",
+    "Opportunity",
     "Wishlist",
     "Applied",
     "Screening",
@@ -214,6 +215,7 @@ export function EditApplicationDialog({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Pending Review">Pending Review</SelectItem>
+                  <SelectItem value="Opportunity">Opportunity</SelectItem>
                   <SelectItem value="Wishlist">Wishlist</SelectItem>
                   <SelectItem value="Applied">Applied</SelectItem>
                   <SelectItem value="Screening">Screening</SelectItem>

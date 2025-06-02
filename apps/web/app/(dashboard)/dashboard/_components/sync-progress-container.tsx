@@ -2,7 +2,7 @@
 
 import { Card, CardContent } from "@/components/ui/card";
 import { useSyncProgress } from "@/hooks/use-sync-progress";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { FirstTimeSyncBanner } from "./first-time-sync-banner";
 import { SyncProgressView } from "./sync-progress-view";
@@ -23,6 +23,7 @@ export function SyncProgressContainer({
   );
   const countdownStartedRef = useRef(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   // Determine if sync is preparing based on database state
   const isPreparing =
@@ -40,17 +41,37 @@ export function SyncProgressContainer({
     }
   }, [isPreparingSync, syncState.summary]);
 
-  // Auto-redirect to dashboard when sync completes (only from setup page)
+  // Check if we should start countdown (separate from the actual countdown logic)
   useEffect(() => {
     const isOnSetupPage =
       typeof window !== "undefined" &&
       window.location.pathname.includes("/setup");
+
     const isSyncCompleted =
       !syncState.inProgress &&
       syncState.summary &&
       syncState.summary.status === "completed";
 
-    if (isSyncCompleted && isOnSetupPage && !countdownStartedRef.current) {
+    // Check if we're in a completing state from URL parameter (page refresh scenario)
+    const isCompletingFromUrl = searchParams.get("completing") === "true";
+
+    // Determine if we should start countdown
+    const shouldStartCountdown =
+      isOnSetupPage &&
+      !countdownStartedRef.current &&
+      (isSyncCompleted ||
+        (isCompletingFromUrl && !loading && syncState.summary));
+
+    if (shouldStartCountdown) {
+      console.log("Starting countdown - conditions:", {
+        isOnSetupPage,
+        countdownStarted: countdownStartedRef.current,
+        isSyncCompleted,
+        isCompletingFromUrl,
+        loading,
+        hasSummary: !!syncState.summary,
+      });
+
       // Mark countdown as started to prevent multiple timers
       countdownStartedRef.current = true;
 
@@ -65,36 +86,44 @@ export function SyncProgressContainer({
 
       // Start countdown from 5 seconds
       setRedirectCountdown(5);
-
-      // Update countdown every second
-      const countdownInterval = setInterval(() => {
-        setRedirectCountdown((prev) => {
-          if (prev === null || prev <= 1) {
-            clearInterval(countdownInterval);
-            return 0; // Set to 0 to trigger redirect effect
-          }
-          return prev - 1;
-        });
-      }, 1000);
-
-      return () => {
-        clearInterval(countdownInterval);
-      };
-    } else if (!isSyncCompleted) {
-      // Reset the countdown started flag if sync is not completed
+    } else if (!isSyncCompleted && !isCompletingFromUrl) {
+      // Reset the countdown started flag if sync is not completed and we're not in completing state
       countdownStartedRef.current = false;
       setRedirectCountdown(null);
     }
   }, [
     syncState.inProgress,
     syncState.summary?.status,
-    router,
     syncState.summary,
+    searchParams,
+    loading,
   ]);
+
+  // Separate effect for countdown timer logic
+  useEffect(() => {
+    if (redirectCountdown && redirectCountdown > 0) {
+      console.log("Countdown active:", redirectCountdown);
+
+      const countdownInterval = setInterval(() => {
+        setRedirectCountdown((prev) => {
+          const newValue = prev === null || prev <= 1 ? 0 : prev - 1;
+          console.log("Countdown updating:", prev, "->", newValue);
+          return newValue;
+        });
+      }, 1000);
+
+      return () => {
+        console.log("Clearing countdown interval");
+        clearInterval(countdownInterval);
+      };
+    }
+  }, [redirectCountdown]);
 
   // Separate effect to handle redirect when countdown reaches 0
   useEffect(() => {
     if (redirectCountdown === 0) {
+      console.log("Countdown reached 0, redirecting to dashboard");
+
       // Remove the "completing" query parameter before redirecting
       if (typeof window !== "undefined") {
         const url = new URL(window.location.href);
@@ -115,30 +144,8 @@ export function SyncProgressContainer({
     return (
       <div className="flex min-h-[400px] items-center justify-center px-4">
         <Card className="w-full max-w-2xl border-slate-200/60 bg-gradient-to-br from-slate-50/90 via-gray-50/40 to-slate-50/30 shadow-xl shadow-slate-200/20 dark:border-slate-700/60 dark:from-slate-900/90 dark:via-slate-800/40 dark:to-slate-700/30 dark:shadow-slate-900/40">
-          <CardContent className="p-12">
-            <div className="space-y-8 text-center">
-              {/* Icon skeleton */}
-              <div className="mx-auto h-24 w-24 animate-pulse rounded-full bg-gradient-to-br from-slate-200 to-gray-200 dark:from-slate-700 dark:to-slate-600" />
-
-              {/* Title skeleton */}
-              <div className="space-y-4">
-                <div className="mx-auto h-8 w-64 animate-pulse rounded-lg bg-gradient-to-r from-slate-200 to-gray-200 dark:from-slate-700 dark:to-slate-600" />
-                <div className="mx-auto h-5 w-80 animate-pulse rounded-lg bg-gradient-to-r from-slate-200 to-gray-200 dark:from-slate-700 dark:to-slate-600" />
-              </div>
-
-              {/* Metrics skeleton */}
-              <div className="mx-auto grid max-w-md grid-cols-2 gap-6">
-                <div className="rounded-xl border border-slate-200/50 bg-white/80 p-6 shadow-sm backdrop-blur-sm dark:border-slate-700/50 dark:bg-slate-800/60">
-                  <div className="mx-auto mb-2 h-8 animate-pulse rounded bg-gradient-to-r from-slate-200 to-gray-200 dark:from-slate-600 dark:to-slate-500" />
-                  <div className="mx-auto h-4 w-20 animate-pulse rounded bg-gradient-to-r from-slate-200 to-gray-200 dark:from-slate-600 dark:to-slate-500" />
-                </div>
-                <div className="rounded-xl border border-slate-200/50 bg-white/80 p-6 shadow-sm backdrop-blur-sm dark:border-slate-700/50 dark:bg-slate-800/60">
-                  <div className="mx-auto mb-2 h-8 animate-pulse rounded bg-gradient-to-r from-slate-200 to-gray-200 dark:from-slate-600 dark:to-slate-500" />
-                  <div className="mx-auto h-4 w-24 animate-pulse rounded bg-gradient-to-r from-slate-200 to-gray-200 dark:from-slate-600 dark:to-slate-500" />
-                </div>
-              </div>
-
-              {/* Button skeleton */}
+          <CardContent className="flex min-h-[400px] items-center justify-center">
+            <div className="space-y-6 text-center">
               <div className="mx-auto h-12 w-48 animate-pulse rounded-lg bg-gradient-to-r from-slate-200 to-gray-200 dark:from-slate-700 dark:to-slate-600" />
             </div>
           </CardContent>
@@ -151,10 +158,13 @@ export function SyncProgressContainer({
   // 1. Sync is currently in progress with data, OR
   // 2. Sync has completed and we have summary data to show
   // 3. OR sync is preparing
+  // 4. OR we're in completing state from URL parameter (for refresh scenarios)
+  const isCompletingFromUrl = searchParams.get("completing") === "true";
   const shouldShowProgress =
     (syncState.inProgress && syncState.summary) ||
     (!syncState.inProgress && syncState.summary) ||
-    isPreparing;
+    isPreparing ||
+    (isCompletingFromUrl && syncState.summary);
 
   // Create animation key based on sync status for smooth transitions
   const syncStatus =

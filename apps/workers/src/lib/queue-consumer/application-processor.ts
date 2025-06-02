@@ -4,12 +4,11 @@ import type { EmailToParse } from '../types';
 import type { AIParsedDataFromExtractor } from '../ai-extractor';
 import type { JobEmailClassification } from '../ai-classifier';
 import type { ConfidenceResult } from '../ai-confidence';
-import { shouldAutoApprove } from '../ai-confidence';
+import { calculateAIConfidence } from '../ai-confidence';
 import type { EmailData, SavedApplication, ApplicationFromDB } from './types';
 import { createComprehensiveAIReasoning, updateAIReasoningForExistingApplication } from './ai-utils';
 import { addEmailSourceToApplication, getExistingApplications } from './database';
 import { checkAndHandleDuplicates, handleAIFirstDuplicates } from './duplicate-handler';
-import { calculateAIConfidence } from '../ai-confidence';
 
 /**
  * Application Processing
@@ -19,42 +18,49 @@ import { calculateAIConfidence } from '../ai-confidence';
 /**
  * Create a new application from email data
  */
-export async function createNewApplication(db: postgres.Sql, emailData: EmailData): Promise<SavedApplication> {
-	console.log(`[queue-consumer] 🆕 Creating new application for ${emailData.company_name} - ${emailData.role}`);
+export async function createNewApplication(
+	db: postgres.Sql,
+	emailData: EmailData,
+	needs_user_review: boolean = true,
+): Promise<SavedApplication> {
+	console.log(
+		`[application-processor.ts] 🆕 Creating new application for ${emailData.company_name} - ${emailData.role}, user: ${emailData.user_id}`,
+	);
+
+	// Ensure ai_reasoning is resolved if it's a Promise
+	const resolvedReasoning = await emailData.ai_reasoning;
 
 	const result = await db`
 		INSERT INTO public.applications (
-			user_id, company_name, role, status, applied_at, application_date,
-			source_email_id, source_thread_id, ai_suggested, ai_confidence, 
-			ai_reasoning, needs_user_review
+			user_id, company_name, role, status, application_date, 
+			source_email_id, source_thread_id, applied_at, ai_confidence, ai_reasoning, needs_user_review
 		)
 		VALUES (
-			${emailData.user_id}, ${emailData.company_name}, ${emailData.role},
-			${emailData.status}, ${emailData.email_date}::timestamptz, ${emailData.application_date}::date,
-			${emailData.email_id}, ${emailData.email_thread_id}, ${true}, 
-			${emailData.ai_confidence}, ${await emailData.ai_reasoning}, ${true}
+			${emailData.user_id}, ${emailData.company_name}, ${emailData.role}, ${emailData.status}, 
+			${emailData.application_date}::date, ${emailData.email_id}, ${emailData.email_thread_id}, 
+			${emailData.email_date}::timestamptz, ${emailData.ai_confidence}, ${resolvedReasoning}, ${needs_user_review}
 		)
-		RETURNING id, status, 
-			CASE 
-				WHEN xmax = 0 THEN 'INSERT'
-				ELSE 'UPDATE'
-			END as operation_type
+		RETURNING id, status
 	`;
 
-	if (!result || result.length === 0) {
-		throw new Error('Failed to create new application');
+	if (result.length === 0) {
+		throw new Error('Failed to insert new application');
 	}
 
-	const savedApplication = result[0] as SavedApplication;
-	console.log(`[queue-consumer] ✅ New application created: ${savedApplication.id}`);
+	const newApplication = result[0];
+	console.log(`[application-processor.ts] ✅ New application created successfully: ${newApplication.id} for user ${emailData.user_id}`);
 
-	return savedApplication;
+	return {
+		id: newApplication.id,
+		status: newApplication.status,
+		operation_type: 'INSERT',
+	};
 }
 
 /**
  * Upsert application with simple dedupe_key approach (fallback)
  */
-export async function upsertApplication(db: postgres.Sql, emailData: EmailData): Promise<SavedApplication> {
+export async function upsertApplication(db: postgres.Sql, emailData: EmailData, needs_user_review: boolean): Promise<SavedApplication> {
 	console.log(`[queue-consumer] 💾 Upserting application: ${emailData.company_name} - ${emailData.role} (${emailData.application_date})`);
 
 	const result = await db`
@@ -67,15 +73,16 @@ export async function upsertApplication(db: postgres.Sql, emailData: EmailData):
 			${emailData.user_id}, ${emailData.company_name}, ${emailData.role},
 			${emailData.status}, ${emailData.email_date}::timestamptz, ${emailData.application_date}::date,
 			${emailData.email_id}, ${emailData.email_thread_id}, ${true}, 
-			${emailData.ai_confidence}, ${await emailData.ai_reasoning}, ${true}
+			${emailData.ai_confidence}, ${await emailData.ai_reasoning}, ${needs_user_review}
 		)
 		ON CONFLICT (user_id, dedupe_key) DO UPDATE SET
 			status = CASE 
-				-- Status priority: Wishlist(0), Applied(1), Screening(2), Interviewing(3), Offer(4), Rejected(5), Withdrawn(5)
+				-- Status priority: Wishlist(0), Opportunity(0.5), Applied(1), Screening(2), Interviewing(3), Offer(4), Rejected(5), Withdrawn(5)
 				-- Only update to higher priority status or allow terminal states
 				WHEN (
 					(EXCLUDED.status = 'Rejected' OR EXCLUDED.status = 'Withdrawn') OR
-					(applications.status = 'Wishlist' AND EXCLUDED.status IN ('Applied', 'Screening', 'Interviewing', 'Offer', 'Rejected', 'Withdrawn')) OR
+					(applications.status = 'Wishlist' AND EXCLUDED.status IN ('Opportunity', 'Applied', 'Screening', 'Interviewing', 'Offer', 'Rejected', 'Withdrawn')) OR
+					(applications.status = 'Opportunity' AND EXCLUDED.status IN ('Applied', 'Screening', 'Interviewing', 'Offer', 'Rejected', 'Withdrawn')) OR
 					(applications.status = 'Applied' AND EXCLUDED.status IN ('Screening', 'Interviewing', 'Offer', 'Rejected', 'Withdrawn')) OR
 					(applications.status = 'Screening' AND EXCLUDED.status IN ('Interviewing', 'Offer', 'Rejected', 'Withdrawn')) OR
 					(applications.status = 'Interviewing' AND EXCLUDED.status IN ('Offer', 'Rejected', 'Withdrawn')) OR
@@ -129,11 +136,8 @@ export async function processRegularEmail(
 		ai_reasoning: createComprehensiveAIReasoning(db, '', emailToParse, extractedData, classificationResult, confidenceResult),
 	};
 
-	// Check if auto-approval is appropriate based on confidence
-	const autoApprove = shouldAutoApprove(confidenceResult.overall);
-	console.log(
-		`[queue-consumer] 🎯 Auto-approval decision: ${autoApprove ? 'YES' : 'NO'} (confidence: ${(confidenceResult.overall * 100).toFixed(1)}%)`,
-	);
+	// All applications require manual approval
+	console.log(`[queue-consumer] 🎯 Application will require manual approval (confidence: ${(confidenceResult.overall * 100).toFixed(1)}%)`);
 
 	// Fetch existing applications for duplicate detection
 	console.log(`[queue-consumer] 🔍 Checking for potential duplicates...`);
@@ -158,7 +162,7 @@ export async function processRegularEmail(
 
 	// No duplicates found, create new application using simple upsert with dedupe_key approach
 	console.log(`[queue-consumer] ✅ No duplicates found - proceeding with new application`);
-	const savedApplication = await upsertApplication(db, emailData);
+	const savedApplication = await upsertApplication(db, emailData, true); // Always require review
 	const wasNewApplication = savedApplication.operation_type === 'INSERT';
 
 	console.log(
@@ -232,6 +236,11 @@ export async function processAIFirstEmail(
 	const confidenceResult = calculateAIConfidence(classificationResult, aiResult, emailToParse);
 	console.log(`[queue-consumer] 🎯 AI-First Confidence Score: ${(confidenceResult.overall * 100).toFixed(1)}%`);
 
+	// All applications require manual approval
+	console.log(
+		`[queue-consumer] 🎯 AI-First application will require manual approval (confidence: ${(confidenceResult.overall * 100).toFixed(1)}%)`,
+	);
+
 	// First, check if application already exists using deduplication logic
 	const applicationDate = new Date(emailMetadata.date || new Date()).toISOString().split('T')[0]; // Date only
 	const emailData: EmailData = {
@@ -244,7 +253,7 @@ export async function processAIFirstEmail(
 		email_thread_id: emailMetadata.threadId,
 		email_date: new Date(emailMetadata.date || new Date()).toISOString(),
 		ai_confidence: confidenceResult.overall, // Use calculated confidence
-		ai_reasoning: `AI-first processing: ${confidenceResult.reasoning}`,
+		ai_reasoning: createComprehensiveAIReasoning(db, '', emailToParse, aiResult, classificationResult, confidenceResult),
 	};
 
 	// Check if there are existing applications with similar characteristics
@@ -264,8 +273,8 @@ export async function processAIFirstEmail(
 		}
 	}
 
-	// Create new application - primary email goes directly in applications table
-	const savedApplication = await createNewApplication(db, emailData);
+	// Create new application - always require manual approval
+	const savedApplication = await createNewApplication(db, emailData, true); // Always require review
 	console.log(
 		`[queue-consumer] 📧 AI-first: New application created - primary email stored ONLY in applications.source_email_id (original design)`,
 	);

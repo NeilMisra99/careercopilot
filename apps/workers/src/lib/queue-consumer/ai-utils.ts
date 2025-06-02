@@ -50,32 +50,15 @@ export async function createComprehensiveAIReasoning(
 ): Promise<string> {
 	const reasoningParts = [];
 
-	// Add confidence information
-	reasoningParts.push(`AI Confidence: ${(confidenceResult.overall * 100).toFixed(1)}% - ${confidenceResult.reasoning}`);
-
-	// Add classification reasoning
+	// Add classification reasoning (main natural reasoning)
 	if (classificationResult.reasoning) {
-		reasoningParts.push(`Classification: ${classificationResult.reasoning}`);
+		reasoningParts.push(classificationResult.reasoning);
 	}
 
-	// Add extraction details
-	const extractionDetails = [];
-	if (extractedData.companyName) extractionDetails.push(`Company: ${extractedData.companyName}`);
-	if (extractedData.jobTitle) extractionDetails.push(`Role: ${extractedData.jobTitle}`);
-	if (extractedData.status) extractionDetails.push(`Status: ${extractedData.status}`);
-
-	if (extractionDetails.length > 0) {
-		reasoningParts.push(`Extracted: ${extractionDetails.join(', ')}`);
+	// Add key evidence from the email if available
+	if (extractedData.keyEvidence) {
+		reasoningParts.push(`The email states "${extractedData.keyEvidence}"`);
 	}
-
-	// Add email metadata
-	const emailInfo = `From: ${emailToParse.gmailMessage.from || 'Unknown'}, Subject: "${emailToParse.gmailMessage.subject || 'No subject'}"`;
-	reasoningParts.push(`Email: ${emailInfo}`);
-
-	// Add confidence factor breakdown
-	const factors = confidenceResult.factors;
-	const factorBreakdown = `Factors - Classification: ${(factors.classification * 100).toFixed(0)}%, Extraction: ${(factors.extraction * 100).toFixed(0)}%, Quality: ${(factors.dataQuality * 100).toFixed(0)}%, Consistency: ${(factors.consistency * 100).toFixed(0)}%`;
-	reasoningParts.push(factorBreakdown);
 
 	// Combine with existing reasoning if provided
 	if (existingReasoning && existingReasoning.trim()) {

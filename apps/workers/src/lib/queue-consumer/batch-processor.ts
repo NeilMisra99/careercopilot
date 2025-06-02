@@ -56,29 +56,47 @@ async function processAIFirstMessage(message: Message<QueueMessage>, env: QueueC
 	const queueMessage = message.body as any; // Cast to any to access AI-first specific properties
 
 	console.log(
-		`[queue-consumer] 🚀 Processing AI-first processed email for user ${queueMessage.userId}, email ${queueMessage.emailMetadata.id}`,
+		`[batch-processor.ts] 🚀 Processing AI-first processed email for user ${queueMessage.userId}, email ${queueMessage.emailMetadata.id}`,
 	);
 
 	try {
 		const { aiResult, classificationResult } = queueMessage;
 
 		if (!aiResult || !classificationResult.isJobApplicationRelated) {
-			console.log(`[queue-consumer] 📧 Skipping non-job-related email ${queueMessage.emailMetadata.id}`);
+			console.log(`[batch-processor.ts] 📧 Skipping non-job-related email ${queueMessage.emailMetadata.id}`);
+			console.log(`[batch-processor.ts] 🔍 About to call updateEmailAnalyzedCount for non-job email`);
 			await updateEmailAnalyzedCount(db, queueMessage.userId);
 			message.ack();
 			return;
 		}
 
+		console.log(`[batch-processor.ts] 🎯 Processing job-related email ${queueMessage.emailMetadata.id} - calling processAIFirstEmail`);
 		const { applicationId, wasNewApplication } = await processAIFirstEmail(db, queueMessage, env.AI);
 
 		console.log(
-			`[queue-consumer] ✅ AI-first application ${wasNewApplication ? 'created' : 'updated'}: ${applicationId} for email ${queueMessage.emailMetadata.id}`,
+			`[batch-processor.ts] ✅ AI-first application ${wasNewApplication ? 'created' : 'updated'}: ${applicationId} for email ${queueMessage.emailMetadata.id}`,
 		);
+
+		console.log(
+			`[batch-processor.ts] 🔍 About to call updateSyncSummary - wasNewApplication: ${wasNewApplication}, userId: ${queueMessage.userId}, applicationId: ${applicationId}`,
+		);
+
+		// Add timestamp for tracking
+		const updateStartTime = Date.now();
 		await updateSyncSummary(db, queueMessage.userId, wasNewApplication);
+		const updateEndTime = Date.now();
+
+		console.log(
+			`[batch-processor.ts] ⏱️ updateSyncSummary completed in ${updateEndTime - updateStartTime}ms for user ${queueMessage.userId}`,
+		);
+
+		console.log(`[batch-processor.ts] 🔍 About to call updateEmailAnalyzedCount for processed email`);
 		await updateEmailAnalyzedCount(db, queueMessage.userId);
+
+		console.log(`[batch-processor.ts] ✅ Completed processing email ${queueMessage.emailMetadata.id}`);
 		message.ack();
 	} catch (error: any) {
-		console.error(`[queue-consumer] ❌ Error processing AI-first email ${queueMessage.emailMetadata.id}:`, error.message);
+		console.error(`[batch-processor.ts] ❌ Error processing AI-first email ${queueMessage.emailMetadata.id}:`, error.message, error.stack);
 		message.retry();
 	}
 }
@@ -270,79 +288,135 @@ export async function handleEmailParseQueueBatch(
 	env: QueueConsumerEnv,
 	ctx: ExecutionContext,
 ): Promise<void> {
-	const batchId = `batch-${Date.now()}`;
-	const batchSize = batch.messages.length;
+	console.log(`[QUEUE:batch-${Date.now()}] Processing batch with ${batch.messages.length} messages`);
 
-	console.log(`[QUEUE:${batchId}] Processing batch with ${batchSize} messages`);
+	// Connect to database
+	const connectionString = env.HYPERDRIVE_SUPABASE.connectionString;
+	console.log(`connectionString ${connectionString}`);
+	const db = initializeDatabase(env);
 
-	if (!env.AI) {
-		console.error('[queue-consumer] AI binding not available. Retrying all messages in batch.');
-		batch.messages.forEach((msg) => msg.retry());
-		return;
-	}
-
-	// Sort messages by date (newest first) to prioritize recent emails for faster user feedback
-	const sortedMessages = sortMessagesByDate(batch.messages);
-	console.log(`[queue-consumer] Processing ${sortedMessages.length} messages in chronological order (newest first)`);
-
-	// Initialize database connection
-	let db: postgres.Sql;
 	try {
-		db = initializeDatabase(env);
-		console.log(`[QUEUE:${batchId}] Database connection established`);
-	} catch (error: any) {
-		console.error(`[QUEUE:${batchId}] Failed to initialize database:`, {
-			message: error?.message,
-			timeout: error?.message?.includes('timeout') || error?.code === 'CONNECT_TIMEOUT',
-		});
-		batch.retryAll();
-		return;
-	}
+		console.log(`[QUEUE:batch-${Date.now()}] Database connection established`);
 
-	for (const message of sortedMessages) {
-		console.log(`[queue-consumer] Processing message ID: ${message.id}`);
-		const queueMessage: QueueMessage = message.body;
+		// Sort messages by date (newest first) for better user experience
+		const sortedMessages = sortMessagesByDate(batch.messages);
+		console.log(`[queue-consumer] Processing ${sortedMessages.length} messages in chronological order (newest first)`);
 
-		try {
-			// Handle force sync messages
-			if ('type' in queueMessage && queueMessage.type === 'force_sync') {
-				await processForceSyncMessage(message, env, db);
-				continue;
-			}
+		// Process each message
+		for (const message of sortedMessages) {
+			try {
+				console.log(`[queue-consumer] Processing message ID: ${message.id}`);
 
-			// Handle processed email messages (new AI-first architecture)
-			if ('type' in queueMessage && queueMessage.type === 'processed_email') {
-				await processAIFirstMessage(message, env, db);
-				continue;
-			}
+				// Handle different message types
+				const queueMessage = message.body;
+				if ('type' in queueMessage && queueMessage.type === 'force_sync') {
+					await processForceSyncMessage(message, env, db);
+				} else if ('type' in queueMessage && queueMessage.type === 'processed_email') {
+					await processAIFirstMessage(message, env, db);
+				} else {
+					await processRegularEmailMessage(message, env, db);
+				}
 
-			// Handle email parsing messages with retry limits and failed email tracking
-			// Extra safety check: Skip AI-first messages that somehow reached this point
-			if ('type' in queueMessage) {
-				console.log(`[queue-consumer] ⏭️ Skipping AI-first message that reached regular processing path: ${message.id}`);
+				// Acknowledge message after successful processing
 				message.ack();
-				continue;
-			}
-
-			await processRegularEmailMessage(message, env, db);
-		} catch (unexpectedError: any) {
-			// Catch-all for any unexpected errors
-			console.error(`[queue-consumer] ❌ Unexpected error processing message ${message.id}:`, unexpectedError.message);
-			const emailToParse = queueMessage as EmailToParse;
-			const retryCount = message.attempts || 1;
-
-			if (retryCount >= 3) {
-				await saveFailedEmail(db, emailToParse, `Unexpected error: ${unexpectedError.message}`, retryCount);
-				await updateEmailAnalyzedCount(db, emailToParse.userId);
-				message.ack();
-			} else {
+			} catch (messageError: any) {
+				console.error(`[queue-consumer] Error processing message ${message.id}:`, messageError.message);
 				message.retry();
 			}
 		}
+
+		// Check for syncs that should be completed after each batch
+		await checkAndCompleteStuckSyncs(db);
+
+		// ENHANCED: Additional completion check for recently processed syncs
+		await completeFinishedSyncs(db);
+	} catch (error: any) {
+		console.error(`[queue-consumer] Batch processing error:`, error.message, error.stack);
+		// Retry all messages in batch on fatal error
+		batch.retryAll();
+	} finally {
+		console.log(`[queue-consumer] Database connection closed after batch.`);
+		await db.end();
 	}
+}
 
-	// After processing all messages in the batch, check if any syncs should be completed
-	await checkAndCompleteStuckSyncs(db);
+/**
+ * Complete syncs that have finished processing all their emails
+ */
+async function completeFinishedSyncs(db: postgres.Sql): Promise<void> {
+	try {
+		console.log(`[database.ts] 🔍 Checking for syncs that have finished processing and need completion`);
 
-	ctx.waitUntil(db.end().then(() => console.log('[queue-consumer] Database connection closed after batch.')));
+		// Find syncs that are ready for completion
+		const syncsToComplete = await db`
+			SELECT id, user_id, email_address, last_sync_summary, last_sync_started_at
+			FROM public.user_email_integrations
+			WHERE 
+				provider = 'gmail'
+				AND sync_status = 'active'
+				AND sync_in_progress = TRUE
+				AND last_sync_summary->>'status' = 'ai_first_processing'
+				AND (
+					-- Complete if sync-engine is finished AND all queue messages processed
+					(
+						COALESCE((last_sync_summary->>'sync_engine_finished')::boolean, false) = true
+						AND COALESCE((last_sync_summary->>'emails_analyzed')::int, 0) >= COALESCE((last_sync_summary->>'emails_sent_to_queue')::int, 0)
+						AND COALESCE((last_sync_summary->>'emails_sent_to_queue')::int, 0) > 0
+					)
+					OR 
+					-- Complete if enough time has passed (5 minutes) - timeout fallback
+					(
+						last_sync_started_at IS NOT NULL
+						AND last_sync_started_at < NOW() - INTERVAL '5 minutes'
+					)
+				)
+		`;
+
+		console.log(`[database.ts] 🔍 Found ${syncsToComplete.length} syncs ready for completion`);
+
+		for (const sync of syncsToComplete) {
+			const summary = sync.last_sync_summary || {};
+			const emailsAnalyzed = summary.emails_analyzed || 0;
+			const emailsSentToQueue = summary.emails_sent_to_queue || 0;
+			const applicationsFound = summary.applications_found || 0;
+			const syncEngineFinished = summary.sync_engine_finished || false;
+
+			const reason =
+				syncEngineFinished && emailsAnalyzed >= emailsSentToQueue && emailsSentToQueue > 0 ? 'ALL_EMAILS_PROCESSED' : 'TIME_EXPIRED';
+
+			console.log(`[database.ts] 🎯 Completing sync for user ${sync.user_id} (${sync.email_address}):`, {
+				emailsAnalyzed,
+				emailsSentToQueue,
+				applicationsFound,
+				syncEngineFinished,
+				reason,
+			});
+
+			const completedSummary = {
+				...summary,
+				status: 'completed',
+				completed_at: new Date().toISOString(),
+			};
+
+			await db`
+				UPDATE public.user_email_integrations
+				SET 
+					sync_in_progress = FALSE,
+					last_sync_completed_at = NOW(),
+					first_sync_completed = TRUE,
+					last_sync_summary = ${db.json(completedSummary)}
+				WHERE id = ${sync.id}
+			`;
+
+			console.log(
+				`[database.ts] ✅ COMPLETED sync for integration ${sync.id} (${sync.email_address}) with ${applicationsFound} applications found`,
+			);
+		}
+
+		if (syncsToComplete.length > 0) {
+			console.log(`[database.ts] 🎉 Successfully completed ${syncsToComplete.length} finished syncs`);
+		}
+	} catch (error: any) {
+		console.error(`[database.ts] ❌ Error completing finished syncs:`, error.message);
+	}
 }

@@ -147,6 +147,8 @@ export function PendingApplicationsReview({
 
   const getStatusColor = (status: string) => {
     switch (status) {
+      case "Opportunity":
+        return "bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-300";
       case "Applied":
         return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300";
       case "Screening":

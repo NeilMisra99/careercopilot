@@ -112,6 +112,14 @@ function calculateExtractionConfidence(extractedData: AIParsedDataFromExtractor,
 	if (hasStatus) {
 		const status = extractedData.status;
 		const statusKeywords = {
+			Opportunity: [
+				'opportunity',
+				'please see job description',
+				'let me know if you are interested',
+				'recruiter',
+				'recruiting',
+				'talent acquisition',
+			],
 			Applied: ['applied', 'application received', 'thank you for applying'],
 			Screening: ['reviewing', 'under review', 'being considered'],
 			Interviewing: ['interview', 'schedule', 'meet with'],
@@ -197,7 +205,7 @@ function calculateConsistency(
 
 	// Check status consistency with classification
 	if (classification.isJobApplicationRelated && extractedData.status) {
-		const validStatuses = ['Applied', 'Screening', 'Interviewing', 'Offer', 'Rejected', 'Withdrawn'];
+		const validStatuses = ['Opportunity', 'Applied', 'Screening', 'Interviewing', 'Offer', 'Rejected', 'Withdrawn'];
 		if (validStatuses.includes(extractedData.status)) {
 			consistency += 0.2;
 		}

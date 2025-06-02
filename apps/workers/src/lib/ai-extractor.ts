@@ -5,6 +5,7 @@ import type { Ai } from '@cloudflare/workers-types';
 import type { EmailToParse } from './types';
 
 const AIParsedApplicationStatusEnum = z.enum([
+	'Opportunity',
 	'Applied',
 	'Screening',
 	'Interviewing',
@@ -20,6 +21,12 @@ export const AIParsedDataSchema = z.object({
 	companyName: z.string().nullable().describe('The name of the company mentioned in the application.'),
 	jobTitle: z.string().nullable().describe('The job title for the application.'),
 	status: AIParsedApplicationStatusEnum.nullable().describe('The current status of the job application.'),
+	keyEvidence: z
+		.string()
+		.nullable()
+		.describe(
+			'The specific text/phrase from the email that most clearly indicates the status. Should be a direct quote from the email content that supports the status determination.',
+		),
 });
 
 export type AIParsedDataFromExtractor = z.infer<typeof AIParsedDataSchema>;
@@ -48,18 +55,49 @@ COMPANY NAME:
 - Look for company names in the email signature, "from" address, or body text
 - Clean up formatting: "Coalition, Inc." not "Coalition Inc"
 - If from a job board, look for the actual company name in the body, not the job board name
+- For recruiter emails, extract the company the recruiter is reaching out about (the hiring company)
 
 JOB TITLE:
 - Extract the specific role title as mentioned in the email
 - Include relevant qualifiers: "Senior Software Engineer" not just "Software Engineer"
 - If multiple roles mentioned, extract the specific one this email relates to
 
-APPLICATION STATUS CLASSIFICATION (CRITICAL):
-- **Applied**: Initial confirmations, "thank you for applying", "we received your application"
-- **Screening**: "reviewing your application", "under review", "being considered", "in review process"
-- **Interviewing**: "schedule an interview", "next step is an interview", "interview invitation"
-- **Offer**: "pleased to offer", "job offer", "we would like to extend an offer"
-- **Rejected**: ANY of these patterns indicate rejection:
+APPLICATION STATUS CLASSIFICATION (CRITICAL - BE PRECISE):
+
+**Opportunity**: Recruiter outreach, talent sourcing, or job opportunity emails where:
+  * Recruiters reach out about positions: "I have an opportunity that may interest you"
+  * "Please see job description below and let me know if you are interested"
+  * Recruiting agencies presenting roles: "Hope you are doing well! Please see job description..."
+  * Talent acquisition teams reaching out with roles
+  * Any email where YOU haven't applied yet but someone is presenting you an opportunity
+  * Emails from recruiting companies/agencies about open positions
+
+**Applied**: Initial confirmations only:
+  * "Thank you for applying"
+  * "We received your application"
+  * "Your application has been submitted"
+  * "Application confirmation"
+  * Simple acknowledgment of application receipt
+
+**Screening**: Passive review status only:
+  * "We are reviewing your application"
+  * "Your application is under review"  
+  * "Currently reviewing applications"
+  * "Being considered"
+  * "Application is being reviewed"
+  * General review/consideration language WITHOUT specific next steps
+
+**Interviewing**: ANY active interview process or technical assessment:
+  * **Technical Assessments**: "take-home", "coding challenge", "technical test", "assessment", "coding exercise"
+  * **Interview Scheduling**: "schedule an interview", "interview invitation", "would like to interview you"
+  * **Interview Types**: "phone screen", "technical interview", "behavioral interview", "panel interview"
+  * **Next Steps**: "next step is an interview", "proceed to interview", "interview process"
+  * **Assignment/Challenge**: ANY request for work samples, coding solutions, projects
+  * Key phrase: If they're asking you to DO SOMETHING (code, assess, interview), it's Interviewing
+
+**Offer**: "pleased to offer", "job offer", "we would like to extend an offer"
+
+**Rejected**: ANY of these patterns indicate rejection:
   * "decided to progress/proceed with other candidates" ← ALWAYS REJECTION
   * "decided to progress with other candidates" ← ALWAYS REJECTION
   * "have decided to progress with other candidates" ← ALWAYS REJECTION
@@ -72,14 +110,25 @@ APPLICATION STATUS CLASSIFICATION (CRITICAL):
   * "position has been filled", "role has been filled"
   * Any phrase indicating the candidate was not selected
   * Any email that indicates they decided on OTHER candidates = rejection
-- **Withdrawn**: Candidate withdrew their application
+
+**Withdrawn**: Candidate withdrew their application
+
+CRITICAL SCREENING vs INTERVIEWING DISTINCTION:
+- **Screening**: Passive status updates about review ("we are reviewing", "under consideration")
+- **Interviewing**: Active requests for participation ("take-home challenge", "schedule interview", "coding test", "next step is...")
+- **KEY RULE**: If the email asks you to DO anything (submit code, take assessment, schedule time), it's Interviewing
+- **KEY RULE**: If it mentions "interview", "assessment", "challenge", "test", "assignment" → Interviewing
+- **KEY RULE**: If it only mentions "review", "consideration", "looking at" → Screening
 
 IMPORTANT ANALYSIS RULES:
-1. **Context Matters**: If email content appears truncated (contains "... [truncated] ..."), be extra careful about status classification
-2. **Decision Language**: Phrases like "decided to progress with other candidates" or "chosen another candidate" are ALWAYS rejections, regardless of other content
-3. **Temporal Clues**: Past tense often indicates completed decisions ("has been reviewed" = decision made, likely screening or rejection)
-4. **Emotional Indicators**: "Unfortunately", "regret", "sorry" typically precede negative news
-5. **Positive vs Negative**: "Pleased" and "excited" indicate positive outcomes; "unfortunately" and "regret" indicate negative
+1. **Technical Assessments = Interviewing**: Take-home challenges, coding tests, assessments are ALWAYS Interviewing
+2. **Action Required = Interviewing**: If they want you to do something beyond wait, it's Interviewing
+3. **Recruiter Detection**: Look for recruiting company domains, phrases like "recruiter", "talent acquisition", "recruiting agency", "staffing", and emails presenting opportunities rather than responding to applications
+4. **Context Matters**: If email content appears truncated (contains "... [truncated] ..."), be extra careful about status classification
+5. **Decision Language**: Phrases like "decided to progress with other candidates" or "chosen another candidate" are ALWAYS rejections, regardless of other content
+6. **Temporal Clues**: Past tense often indicates completed decisions ("has been reviewed" = decision made, likely screening or rejection)
+7. **Emotional Indicators**: "Unfortunately", "regret", "sorry" typically precede negative news
+8. **Positive vs Negative**: "Pleased" and "excited" indicate positive outcomes; "unfortunately" and "regret" indicate negative
 
 IMPORTANT: 
 - Extract exact names/titles as they appear in the email
@@ -88,8 +137,10 @@ IMPORTANT:
 - For MULTI-LANGUAGE emails: Look for rejection/status signals in ALL languages present
 - Rejection signals can appear in English, French, or other languages - check the entire email content
 - **Pay special attention to decision-making language that indicates finality**
+- **KEY EVIDENCE**: Include the specific text/phrase from the email that most clearly indicates the status. This should be a direct quote that supports your status determination.
 
 IMPORTANT STATUS DISTINCTION:
+- **Opportunity vs Applied**: If the email is presenting you with a role to consider = Opportunity. If you already applied and they're responding = Applied+
 - Future tense (confirmation): "will review", "will be in touch" = Applied
 - Past tense (action completed): "was viewed", "has been reviewed" = Screening 
 - Present tense (ongoing): "are reviewing", "currently reviewing" = Screening
@@ -102,29 +153,42 @@ EXAMPLE OUTPUTS:
 
 <json>
 {
+  "companyName": "Ministry of Public and Business Service Delivery",
+  "jobTitle": "Data Science Developer - Senior",
+  "status": "Opportunity",
+  "keyEvidence": "Please see job description given below and let me know if you are interested"
+}
+</json>
+
+<json>
+{
+  "companyName": "1851Labs",
+  "jobTitle": "Software Engineer",
+  "status": "Interviewing",
+  "keyEvidence": "The next step is a small take-home interview"
+}
+</json>
+
+<json>
+{
   "companyName": "Amazon",
-  "jobTitle": "Front-End Engineer, GenAI",
-  "status": "Rejected"
+  "jobTitle": "Front-End Engineer",
+  "status": "Screening",
+  "keyEvidence": "your application is currently under review"
 }
 </json>
 
 <json>
 {
-  "companyName": "Stripe",
+  "companyName": "Google",
   "jobTitle": "Senior Software Engineer", 
-  "status": "Applied"
+  "status": "Applied",
+  "keyEvidence": "thank you for your application"
 }
 </json>
 
-<json>
-{
-  "companyName": "Anthropic",
-  "jobTitle": "AI Safety Researcher",
-  "status": "Screening"
-}
-</json>
-
-Now extract data from the email above:`;
+Now extract data from the email above:
+`;
 }
 
 export async function extractEmailData(emailData: EmailToParse, aiBinding: Ai): Promise<AIParsedDataFromExtractor | null> {
