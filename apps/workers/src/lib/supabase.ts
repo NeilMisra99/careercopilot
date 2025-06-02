@@ -39,12 +39,12 @@ export function getHyperdriveNonPooled(connectionString: string, env?: any): pos
 		throw new Error('Hyperdrive connection string is undefined or empty.');
 	}
 
-	// For local development, if we detect hyperdrive.local in the connection string,
-	// fall back to direct local connection to avoid proxy issues
+	// For local development, use direct local connection to avoid proxy issues
+	// Only override if explicitly in development mode
 	let actualConnectionString = connectionString;
 
-	if (connectionString.includes('.hyperdrive.local') && env?.NODE_ENV === 'development') {
-		console.log('[getHyperdriveNonPooled] Detected local development with Hyperdrive proxy. Using direct local connection instead.');
+	if (env?.NODE_ENV === 'development') {
+		console.log('[getHyperdriveNonPooled] Development environment detected. Using direct local connection to bypass Hyperdrive proxy.');
 		actualConnectionString = 'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
 	}
 
@@ -68,8 +68,7 @@ export function getHyperdriveNonPooled(connectionString: string, env?: any): pos
 		// By not setting options.ssl, postgres.js will attempt a plain connection if the server doesn't force SSL.
 	}
 
-	console.log(
-		`[getHyperdriveNonPooled] Creating connection to: ${actualConnectionString.includes('127.0.0.1') ? 'local database' : 'remote database via Hyperdrive'}`,
-	);
+	const envType = env?.NODE_ENV === 'development' ? 'local database' : 'remote database via Hyperdrive';
+	console.log(`[getHyperdriveNonPooled] Creating connection to: ${envType}`);
 	return postgres(actualConnectionString, options);
 }
