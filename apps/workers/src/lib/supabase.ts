@@ -39,6 +39,10 @@ export function getHyperdriveNonPooled(connectionString: string, env?: any): pos
 		throw new Error('Hyperdrive connection string is undefined or empty.');
 	}
 
+	// Debug logging to see what environment is detected
+	console.log(`[getHyperdriveNonPooled] NODE_ENV value: "${env?.NODE_ENV}"`);
+	console.log(`[getHyperdriveNonPooled] Environment detection: ${env?.NODE_ENV === 'development' ? 'DEVELOPMENT' : 'PRODUCTION'}`);
+
 	// For local development, use direct local connection to avoid proxy issues
 	// Only override if explicitly in development mode
 	let actualConnectionString = connectionString;
@@ -46,29 +50,42 @@ export function getHyperdriveNonPooled(connectionString: string, env?: any): pos
 	if (env?.NODE_ENV === 'development') {
 		console.log('[getHyperdriveNonPooled] Development environment detected. Using direct local connection to bypass Hyperdrive proxy.');
 		actualConnectionString = 'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
+	} else {
+		console.log('[getHyperdriveNonPooled] Production environment detected. Using Hyperdrive connection string.');
 	}
 
 	const options: postgres.Options<Record<string, postgres.PostgresType>> = {
-		connect_timeout: 5, // 5 seconds, as per recommendation
-		idle_timeout: 15, // 15 seconds (converted from 15_000 ms in recommendation)
+		connect_timeout: 10, // Increased to 10 seconds for Hyperdrive
+		idle_timeout: 30, // Increased to 30 seconds for better connection reuse
 		max_lifetime: 10 * 60, // 10 minutes (converted from 10 * 60_000 ms)
+		prepare: false, // Disable prepared statements for Cloudflare Workers/Hyperdrive compatibility
 		// SSL options will be set conditionally below
 	};
 
-	// If the connection string does NOT point to a local database, then enforce SSL.
-	// Local database connection strings used for Hyperdrive local proxy typically contain 127.0.0.1 or localhost.
-	if (!actualConnectionString.includes('127.0.0.1') && !actualConnectionString.includes('localhost')) {
-		options.ssl = 'require'; // Enforce SSL for actual Supabase via Hyperdrive or other remote PG
-		console.log("[getHyperdriveNonPooled] Non-local connection string detected. Using SSL 'require'.");
-	} else {
+	// Check if the connection string contains SSL mode settings and respect them
+	const sslModeDisabled = actualConnectionString.includes('sslmode=disable');
+	const isLocalConnection = actualConnectionString.includes('127.0.0.1') || actualConnectionString.includes('localhost');
+
+	if (sslModeDisabled) {
+		console.log('[getHyperdriveNonPooled] Connection string has sslmode=disable. SSL disabled.');
+		// Don't set SSL options when explicitly disabled
+	} else if (isLocalConnection) {
 		console.log(
 			"[getHyperdriveNonPooled] Local connection string detected. SSL 'require' NOT enforced by client options (will connect plain if server allows).",
 		);
-		// For local PostgreSQL (often via Hyperdrive proxy in dev), SSL is typically not enabled by default on the PG server.
-		// By not setting options.ssl, postgres.js will attempt a plain connection if the server doesn't force SSL.
+		// For local PostgreSQL, SSL is typically not enabled by default
+	} else {
+		options.ssl = 'require'; // Enforce SSL for remote connections when not explicitly disabled
+		console.log("[getHyperdriveNonPooled] Remote connection string detected. Using SSL 'require'.");
 	}
 
 	const envType = env?.NODE_ENV === 'development' ? 'local database' : 'remote database via Hyperdrive';
 	console.log(`[getHyperdriveNonPooled] Creating connection to: ${envType}`);
+	console.log(`[getHyperdriveNonPooled] Connection options:`, {
+		connect_timeout: options.connect_timeout,
+		idle_timeout: options.idle_timeout,
+		ssl: options.ssl || 'not set',
+	});
+
 	return postgres(actualConnectionString, options);
 }

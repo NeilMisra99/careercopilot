@@ -88,6 +88,7 @@ export async function handleForceSyncMessage(message: Message<QueueMessage>, env
 			TOKEN_KV: env.TOKEN_KV,
 			EMAIL_PARSE_QUEUE: env.EMAIL_PARSE_QUEUE,
 			AI: env.AI as any,
+			NODE_ENV: env.NODE_ENV,
 		};
 
 		// Perform the force sync (will re-fetch emails from Gmail)
