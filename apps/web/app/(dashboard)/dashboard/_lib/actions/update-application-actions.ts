@@ -1,7 +1,9 @@
 "use server";
 
 import { CACHE_TAGS } from "@/lib/cache";
+import { getWorkerUrl } from "@/lib/worker-utils";
 import { revalidateTag } from "next/cache";
+import { cookies } from "next/headers";
 
 export interface UpdateApplicationData {
   companyName?: string;
@@ -17,6 +19,7 @@ export interface UpdateApplicationData {
 export interface UpdateApplicationResult {
   success: boolean;
   error?: string;
+  details?: string;
   data?: {
     id: string;
     company_name: string;
@@ -37,26 +40,44 @@ export async function updateApplicationAction(
   updateData: UpdateApplicationData,
 ): Promise<UpdateApplicationResult> {
   try {
+    const workerUrl = getWorkerUrl();
+    if (!workerUrl) {
+      return {
+        success: false,
+        error: "Worker URL not configured",
+      };
+    }
+
+    const cookieStore = await cookies();
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/worker_proxy/applications/${applicationId}`,
+      `${workerUrl}/api/applications/${applicationId}`,
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Cookie: cookieStore.toString(),
         },
         body: JSON.stringify(updateData),
       },
     );
 
     if (!response.ok) {
-      const errorData = await response.json();
       return {
         success: false,
-        error: errorData.error || "Failed to update application",
+        error: `Failed to update application: ${response.status}`,
+        details: response.statusText,
       };
     }
 
     const result = await response.json();
+
+    if (result.error) {
+      return {
+        success: false,
+        error: result.error,
+        details: result.details,
+      };
+    }
 
     // Revalidate cache tags after successful update
     revalidateTag(CACHE_TAGS.APPLICATIONS_BOARD);
@@ -67,10 +88,11 @@ export async function updateApplicationAction(
       success: true,
       data: result.data,
     };
-  } catch {
+  } catch (error) {
     return {
       success: false,
       error: "Failed to update application",
+      details: error instanceof Error ? error.message : "Unknown error",
     };
   }
 }

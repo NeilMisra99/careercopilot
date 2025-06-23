@@ -15,12 +15,10 @@ import { createApplicationAction } from "../_lib/actions/create-application";
 import { applicationFormSchema, type ApplicationFormData } from "../_lib/types";
 import { AdditionalInfoSection } from "./additional-info-section";
 import { JobDetailsSection } from "./job-details-section";
-import { UrlImportSection } from "./url-import-section";
 
 export function ApplicationForm() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isImporting, setIsImporting] = useState(false);
 
   const form = useForm<ApplicationFormData>({
     resolver: zodResolver(applicationFormSchema),
@@ -65,93 +63,6 @@ export function ApplicationForm() {
     }
   };
 
-  const handleUrlImport = async (url: string) => {
-    if (isImporting) return;
-
-    setIsImporting(true);
-    try {
-      // Call smart URL scraping endpoint via new worker proxy structure
-      const response = await fetch(
-        `/api/worker_proxy/job-boards/scrape?url=${encodeURIComponent(url)}`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        },
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to scrape job URL");
-      }
-
-      const result = await response.json();
-
-      if (result.error) {
-        toast.error("Failed to import from URL", {
-          description: result.error,
-        });
-        return;
-      }
-
-      // Populate form with scraped data
-      if (result.data) {
-        const { companyName, jobTitle, location, salary } = result.data;
-        const extractionMethod = result.extractionMethod || "traditional";
-
-        // Count populated fields for better feedback
-        const populatedFields = [
-          companyName && "Company Name",
-          jobTitle && "Job Title",
-          location && "Location",
-          salary && "Salary",
-        ].filter(Boolean);
-
-        // Create method-specific success message
-        let methodDescription = "";
-        if (extractionMethod === "hybrid") {
-          methodDescription = "✨ Enhanced with AI for better accuracy";
-        } else if (extractionMethod === "ai-enhanced") {
-          methodDescription = "🤖 Powered by AI extraction";
-        } else {
-          methodDescription = "🔍 Traditional web scraping";
-        }
-
-        // Show a brief success state with extraction method info
-        toast.success(result.message || "Job details imported successfully!", {
-          description: `${methodDescription} • ${populatedFields.length} fields found`,
-          duration: 2500,
-        });
-
-        // Small delay to show the success message, then populate fields
-        setTimeout(() => {
-          if (companyName) form.setValue("companyName", companyName);
-          if (jobTitle) form.setValue("jobTitle", jobTitle);
-          if (location) form.setValue("location", location);
-          if (salary) form.setValue("salary", salary);
-          form.setValue("jobUrl", url);
-
-          // Show final success message with populated fields
-          const fieldsText =
-            populatedFields.length > 0
-              ? `Populated: ${populatedFields.join(", ")}`
-              : "Review and update the information as needed.";
-
-          toast.success("Form populated!", {
-            description: fieldsText,
-            duration: 3000,
-          });
-        }, 300);
-      }
-    } catch {
-      toast.error("Failed to import from URL", {
-        description: "Please enter the details manually.",
-      });
-    } finally {
-      setIsImporting(false);
-    }
-  };
-
   return (
     <div className="relative">
       {/* Loading overlay for form submission */}
@@ -170,14 +81,6 @@ export function ApplicationForm() {
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-          {/* URL Import Section */}
-          <UrlImportSection
-            onImport={handleUrlImport}
-            isImporting={isImporting}
-          />
-
-          <Separator />
-
           {/* Job Details Section */}
           <JobDetailsSection form={form} />
 

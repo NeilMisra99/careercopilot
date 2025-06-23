@@ -2,7 +2,7 @@
 # https://supabase.com/docs/guides/local-development/cli/config
 # A string used to distinguish different Supabase projects on the same host. Defaults to the
 # working directory name when running `supabase init`.
-project_id = "trackflow-app"
+project_id = "careercopilot-app"
 
 [api]
 enabled = true
@@ -180,7 +180,7 @@ otp_expiry = 3600
 # content_path = "./supabase/templates/invite.html"
 
 [auth.email.template.confirmation]
-subject = "Trackflow - Confirm your email"
+subject = "CareerCopilot - Confirm your email"
 content_path = "./supabase/email-templates/confirm-email.html"
 
 [auth.sms]

@@ -1,6 +1,6 @@
 import { CACHE_CONFIG, CACHE_TAGS } from "@/lib/cache";
 import { createClient } from "@/lib/supabase/server";
-import { workerClient } from "@/lib/worker-client";
+import { getWorkerUrl } from "@/lib/worker-utils";
 import { unstable_cache } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -65,7 +65,29 @@ interface PendingApplication {
 const getCachedGmailMessages = unstable_cache(
   async (cookieString: string): Promise<GmailMessagesApiResponse> => {
     try {
-      const result = await workerClient.getGmailMessages(cookieString);
+      const workerUrl = getWorkerUrl();
+      if (!workerUrl) {
+        return {
+          error: "Worker URL not configured",
+        };
+      }
+
+      const response = await fetch(`${workerUrl}/api/gmail/messages`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: cookieString,
+        },
+      });
+
+      if (!response.ok) {
+        return {
+          error: `Failed to fetch Gmail messages: ${response.status}`,
+          details: response.statusText,
+        };
+      }
+
+      const result = await response.json();
 
       if (result.error) {
         return {
@@ -75,9 +97,8 @@ const getCachedGmailMessages = unstable_cache(
       }
 
       // The Worker returns messages and integratedGmailAddress directly
-      const gmailResponse = result as unknown as GmailMessagesApiResponse;
-      const messages = gmailResponse.messages || [];
-      const integratedGmailAddress = gmailResponse.integratedGmailAddress;
+      const messages = result.messages || [];
+      const integratedGmailAddress = result.integratedGmailAddress;
 
       return {
         messages,
@@ -107,7 +128,29 @@ async function getGmailMessages(
 const getCachedApplicationsData = unstable_cache(
   async (cookieString: string): Promise<ApplicationsApiResponse> => {
     try {
-      const result = await workerClient.getApplications(cookieString);
+      const workerUrl = getWorkerUrl();
+      if (!workerUrl) {
+        return {
+          error: "Worker URL not configured",
+        };
+      }
+
+      const response = await fetch(`${workerUrl}/api/applications`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: cookieString,
+        },
+      });
+
+      if (!response.ok) {
+        return {
+          error: `Failed to fetch applications: ${response.status}`,
+          details: response.statusText,
+        };
+      }
+
+      const result = await response.json();
 
       if (result.error) {
         return {
@@ -151,7 +194,32 @@ const getCachedPendingApplicationsData = unstable_cache(
     details?: string;
   }> => {
     try {
-      const result = await workerClient.getPendingApplications(cookieString);
+      const workerUrl = getWorkerUrl();
+      if (!workerUrl) {
+        return {
+          error: "Worker URL not configured",
+        };
+      }
+
+      const response = await fetch(
+        `${workerUrl}/api/applications/pending-review`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: cookieString,
+          },
+        },
+      );
+
+      if (!response.ok) {
+        return {
+          error: `Failed to fetch pending applications: ${response.status}`,
+          details: response.statusText,
+        };
+      }
+
+      const result = await response.json();
 
       if (result.error) {
         return {
@@ -413,7 +481,6 @@ export default async function DashboardPage() {
 
   return (
     <DashboardWithRealtime
-      user={user}
       initialData={dashboardData}
       gmailData={gmailData}
       integrationEmail={gmailData.integratedGmailAddress}

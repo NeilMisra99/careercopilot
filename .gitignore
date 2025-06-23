@@ -13,5 +13,9 @@
 !README.md
 
 *.txt
+!requirements.txt
+
+resume-schedules.ts
+pause-schedules.ts
 
 

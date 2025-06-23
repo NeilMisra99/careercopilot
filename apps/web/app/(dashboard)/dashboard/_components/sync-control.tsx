@@ -34,6 +34,8 @@ export function SyncControl({ className }: SyncControlProps) {
     integration: {
       id: string;
       email: string;
+      firstSyncCompleted?: boolean;
+      syncStatus?: string;
     };
     sync: {
       inProgress: boolean;
@@ -50,37 +52,48 @@ export function SyncControl({ className }: SyncControlProps) {
     rateLimit: {
       canSyncNow: boolean;
       rateLimitedUntil: string | null;
+      lastManualSync?: string | null;
+      rateLimitMinutes?: number;
     };
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Poll sync status
   useEffect(() => {
-    let interval: NodeJS.Timeout;
-
     const checkSyncStatus = async () => {
       try {
         const result = await getSyncStatusAction();
         if (result.success && result.data) {
-          const wasInProgress = syncStatus?.sync.inProgress;
-          setSyncStatus(result.data);
+          // The API response data structure matches our expected structure
+          setSyncStatus(
+            result.data as {
+              integration: {
+                id: string;
+                email: string;
+                firstSyncCompleted?: boolean;
+                syncStatus?: string;
+              };
+              sync: {
+                inProgress: boolean;
+                lastStarted: string | null;
+                lastCompleted: string | null;
+                lastSummary: {
+                  emails_processed: number;
+                  applications_found: number;
+                  error: string | null;
+                  sync_type: "manual" | "scheduled";
+                } | null;
+                lastSuccessfulSync: string | null;
+              };
+              rateLimit: {
+                canSyncNow: boolean;
+                rateLimitedUntil: string | null;
+                lastManualSync?: string | null;
+                rateLimitMinutes?: number;
+              };
+            },
+          );
           setError(null);
-
-          // Show completion toast if sync just completed
-          if (wasInProgress && !result.data.sync.inProgress) {
-            const summary = result.data.sync.lastSummary;
-            if (summary?.error) {
-              toast.error("Sync failed", {
-                description: summary.error,
-              });
-            } else {
-              toast.success("Sync completed!", {
-                description: summary
-                  ? `Processed ${summary.emails_processed} emails, found ${summary.applications_found} applications`
-                  : "Your emails have been synced successfully",
-              });
-            }
-          }
         } else {
           setError(result.error || "Failed to get sync status");
         }
@@ -89,24 +102,15 @@ export function SyncControl({ className }: SyncControlProps) {
       }
     };
 
-    // Initial check
+    // Initial check only - no more polling since we have realtime updates
     checkSyncStatus();
-
-    // Poll every 10 seconds when sync is in progress
-    if (syncStatus?.sync.inProgress) {
-      interval = setInterval(checkSyncStatus, 10000);
-    }
-
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [syncStatus?.sync.inProgress]);
+  }, []); // Remove dependency on syncStatus?.sync.inProgress
 
   const handleSync = async () => {
     if (
       isLoading ||
-      syncStatus?.sync.inProgress ||
-      !syncStatus?.rateLimit.canSyncNow
+      syncStatus?.sync?.inProgress ||
+      !syncStatus?.rateLimit?.canSyncNow
     )
       return;
 
@@ -133,12 +137,12 @@ export function SyncControl({ className }: SyncControlProps) {
 
       // Update status to show sync in progress
       setSyncStatus((prev) =>
-        prev
+        prev && prev.sync
           ? {
               ...prev,
               sync: { ...prev.sync, inProgress: true },
             }
-          : null,
+          : prev,
       );
 
       // Close popover after successful sync start
@@ -176,6 +180,19 @@ export function SyncControl({ className }: SyncControlProps) {
   }
 
   const { integration, sync, rateLimit } = syncStatus;
+
+  // Additional safety check after destructuring
+  if (!sync || !integration || !rateLimit) {
+    return (
+      <div
+        className={`text-muted-foreground flex items-center gap-2 text-sm ${className}`}
+      >
+        <RefreshCw className="h-4 w-4 animate-spin" />
+        <span>Loading sync status...</span>
+      </div>
+    );
+  }
+
   const isDisabled = isLoading || sync.inProgress || !rateLimit.canSyncNow;
   const showRateLimit = rateLimit.rateLimitedUntil && !rateLimit.canSyncNow;
 
@@ -318,6 +335,13 @@ export function SyncControl({ className }: SyncControlProps) {
                   {formatDistanceToNow(new Date(rateLimit.rateLimitedUntil), {
                     addSuffix: true,
                   })}
+                  {rateLimit.rateLimitMinutes &&
+                    rateLimit.rateLimitMinutes !== 5 && (
+                      <span className="text-muted-foreground">
+                        {" "}
+                        ({rateLimit.rateLimitMinutes} min cooldown)
+                      </span>
+                    )}
                 </span>
               </div>
             )}

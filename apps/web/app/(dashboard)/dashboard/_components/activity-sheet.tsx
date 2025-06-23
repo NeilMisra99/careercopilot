@@ -1,8 +1,8 @@
-"use client"
+"use client";
 
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { ScrollArea } from "@/components/ui/scroll-area"
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Sheet,
   SheetContent,
@@ -10,7 +10,7 @@ import {
   SheetHeader,
   SheetTitle,
   SheetTrigger,
-} from "@/components/ui/sheet"
+} from "@/components/ui/sheet";
 import {
   Activity,
   ArrowRight,
@@ -23,60 +23,60 @@ import {
   MapPin,
   TrendingUp,
   XCircle,
-} from "lucide-react"
-import { useState } from "react"
+} from "lucide-react";
+import { useState } from "react";
 
 interface ActivityItem {
-  id: string
+  id: string;
   type:
     | "application_created"
     | "status_update"
     | "interview_scheduled"
     | "email_sync"
     | "offer_received"
-    | "application_rejected"
-  title: string
-  description: string
-  timestamp: string
+    | "application_rejected";
+  title: string;
+  description: string;
+  timestamp: string;
   metadata?: {
-    company?: string
-    role?: string
-    previousStatus?: string
-    newStatus?: string
-    interviewDate?: string
-    interviewType?: string
-    location?: string
-    salary?: string
-    emailCount?: number
-    applicationsFound?: number
-  }
+    company?: string;
+    role?: string;
+    previousStatus?: string;
+    newStatus?: string;
+    interviewDate?: string;
+    interviewType?: string;
+    location?: string;
+    salary?: string;
+    emailCount?: number;
+    applicationsFound?: number;
+  };
 }
 
 interface ActivitySheetProps {
-  activities: ActivityItem[]
+  activities: ActivityItem[];
 }
 
 export function ActivitySheet({ activities }: ActivitySheetProps) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(false);
 
   const getActivityIcon = (type: string) => {
     switch (type) {
       case "application_created":
-        return <Building className="h-4 w-4 text-blue-500" />
+        return <Building className="h-4 w-4 text-blue-500" />;
       case "status_update":
-        return <TrendingUp className="h-4 w-4 text-amber-500" />
+        return <TrendingUp className="h-4 w-4 text-amber-500" />;
       case "interview_scheduled":
-        return <Calendar className="h-4 w-4 text-purple-500" />
+        return <Calendar className="h-4 w-4 text-purple-500" />;
       case "email_sync":
-        return <Mail className="h-4 w-4 text-green-500" />
+        return <Mail className="h-4 w-4 text-green-500" />;
       case "offer_received":
-        return <CheckCircle className="h-4 w-4 text-emerald-500" />
+        return <CheckCircle className="h-4 w-4 text-emerald-500" />;
       case "application_rejected":
-        return <XCircle className="h-4 w-4 text-red-500" />
+        return <XCircle className="h-4 w-4 text-red-500" />;
       default:
-        return <Activity className="h-4 w-4 text-stone-500" />
+        return <Activity className="h-4 w-4 text-stone-500" />;
     }
-  }
+  };
 
   const getActivityBadge = (type: string) => {
     switch (type) {
@@ -84,77 +84,77 @@ export function ActivitySheet({ activities }: ActivitySheetProps) {
         return (
           <Badge
             variant="secondary"
-            className="text-violet-500 bg-violet-500/10 border-violet-500/20 hover:bg-violet-500/20"
+            className="border-violet-500/20 bg-violet-500/10 text-violet-500 hover:bg-violet-500/20"
           >
             New Application
           </Badge>
-        )
+        );
       case "status_update":
         return (
           <Badge
             variant="secondary"
-            className="text-orange-500 bg-orange-500/10 border-orange-500/20 hover:bg-orange-500/20"
+            className="border-orange-500/20 bg-orange-500/10 text-orange-500 hover:bg-orange-500/20"
           >
             Status Update
           </Badge>
-        )
+        );
       case "interview_scheduled":
         return (
           <Badge
             variant="secondary"
-            className="text-indigo-500 bg-indigo-500/10 border-indigo-500/20 hover:bg-indigo-500/20"
+            className="border-indigo-500/20 bg-indigo-500/10 text-indigo-500 hover:bg-indigo-500/20"
           >
             Interview
           </Badge>
-        )
+        );
       case "email_sync":
         return (
           <Badge
             variant="secondary"
-            className="text-blue-500 bg-blue-500/10 border-blue-500/20 hover:bg-blue-500/20"
+            className="border-blue-500/20 bg-blue-500/10 text-blue-500 hover:bg-blue-500/20"
           >
             Sync
           </Badge>
-        )
+        );
       case "offer_received":
         return (
           <Badge
             variant="secondary"
-            className="text-green-500 bg-green-500/10 border-green-500/20 hover:bg-green-500/20"
+            className="border-green-500/20 bg-green-500/10 text-green-500 hover:bg-green-500/20"
           >
             Offer
           </Badge>
-        )
+        );
       case "application_rejected":
         return (
           <Badge
             variant="secondary"
-            className="text-red-500 bg-red-500/10 border-red-500/20 hover:bg-red-500/20"
+            className="border-red-500/20 bg-red-500/10 text-red-500 hover:bg-red-500/20"
           >
             Rejected
           </Badge>
-        )
+        );
       default:
-        return <Badge variant="outline">Activity</Badge>
+        return <Badge variant="outline">Activity</Badge>;
     }
-  }
+  };
 
   const formatTimestamp = (timestamp: string) => {
-    const date = new Date(timestamp)
-    const now = new Date()
+    const date = new Date(timestamp);
+    const now = new Date();
     const diffInHours = Math.floor(
       (now.getTime() - date.getTime()) / (1000 * 60 * 60),
-    )
+    );
 
-    if (diffInHours < 1) return "Just now"
-    if (diffInHours < 24) return `${diffInHours}h ago`
-    if (diffInHours < 48) return "Yesterday"
-    return date.toLocaleDateString()
-  }
+    if (diffInHours < 1) return "Just now";
+    if (diffInHours < 24) return `${diffInHours}h ago`;
+    if (diffInHours < 48) return "Yesterday";
+    return date.toLocaleDateString();
+  };
 
   const renderActivityDetails = (activity: ActivityItem) => {
-    const { metadata } = activity
-    if (!metadata) return null
+    const { metadata } = activity;
+    if (!metadata) return null;
 
     return (
       <div className="space-y-2">
@@ -173,11 +173,11 @@ export function ActivitySheet({ activities }: ActivitySheetProps) {
 
         {metadata.previousStatus && metadata.newStatus && (
           <div className="flex items-center gap-2 text-xs">
-            <span className="px-2 py-0.5 bg-stone-100 dark:bg-stone-700 rounded text-stone-600 dark:text-stone-400 text-xs">
+            <span className="rounded bg-stone-100 px-2 py-0.5 text-xs text-stone-600 dark:bg-stone-700 dark:text-stone-400">
               {metadata.previousStatus}
             </span>
-            <ArrowRight className="h-3 w-3 text-stone-400 flex-shrink-0" />
-            <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded font-medium text-xs">
+            <ArrowRight className="h-3 w-3 flex-shrink-0 text-stone-400" />
+            <span className="rounded bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900 dark:text-blue-300">
               {metadata.newStatus}
             </span>
           </div>
@@ -198,7 +198,7 @@ export function ActivitySheet({ activities }: ActivitySheetProps) {
                 {metadata.interviewType && (
                   <Badge
                     variant="outline"
-                    className="text-xs py-0 px-1 h-4 ml-1"
+                    className="ml-1 h-4 px-1 py-0 text-xs"
                   >
                     {metadata.interviewType}
                   </Badge>
@@ -238,8 +238,8 @@ export function ActivitySheet({ activities }: ActivitySheetProps) {
           </div>
         )}
       </div>
-    )
-  }
+    );
+  };
 
   // Mock data for demonstration - in real app this would come from props
   const mockActivities: ActivityItem[] = [
@@ -307,9 +307,9 @@ export function ActivitySheet({ activities }: ActivitySheetProps) {
         location: "Remote",
       },
     },
-  ]
+  ];
 
-  const displayActivities = activities.length > 0 ? activities : mockActivities
+  const displayActivities = activities.length > 0 ? activities : mockActivities;
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -323,15 +323,15 @@ export function ActivitySheet({ activities }: ActivitySheetProps) {
           Activity
         </Button>
       </SheetTrigger>
-      <SheetContent className="w-[437px] sm:w-[571px] sm:max-w-none bg-gradient-to-br from-stone-50 to-stone-100 dark:from-stone-900 dark:to-stone-800">
+      <SheetContent className="w-[437px] bg-gradient-to-br from-stone-50 to-stone-100 sm:w-[571px] sm:max-w-none dark:from-stone-900 dark:to-stone-800">
         <SheetHeader className="pt-12 pb-2">
           <SheetTitle className="flex items-center gap-3 text-stone-900 dark:text-stone-100">
-            <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
+            <div className="rounded-lg bg-blue-100 p-2 dark:bg-blue-900">
               <Activity className="h-5 w-5 text-blue-600 dark:text-blue-400" />
             </div>
             Recent Activity
           </SheetTitle>
-          <SheetDescription className="text-stone-600 dark:text-stone-400 mt-2">
+          <SheetDescription className="mt-2 text-stone-600 dark:text-stone-400">
             Your latest job search activities and milestones
           </SheetDescription>
         </SheetHeader>
@@ -343,7 +343,7 @@ export function ActivitySheet({ activities }: ActivitySheetProps) {
                 {displayActivities.map((activity) => (
                   <div
                     key={activity.id}
-                    className="group relative pl-4 pr-4 py-4 rounded-lg bg-white dark:bg-stone-800 border-l-4 border-l-blue-400 hover:border-l-blue-500 border-r border-t border-b border-stone-200 dark:border-stone-700 hover:shadow-sm transition-all duration-200"
+                    className="group relative rounded-lg border-t border-r border-b border-l-4 border-stone-200 border-l-blue-400 bg-white py-4 pr-4 pl-4 transition-all duration-200 hover:border-l-blue-500 hover:shadow-sm dark:border-stone-700 dark:bg-stone-800"
                     style={{
                       borderLeftColor:
                         activity.type === "application_created"
@@ -362,23 +362,23 @@ export function ActivitySheet({ activities }: ActivitySheetProps) {
                     }}
                   >
                     <div className="flex items-start justify-between gap-4">
-                      <div className="flex items-start gap-3 flex-1 min-w-0">
-                        <div className="flex-shrink-0 mt-0.5">
+                      <div className="flex min-w-0 flex-1 items-start gap-3">
+                        <div className="mt-0.5 flex-shrink-0">
                           {getActivityIcon(activity.type)}
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <h4 className="text-sm font-semibold text-stone-900 dark:text-stone-100 mb-1">
+                        <div className="min-w-0 flex-1">
+                          <h4 className="mb-1 text-sm font-semibold text-stone-900 dark:text-stone-100">
                             {activity.title}
                           </h4>
-                          <p className="text-sm text-stone-600 dark:text-stone-400 mb-2">
+                          <p className="mb-2 text-sm text-stone-600 dark:text-stone-400">
                             {activity.description}
                           </p>
                           {renderActivityDetails(activity)}
                         </div>
                       </div>
-                      <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                      <div className="flex flex-shrink-0 flex-col items-end gap-1">
                         {getActivityBadge(activity.type)}
-                        <span className="text-xs text-stone-500 dark:text-stone-400 whitespace-nowrap">
+                        <span className="text-xs whitespace-nowrap text-stone-500 dark:text-stone-400">
                           {formatTimestamp(activity.timestamp)}
                         </span>
                       </div>
@@ -387,16 +387,16 @@ export function ActivitySheet({ activities }: ActivitySheetProps) {
                 ))}
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center h-64 text-center px-6 pb-8">
-                <div className="p-4 bg-stone-100 dark:bg-stone-800 rounded-full mb-4">
+              <div className="flex h-64 flex-col items-center justify-center px-6 pb-8 text-center">
+                <div className="mb-4 rounded-full bg-stone-100 p-4 dark:bg-stone-800">
                   <Activity className="h-8 w-8 text-stone-400" />
                 </div>
-                <h3 className="text-base font-medium text-stone-600 dark:text-stone-300 mb-2">
+                <h3 className="mb-2 text-base font-medium text-stone-600 dark:text-stone-300">
                   No recent activity
                 </h3>
-                <p className="text-sm text-stone-500 dark:text-stone-400 max-w-sm">
+                <p className="max-w-sm text-sm text-stone-500 dark:text-stone-400">
                   Your job search activities and milestones will appear here as
-                  you use TrackFlow
+                  you use CareerCopilot
                 </p>
               </div>
             )}
@@ -404,5 +404,5 @@ export function ActivitySheet({ activities }: ActivitySheetProps) {
         </div>
       </SheetContent>
     </Sheet>
-  )
+  );
 }

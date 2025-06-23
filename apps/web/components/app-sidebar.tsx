@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import {
   Sidebar,
@@ -8,40 +8,40 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@/components/ui/sidebar"
+} from "@/components/ui/sidebar";
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Home, Kanban } from "lucide-react"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Home, Kanban } from "lucide-react";
 
 interface User {
-  id: string
-  email?: string
+  id: string;
+  email?: string;
 }
 
 interface AppSidebarProps {
-  user: User
+  user: User;
 }
 
 export function AppSidebar({ user }: AppSidebarProps) {
   const getInitials = (email?: string) => {
-    if (!email) return "U"
+    if (!email) return "U";
     return email
       .split("@")[0]
       .split(".")
       .map((part) => part[0])
       .join("")
       .toUpperCase()
-      .slice(0, 2)
-  }
+      .slice(0, 2);
+  };
 
   return (
     <Sidebar>
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-            <span className="text-white font-bold text-sm">T</span>
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-purple-600">
+            <span className="text-sm font-bold text-white">T</span>
           </div>
-          <h2 className="text-lg font-semibold">TrackFlow</h2>
+          <h2 className="text-lg font-semibold">CareerCopilot</h2>
         </div>
       </SidebarHeader>
 
@@ -66,22 +66,22 @@ export function AppSidebar({ user }: AppSidebarProps) {
         </SidebarMenu>
       </SidebarContent>
 
-      <SidebarFooter className="py-4 px-2">
+      <SidebarFooter className="px-2 py-4">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild className="w-full h-12 px-3 py-2">
+            <SidebarMenuButton asChild className="h-12 w-full px-3 py-2">
               <a href="/settings">
-                <div className="flex items-center gap-2 w-full">
+                <div className="flex w-full items-center gap-2">
                   <Avatar className="h-10 w-10">
-                    <AvatarFallback className="text-xs bg-gradient-to-br from-blue-500 to-purple-600 text-white font-medium">
+                    <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-xs font-medium text-white">
                       {getInitials(user.email)}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="flex flex-col text-left min-w-0">
-                    <span className="text-sm font-medium leading-none truncate">
+                  <div className="flex min-w-0 flex-col text-left">
+                    <span className="truncate text-sm leading-none font-medium">
                       {user.email?.split("@")[0] || "User"}
                     </span>
-                    <span className="text-[11px] text-muted-foreground truncate mt-1">
+                    <span className="text-muted-foreground mt-1 truncate text-[11px]">
                       {user.email}
                     </span>
                   </div>
@@ -92,5 +92,5 @@ export function AppSidebar({ user }: AppSidebarProps) {
         </SidebarMenu>
       </SidebarFooter>
     </Sidebar>
-  )
+  );
 }

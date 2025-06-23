@@ -1,5 +1,5 @@
 import { CACHE_CONFIG, CACHE_TAGS } from "@/lib/cache";
-import { workerClient } from "@/lib/worker-client";
+import { getWorkerUrl } from "@/lib/worker-utils";
 import { unstable_cache } from "next/cache";
 import { cookies } from "next/headers";
 import { type FailedEmail } from "../_lib/actions/failed-email-actions";
@@ -23,7 +23,24 @@ interface Application {
 const getCachedApplicationsForBoard = unstable_cache(
   async (cookieString: string): Promise<Application[]> => {
     try {
-      const result = await workerClient.getApplications(cookieString);
+      const workerUrl = getWorkerUrl();
+      if (!workerUrl) {
+        return [];
+      }
+
+      const response = await fetch(`${workerUrl}/api/applications`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: cookieString,
+        },
+      });
+
+      if (!response.ok) {
+        return [];
+      }
+
+      const result = await response.json();
 
       if (result.error) {
         return [];
@@ -53,7 +70,24 @@ async function getApplicationsForBoard(
 const getCachedFailedEmailsForBoard = unstable_cache(
   async (cookieString: string): Promise<FailedEmail[]> => {
     try {
-      const result = await workerClient.getFailedEmails(cookieString);
+      const workerUrl = getWorkerUrl();
+      if (!workerUrl) {
+        return [];
+      }
+
+      const response = await fetch(`${workerUrl}/api/gmail/failed-emails`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: cookieString,
+        },
+      });
+
+      if (!response.ok) {
+        return [];
+      }
+
+      const result = await response.json();
 
       if (result.error) {
         return [];

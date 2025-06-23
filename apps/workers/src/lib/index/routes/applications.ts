@@ -101,7 +101,6 @@ export async function reviewApplication(c: Context<Env>) {
  * Get all applications for user
  */
 export async function getApplications(c: Context<Env>) {
-	console.log(`[WORKER LOG] /api/applications hit at ${new Date().toISOString()}`);
 	const supabase = getSupabase(c);
 	const {
 		data: { user },
@@ -117,7 +116,6 @@ export async function getApplications(c: Context<Env>) {
 			await db`SELECT id, company_name, role, status, applied_at, order_in_column FROM applications WHERE user_id = ${user.id} AND (needs_user_review = FALSE OR needs_user_review IS NULL) ORDER BY order_in_column ASC, applied_at DESC`;
 		return c.json({ data: applications });
 	} catch (err: any) {
-		console.error('Error querying database:', err.message);
 		return c.json({ error: 'Failed to fetch applications', details: err.message }, 500);
 	}
 }
@@ -282,7 +280,6 @@ export async function createApplication(c: Context<Env>) {
 		`;
 
 		if (result && result.count > 0) {
-			console.log(`[worker] Manual application created for user ${user.id}: ${companyName} - ${jobTitle}`);
 			return c.json({
 				success: true,
 				data: result[0],
@@ -292,7 +289,6 @@ export async function createApplication(c: Context<Env>) {
 			return c.json({ error: 'Failed to create application' }, 500);
 		}
 	} catch (err: any) {
-		console.error('Error creating manual application:', err.message);
 		if (err instanceof SyntaxError && err.message.includes('JSON')) {
 			return c.json({ error: 'Invalid JSON in request body' }, 400);
 		}
@@ -381,7 +377,6 @@ export async function getApplicationSources(c: Context<Env>) {
 			},
 		});
 	} catch (err: any) {
-		console.error(`Error fetching email sources for application ${applicationId}:`, err.message);
 		return c.json({ error: 'Failed to fetch email sources', details: err.message }, 500);
 	}
 }

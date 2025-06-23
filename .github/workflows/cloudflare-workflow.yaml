@@ -39,6 +39,6 @@ jobs:
       - name: Deployment Summary
         run: |
           echo "## 🚀 Worker Deployment Complete" >> $GITHUB_STEP_SUMMARY
-          echo "Worker deployed to: \`trackflow-api.nilaanjann-misra.workers.dev\`" >> $GITHUB_STEP_SUMMARY
+          echo "Worker deployed to: \`careercopilot-api.nilaanjann-misra.workers.dev\`" >> $GITHUB_STEP_SUMMARY
           echo "Environment: Production" >> $GITHUB_STEP_SUMMARY
           echo "Commit: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY

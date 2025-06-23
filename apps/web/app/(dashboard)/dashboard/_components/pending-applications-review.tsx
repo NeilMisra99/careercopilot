@@ -9,6 +9,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { formatDistanceToNow } from "date-fns";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   Building,
   CheckCircle,
@@ -241,38 +242,86 @@ export function PendingApplicationsReview({
                 </div>
 
                 <div className="ml-5 flex items-center justify-between gap-2">
-                  <div className="flex flex-1 items-center gap-2">
+                  <div className="flex flex-1 items-center gap-3">
+                    {/* Simplified Approve Button */}
                     <Button
                       size="sm"
                       onClick={() => handleAction(app.id, "approve")}
                       disabled={reviewingApplications.has(app.id)}
-                      className="h-7 bg-emerald-600 px-3 text-xs text-white hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-700"
+                      className="h-7 bg-emerald-600 px-3 text-xs text-white shadow-sm hover:bg-emerald-700 hover:shadow-md disabled:opacity-70"
                       title={`Approve as "${app.status}"`}
                     >
-                      {reviewingApplications.has(app.id) ? (
-                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                      ) : (
-                        <CheckCircle className="mr-1 h-3 w-3" />
-                      )}
-                      {reviewingApplications.has(app.id)
-                        ? "Approving..."
-                        : "Approve"}
+                      <div className="flex items-center gap-1">
+                        <AnimatePresence mode="wait">
+                          {reviewingApplications.has(app.id) ? (
+                            <motion.div
+                              key="loading"
+                              initial={{ opacity: 0, scale: 0.8 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              exit={{ opacity: 0, scale: 0.8 }}
+                              transition={{ duration: 0.2 }}
+                            >
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            </motion.div>
+                          ) : (
+                            <motion.div
+                              key="check"
+                              initial={{ opacity: 0, scale: 0.8 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              exit={{ opacity: 0, scale: 0.8 }}
+                              transition={{ duration: 0.2 }}
+                            >
+                              <CheckCircle className="h-3 w-3" />
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                        <span className="font-medium">
+                          {reviewingApplications.has(app.id)
+                            ? "Approving..."
+                            : "Approve"}
+                        </span>
+                      </div>
                     </Button>
+
+                    {/* Simplified Delete Button */}
                     <Button
                       size="sm"
                       onClick={() => handleAction(app.id, "delete")}
                       disabled={reviewingApplications.has(app.id)}
-                      className="h-7 bg-red-100 px-3 text-xs text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-300 dark:hover:bg-red-900/50"
+                      className="h-7 border border-red-200 bg-red-50 px-3 text-xs text-red-700 shadow-sm hover:bg-red-100 hover:text-red-800 hover:shadow-md disabled:opacity-70 dark:border-red-800 dark:bg-red-900/30 dark:text-red-300 dark:hover:bg-red-900/50 dark:hover:text-white"
                     >
-                      {reviewingApplications.has(app.id) ? (
-                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                      ) : (
-                        <X className="mr-1 h-3 w-3" />
-                      )}
-                      {reviewingApplications.has(app.id)
-                        ? "Deleting..."
-                        : "Delete"}
+                      <div className="flex items-center gap-1">
+                        <AnimatePresence mode="wait">
+                          {reviewingApplications.has(app.id) ? (
+                            <motion.div
+                              key="loading"
+                              initial={{ opacity: 0, scale: 0.8 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              exit={{ opacity: 0, scale: 0.8 }}
+                              transition={{ duration: 0.2 }}
+                            >
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            </motion.div>
+                          ) : (
+                            <motion.div
+                              key="x"
+                              initial={{ opacity: 0, scale: 0.8 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              exit={{ opacity: 0, scale: 0.8 }}
+                              transition={{ duration: 0.2 }}
+                            >
+                              <X className="h-3 w-3" />
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                        <span className="font-medium">
+                          {reviewingApplications.has(app.id)
+                            ? "Deleting..."
+                            : "Delete"}
+                        </span>
+                      </div>
                     </Button>
+
                     <QuickEditPendingApplication
                       application={app}
                       onApplicationUpdated={() =>
@@ -280,13 +329,14 @@ export function PendingApplicationsReview({
                       }
                     />
                   </div>
+
                   <div className="flex flex-shrink-0 items-center gap-1">
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-7 w-7 p-0 text-slate-400 transition-opacity hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
+                          className="h-7 w-7 rounded-full text-slate-400 hover:bg-blue-50 hover:text-blue-600 dark:text-slate-500 dark:hover:bg-blue-950/30 dark:hover:text-blue-400"
                           onClick={() => loadEmailSources(app.id)}
                         >
                           <Info className="h-3 w-3" />
@@ -301,14 +351,12 @@ export function PendingApplicationsReview({
                           <p className="text-xs font-semibold text-slate-900 dark:text-slate-100">
                             AI Reasoning
                           </p>
-
                           <div className="space-y-2 text-xs leading-relaxed text-slate-700 dark:text-slate-300">
                             <div className="border-l-2 border-slate-200 pl-2 dark:border-slate-600">
                               <p className="whitespace-pre-wrap">
                                 {formatAIReasoning(app.ai_reasoning)}
                               </p>
                             </div>
-
                             <div className="border-t border-slate-200 pt-1 dark:border-slate-600">
                               <div className="space-y-1">
                                 <p>
@@ -329,8 +377,6 @@ export function PendingApplicationsReview({
                                 </p>
                               </div>
                             </div>
-
-                            {/* Email sources section */}
                             {emailSources[app.id] &&
                               emailSources[app.id].length > 0 && (
                                 <div className="border-t border-slate-200 pt-1 dark:border-slate-600">
@@ -351,7 +397,6 @@ export function PendingApplicationsReview({
                                   </p>
                                 </div>
                               )}
-
                             {loadingEmailSources.has(app.id) &&
                               !emailSources[app.id] && (
                                 <div className="pt-1">
@@ -365,13 +410,14 @@ export function PendingApplicationsReview({
                         </div>
                       </TooltipContent>
                     </Tooltip>
+
                     {app.source_email_id && (
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-7 w-7 p-0 text-slate-400 transition-opacity hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
+                            className="h-7 w-7 rounded-full border border-violet-200/50 bg-violet-50/80 text-violet-600 hover:bg-violet-100 dark:border-violet-700/50 dark:bg-violet-900/30 dark:text-violet-400 dark:hover:bg-violet-800/50"
                             onClick={() => {
                               const gmailUrl = integrationEmail
                                 ? `https://mail.google.com/mail/?authuser=${encodeURIComponent(integrationEmail)}#inbox/${app.source_email_id}`
@@ -383,7 +429,7 @@ export function PendingApplicationsReview({
                           </Button>
                         </TooltipTrigger>
                         <TooltipContent>
-                          <p>Open email in Gmail</p>
+                          <span>Open email in Gmail</span>
                         </TooltipContent>
                       </Tooltip>
                     )}

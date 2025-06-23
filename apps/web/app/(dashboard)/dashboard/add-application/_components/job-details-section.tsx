@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 
 import { type ApplicationFormData } from "../_lib/types";
+import { EnhancedCompanyField } from "./enhanced-company-field";
 
 interface JobDetailsSectionProps {
   form: UseFormReturn<ApplicationFormData>;
@@ -49,24 +50,10 @@ export function JobDetailsSection({ form }: JobDetailsSectionProps) {
         </p>
       </div>
 
+      {/* Grid container that properly handles the enrichment card */}
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        {/* Company Name */}
-        <FormField
-          control={form.control}
-          name="companyName"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Company Name *</FormLabel>
-              <FormControl>
-                <Input
-                  placeholder="e.g. Google, Microsoft, Stripe"
-                  {...field}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        {/* Enhanced Company Name Field */}
+        <EnhancedCompanyField form={form} />
 
         {/* Job Title */}
         <FormField

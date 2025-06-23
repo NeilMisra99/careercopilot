@@ -3,7 +3,7 @@
  * https://developers.cloudflare.com/workers/wrangler/configuration/
  */
 {
-	"name": "trackflow-api",
+	"name": "careercopilot-api",
 	"main": "src/index.ts",
 	"compatibility_date": "2025-03-07",
 	"compatibility_flags": ["nodejs_compat"],
@@ -45,54 +45,10 @@
 	 */
 	// "services": [{ "binding": "MY_SERVICE", "service": "my-service" }]
 
-	"kv_namespaces": [
-		{
-			"binding": "TOKEN_KV",
-			"id": "d1107eaf3bdf47fabc9f377e096e1b1d",
-			"preview_id": "e8267715cd624266bfe79e8b0b62787f",
-		},
-		{
-			"binding": "EMAIL_SYNC_RATE_KV",
-			"id": "2367c0e7a9cf42599c42415fa892ea23",
-			"preview_id": "6332ff4c47af4755b234d60220513bd5",
-		},
-		{
-			"binding": "AI_RATE_LIMIT_KV",
-			"id": "236210b59418417d90beaa9dce80941e",
-			"preview_id": "881bcc8711354c3597c87d4dc6f692ed",
-		},
-		{
-			"binding": "SCRAPING_CACHE_KV",
-			"id": "cceefc7b12424d3f9b29ade11375e848",
-			"preview_id": "34437fba3764462ebc0637d0ee4b643f",
-		},
-	],
-	"queues": {
-		"producers": [
-			{
-				"binding": "EMAIL_PARSE_QUEUE",
-				"queue": "email-parse-queue",
-			},
-		],
-		"consumers": [
-			{
-				"queue": "email-parse-queue",
-				"max_batch_size": 5,
-				"max_batch_timeout": 15,
-				"max_retries": 3,
-				"dead_letter_queue": "email-parse-dlq",
-			},
-		],
-	},
-	// "browser": {
-	// 	"binding": "BROWSER",
-	// },
-	"ai": {
-		"binding": "AI",
-	},
-	"triggers": {
-		"crons": ["*/5 * * * *"],
-	},
+	/**
+	 * Durable Objects for sync progress tracking
+	 * Provides single-instance state management to eliminate race conditions
+	 */
 	"hyperdrive": [
 		{
 			"binding": "HYPERDRIVE_SUPABASE",

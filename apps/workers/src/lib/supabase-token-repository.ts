@@ -1,5 +1,44 @@
 import type { Sql } from 'postgres'; // MODIFIED: Changed import for postgres Sql type
-import type { TokenData, TokenRepository } from './token-repository';
+
+/**
+ * Represents the core token data that needs to be stored and retrieved.
+ */
+export interface TokenData {
+	refreshTokenEncrypted: string | null;
+	accessTokenEncrypted: string;
+	accessTokenExpiresAt: string; // ISO string format
+	scopes: string[] | null;
+}
+
+/**
+ * Interface for a repository that handles storing and retrieving OAuth token data.
+ */
+export interface TokenRepository {
+	/**
+	 * Retrieves token data for a given user and provider.
+	 * @param userId The ID of the user.
+	 * @param provider The name of the OAuth provider (e.g., 'gmail').
+	 * @returns A Promise that resolves to TokenData if found, otherwise null.
+	 */
+	get(userId: string, provider: string): Promise<TokenData | null>;
+
+	/**
+	 * Stores or updates token data for a given user and provider.
+	 * @param userId The ID of the user.
+	 * @param provider The name of the OAuth provider.
+	 * @param tokenData The token data to store.
+	 * @returns A Promise that resolves when the operation is complete.
+	 */
+	put(userId: string, provider: string, tokenData: TokenData): Promise<void>;
+
+	/**
+	 * Deletes token data for a given user and provider.
+	 * @param userId The ID of the user.
+	 * @param provider The name of the OAuth provider.
+	 * @returns A Promise that resolves when the operation is complete.
+	 */
+	delete(userId: string, provider: string): Promise<void>;
+}
 
 /**
  * An implementation of TokenRepository that uses Supabase (Postgres) for storage.
@@ -39,30 +78,24 @@ export class SupabaseTokenRepository implements TokenRepository {
 	}
 
 	async put(userId: string, provider: string, tokenData: TokenData): Promise<void> {
-		// This repository only handles token fields. Metadata (like email_address) should be set elsewhere
-		// if this table is primarily for tokens. If it's the main integrations table,
-		// this PUT might need to be an UPSERT that also handles email_address.
-		// For now, assuming it updates existing records primarily for tokens.
+		// Update existing integration records with new token data
+		// The auth flow creates the initial record with email_address and other metadata
+		// The workers only need to update token fields of existing integrations
+		const result = await this.db`
+			UPDATE user_email_integrations
+			SET 
+				refresh_token_encrypted = ${tokenData.refreshTokenEncrypted},
+				access_token_encrypted = ${tokenData.accessTokenEncrypted},
+				access_token_expires_at = ${tokenData.accessTokenExpiresAt},
+				scopes = ${tokenData.scopes ? JSON.stringify(tokenData.scopes) : null},
+				updated_at = NOW()
+			WHERE user_id = ${userId} AND provider = ${provider};
+		`;
 
-		// Note: The user_email_integrations table needs user_id, provider, and email_address
-		// for its primary key or unique constraint if it's being upserted.
-		// This simplified 'put' assumes an entry might already exist or that token fields are nullable if only inserting tokens.
-		// A more robust version would handle UPSERT logic if this is the sole writer to user_email_integrations.
-
-		await this.db`
-      UPDATE user_email_integrations
-      SET 
-        refresh_token_encrypted = ${tokenData.refreshTokenEncrypted},
-        access_token_encrypted = ${tokenData.accessTokenEncrypted},
-        access_token_expires_at = ${tokenData.accessTokenExpiresAt},
-        scopes = ${tokenData.scopes ? JSON.stringify(tokenData.scopes) : null},
-        updated_at = NOW()
-      WHERE user_id = ${userId} AND provider = ${provider};
-      -- If no row was updated (e.g., it's a new integration not yet in the metadata table),
-      -- this won't insert. The OAuth callback needs to ensure the metadata row exists first.
-    `;
-		// Consider adding logic to check result.count to see if a row was updated.
-		// If not, it implies the main metadata row for (userId, provider) doesn't exist, which is an issue.
+		// Check if any row was updated
+		if (result.count === 0) {
+			throw new Error(`No integration found for user ${userId} and provider ${provider}. Please connect your account first.`);
+		}
 	}
 
 	async delete(userId: string, provider: string): Promise<void> {

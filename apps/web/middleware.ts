@@ -1,8 +1,5 @@
-import { type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
-import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { getWorkerUrl } from "./lib/worker-utils";
+import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "./lib/supabase/server";
 
 interface GmailStatus {
@@ -10,75 +7,73 @@ interface GmailStatus {
   hasCompletedSync: boolean;
 }
 
-// Check if user has Gmail integration and sync status
-async function checkGmailIntegrationStatus(
-  request: NextRequest
-): Promise<GmailStatus> {
+// Check if user has Gmail integration and sync status directly from database
+async function checkGmailIntegrationStatus(): Promise<GmailStatus> {
   try {
-    const cookieStore = await cookies();
-    const cookieHeader = cookieStore.toString();
-    const workerUrl = getWorkerUrl();
+    // Get user from the request context
+    const supabase = await createClient();
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
 
-    // Check Gmail integration
-    const userInfoResponse = await fetch(`${workerUrl}/api/gmail/user-info`, {
-      headers: {
-        Cookie: cookieHeader,
-        "Content-Type": "application/json",
-      },
-    });
-
-    if (!userInfoResponse.ok) {
+    if (userError || !user) {
       return { hasGmail: false, hasCompletedSync: false };
     }
 
-    const userInfoData = await userInfoResponse.json();
-    const integrationEmail = userInfoData.data?.providerEmail;
+    // Check Gmail integration directly from database
+    const { data: integration, error: integrationError } = await supabase
+      .from("user_email_integrations")
+      .select("email_address, sync_status, first_sync_completed")
+      .eq("user_id", user.id)
+      .eq("provider", "gmail")
+      .eq("sync_status", "active")
+      .single();
 
-    if (!integrationEmail) {
+    if (integrationError || !integration) {
       return { hasGmail: false, hasCompletedSync: false };
     }
 
-    // Check sync status
-    const syncStatusResponse = await fetch(
-      `${workerUrl}/api/gmail/sync-status`,
-      {
-        headers: {
-          Cookie: cookieHeader,
-          "Content-Type": "application/json",
-        },
-      }
-    );
-
-    if (!syncStatusResponse.ok) {
-      return { hasGmail: true, hasCompletedSync: false };
-    }
-
-    const syncStatusData = await syncStatusResponse.json();
-    const hasCompletedSync =
-      syncStatusData.integration?.firstSyncCompleted === true;
+    const hasCompletedSync = integration.first_sync_completed === true;
 
     return { hasGmail: true, hasCompletedSync };
   } catch (error) {
+    console.error("Error checking Gmail integration status:", error);
     return { hasGmail: false, hasCompletedSync: false };
   }
 }
 
-// Check if path should skip Gmail integration check
+// Helper function to check if we should skip Gmail check for certain paths
 function shouldSkipGmailCheck(pathname: string): boolean {
-  const skipPaths = ["/api/", "/auth/"];
-
-  return skipPaths.some((path) => pathname.startsWith(path));
+  return (
+    pathname.startsWith("/api/") ||
+    pathname.startsWith("/auth/") ||
+    pathname.startsWith("/_next/") ||
+    pathname.startsWith("/favicon") ||
+    pathname === "/" ||
+    pathname.startsWith("/onboarding") ||
+    pathname.startsWith("/integrations") ||
+    pathname.startsWith("/setup-test") // Allow access to test page
+  );
 }
 
-// Get authenticated user from request
-async function getAuthenticatedUser(request: NextRequest) {
-  const supabase = await createClient();
+// Helper function to get authenticated user
+async function getAuthenticatedUser() {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    if (error || !user) {
+      return null;
+    }
 
-  return user;
+    return user;
+  } catch {
+    return null;
+  }
 }
 
 export async function middleware(request: NextRequest) {
@@ -93,14 +88,13 @@ export async function middleware(request: NextRequest) {
   }
 
   // Check authentication
-  const user = await getAuthenticatedUser(request);
+  const user = await getAuthenticatedUser();
   if (!user) {
     return supabaseResponse;
   }
 
   // Check Gmail integration and sync status
-  const { hasGmail, hasCompletedSync } =
-    await checkGmailIntegrationStatus(request);
+  const { hasGmail, hasCompletedSync } = await checkGmailIntegrationStatus();
 
   // Special handling for /setup route
   if (pathname.startsWith("/setup")) {

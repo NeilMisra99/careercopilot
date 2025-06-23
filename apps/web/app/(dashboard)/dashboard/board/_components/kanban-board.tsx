@@ -228,7 +228,9 @@ export function KanbanBoard({
         toast.success("Status updated", {
           description: `Moved ${draggedAppForAction.company_name} to ${newStatus}`,
         });
-        router.refresh();
+        setTimeout(() => {
+          router.refresh();
+        }, 100);
       }
     } else if (activeId !== overId) {
       const columnKey = activeContainerKey as keyof typeof appsByStatus;
@@ -271,7 +273,9 @@ export function KanbanBoard({
         toast.success("Order updated", {
           description: `Applications in ${columnKey} reordered.`,
         });
-        router.refresh(); // Refresh data to ensure consistency
+        setTimeout(() => {
+          router.refresh();
+        }, 100); // Refresh data to ensure consistency
       }
     }
   }
@@ -298,7 +302,9 @@ export function KanbanBoard({
         );
         setIsDialogOpen(false);
         setSelectedFailedEmail(null);
-        router.refresh(); // Refresh to show new application
+        setTimeout(() => {
+          router.refresh();
+        }, 100); // Refresh to show new application
       } else {
         toast.error("Failed to create application", {
           description: result.error || "Unknown error occurred",
@@ -403,7 +409,7 @@ export function KanbanBoard({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.4 }}
-            className="flex h-[calc(100vh-200px)] gap-4 py-4 pr-6 pl-6"
+            className="flex h-[calc(100vh-210px)] gap-4 py-4 pr-6 pl-6"
           >
             {columns.map((column, index) => (
               <ApplicationColumn

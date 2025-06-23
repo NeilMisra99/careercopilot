@@ -72,6 +72,22 @@ export async function createApplicationAction(
     }
 
     if (result.success && result.data) {
+      // Trigger auto-enrichment for new application
+      try {
+        const { autoEnrichNewApplication } = await import(
+          "@/app/trigger/company-enrichment"
+        );
+
+        await autoEnrichNewApplication.trigger({
+          applicationId: result.data.id,
+          companyName: formData.companyName,
+          priority: "high", // New manual applications get high priority
+        });
+      } catch (error) {
+        console.error("Failed to trigger auto-enrichment:", error);
+        // Don't fail the whole operation if enrichment trigger fails
+      }
+
       // Revalidate relevant data and redirect
       revalidateTag(CACHE_TAGS.APPLICATIONS_DATA);
       revalidateTag(CACHE_TAGS.DASHBOARD_DATA);

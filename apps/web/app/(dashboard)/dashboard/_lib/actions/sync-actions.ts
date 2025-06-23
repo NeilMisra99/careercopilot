@@ -1,28 +1,31 @@
 "use server";
 
+import type { syncGmailIntegrations } from "@/app/trigger/gmail-sync";
 import {
   revalidateAllCacheAndPages,
   revalidateApplicationData,
   revalidateGmailData,
 } from "@/lib/cache";
 import { createClient } from "@/lib/supabase/server";
-import { getWorkerUrl } from "@/lib/worker-utils";
-import { cookies } from "next/headers";
+import { tasks } from "@trigger.dev/sdk/v3";
 
 interface SyncResponse {
   success: boolean;
   message: string;
   error?: string;
+  taskId?: string;
 }
 
 interface SyncStatusResponse {
   success: boolean;
   data?: {
-    integration: {
+    integration?: {
       id: string;
       email: string;
+      firstSyncCompleted?: boolean;
+      syncStatus?: string;
     };
-    sync: {
+    sync?: {
       inProgress: boolean;
       lastStarted: string | null;
       lastCompleted: string | null;
@@ -34,9 +37,21 @@ interface SyncStatusResponse {
       } | null;
       lastSuccessfulSync: string | null;
     };
-    rateLimit: {
+    rateLimit?: {
       canSyncNow: boolean;
       rateLimitedUntil: string | null;
+      lastManualSync?: string | null;
+      rateLimitMinutes?: number;
+    };
+    // Trigger.dev task status
+    taskStatus?: {
+      id: string;
+      status: string;
+      isCompleted: boolean;
+      isSuccess: boolean;
+      isFailed: boolean;
+      output?: unknown;
+      error?: unknown;
     };
   };
   error?: string;
@@ -47,57 +62,104 @@ export async function getSyncStatusAction(): Promise<SyncStatusResponse> {
     const supabase = await createClient();
     const {
       data: { user },
-      error: userError,
+      error: authError,
     } = await supabase.auth.getUser();
 
-    if (userError || !user) {
+    if (authError || !user) {
       return {
         success: false,
         error: "User not authenticated",
       };
     }
 
-    const workerUrl = getWorkerUrl();
-    if (!workerUrl) {
+    // Get Gmail integration from database with rate limiting fields
+    const { data: integration, error: integrationError } = await supabase
+      .from("user_email_integrations")
+      .select(
+        `
+        *,
+        last_manual_sync_at,
+        next_sync_allowed_at,
+        sync_rate_limit_minutes
+      `,
+      )
+      .eq("user_id", user.id)
+      .eq("provider", "gmail")
+      .single();
+
+    if (integrationError || !integration) {
       return {
         success: false,
-        error: "Worker URL not configured",
+        error: "Gmail integration not found",
       };
     }
 
-    const cookieStore = await cookies();
-    const response = await fetch(`${workerUrl}/api/gmail/sync-status`, {
-      method: "GET",
-      headers: {
-        Cookie: cookieStore.toString(),
-        "Content-Type": "application/json",
+    // Check rate limiting using the database function
+    const { data: canSyncData, error: rateLimitError } = await supabase.rpc(
+      "can_user_sync_now",
+      {
+        p_user_id: user.id,
+        p_provider: "gmail",
       },
-    });
+    );
 
-    if (!response.ok) {
-      return {
-        success: false,
-        error: `Failed to get sync status: ${response.status}`,
-      };
+    if (rateLimitError) {
+      console.error("Error checking rate limit:", rateLimitError);
     }
 
-    const result = await response.json();
+    const canSyncNow = rateLimitError ? true : canSyncData; // Default to true if error
+    const rateLimitedUntil = integration.next_sync_allowed_at;
 
-    if (result.error) {
-      return {
-        success: false,
-        error: result.error,
-      };
-    }
+    // Get sync summary data
+    const { data: syncSummary, error: syncError } = await supabase
+      .from("sync_summaries")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+
+    // Format response
+    const response = {
+      integration: {
+        id: integration.id,
+        email: integration.email_address,
+        firstSyncCompleted: integration.first_sync_completed || false,
+        syncStatus: integration.sync_status,
+      },
+      sync: {
+        inProgress: integration.sync_in_progress,
+        lastStarted: integration.last_sync_started_at,
+        lastCompleted: integration.last_sync_completed_at,
+        lastSummary:
+          integration.last_sync_summary ||
+          (syncError
+            ? null
+            : {
+                emails_processed: syncSummary?.emails_processed || 0,
+                applications_found: syncSummary?.applications_found || 0,
+                error: syncSummary?.error || null,
+                sync_type: syncSummary?.sync_type || "unknown",
+              }),
+        lastSuccessfulSync: integration.last_sync_completed_at,
+      },
+      rateLimit: {
+        canSyncNow: canSyncNow,
+        rateLimitedUntil: rateLimitedUntil,
+        lastManualSync: integration.last_manual_sync_at,
+        rateLimitMinutes: integration.sync_rate_limit_minutes || 5,
+      },
+    };
 
     return {
       success: true,
-      data: result,
+      data: response,
     };
-  } catch {
+  } catch (error) {
+    console.error("Error getting sync status:", error);
     return {
       success: false,
-      error: "Unexpected error occurred",
+      error: "Failed to get sync status",
     };
   }
 }
@@ -107,10 +169,10 @@ export async function syncGmailNowAction(): Promise<SyncResponse> {
     const supabase = await createClient();
     const {
       data: { user },
-      error: userError,
+      error: authError,
     } = await supabase.auth.getUser();
 
-    if (userError || !user) {
+    if (authError || !user) {
       return {
         success: false,
         message: "User not authenticated",
@@ -118,52 +180,64 @@ export async function syncGmailNowAction(): Promise<SyncResponse> {
       };
     }
 
-    const workerUrl = getWorkerUrl();
-    if (!workerUrl) {
-      return {
-        success: false,
-        message: "Configuration error",
-        error: "Worker URL not configured",
-      };
-    }
-
-    const cookieStore = await cookies();
-    const response = await fetch(`${workerUrl}/api/gmail/sync-now`, {
-      method: "POST",
-      headers: {
-        Cookie: cookieStore.toString(),
-        "Content-Type": "application/json",
+    // Check rate limiting using the database function
+    const { data: canSyncNow, error: rateLimitError } = await supabase.rpc(
+      "can_user_sync_now",
+      {
+        p_user_id: user.id,
+        p_provider: "gmail",
       },
-    });
+    );
 
-    if (!response.ok) {
-      const errorText = await response.text();
-
-      if (response.status === 429) {
-        return {
-          success: false,
-          message: "Rate limit exceeded",
-          error:
-            "You can only sync once every 5 minutes. Please wait before trying again.",
-        };
-      }
-
+    if (rateLimitError) {
+      console.error("Error checking rate limit:", rateLimitError);
       return {
         success: false,
-        message: "Sync request failed",
-        error: `HTTP ${response.status}: ${errorText}`,
+        message: "Failed to check rate limit",
+        error: "Rate limit check failed",
       };
     }
 
-    const result = await response.json();
+    if (!canSyncNow) {
+      // Get the rate limit info for a proper error message
+      const { data: integration } = await supabase
+        .from("user_email_integrations")
+        .select("next_sync_allowed_at, sync_rate_limit_minutes")
+        .eq("user_id", user.id)
+        .eq("provider", "gmail")
+        .single();
 
-    if (!result.queued && result.error) {
+      const rateLimitMinutes = integration?.sync_rate_limit_minutes || 5;
+
       return {
         success: false,
-        message: result.message || "Sync failed",
-        error: result.error,
+        message: "Rate limit exceeded",
+        error: `You can only sync once every ${rateLimitMinutes} minutes. Please wait before trying again.`,
       };
     }
+
+    // Set rate limit before triggering sync
+    const { error: setRateLimitError } = await supabase.rpc(
+      "set_sync_rate_limit",
+      {
+        p_user_id: user.id,
+        p_provider: "gmail",
+      },
+    );
+
+    if (setRateLimitError) {
+      console.error("Error setting rate limit:", setRateLimitError);
+      // Continue anyway - rate limiting failure shouldn't block sync
+    }
+
+    // Trigger the Gmail sync task for this user
+    const handle = await tasks.trigger<typeof syncGmailIntegrations>(
+      "sync-gmail-integrations",
+      {
+        forceSync: true,
+        userId: user.id,
+      },
+    );
 
     // Gmail sync initiated successfully - revalidate related data
     revalidateGmailData();
@@ -171,13 +245,15 @@ export async function syncGmailNowAction(): Promise<SyncResponse> {
 
     return {
       success: true,
-      message: result.message || "Gmail sync initiated successfully",
+      message: "Gmail sync initiated successfully",
+      taskId: handle.id,
     };
-  } catch {
+  } catch (error) {
+    console.error("Error triggering Gmail sync:", error);
     return {
       success: false,
       message: "Unexpected error occurred",
-      error: "Unexpected error occurred",
+      error: "Failed to initiate sync",
     };
   }
 }
@@ -192,5 +268,45 @@ export async function revalidateSyncDataAction(): Promise<{
     return { success: true };
   } catch {
     return { success: false };
+  }
+}
+
+// 🚀 NEW: Server action to check Trigger.dev task status
+export async function getTaskStatusAction(
+  taskId: string,
+): Promise<SyncStatusResponse> {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      return {
+        success: false,
+        error: "User not authenticated",
+      };
+    }
+
+    // This would need to be implemented with Trigger.dev management SDK
+    // For now, returning a placeholder
+    return {
+      success: true,
+      data: {
+        taskStatus: {
+          id: taskId,
+          status: "COMPLETED",
+          isCompleted: true,
+          isSuccess: true,
+          isFailed: false,
+        },
+      },
+    };
+  } catch {
+    return {
+      success: false,
+      error: "Unexpected error occurred",
+    };
   }
 }

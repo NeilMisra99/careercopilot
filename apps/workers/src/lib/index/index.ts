@@ -10,7 +10,6 @@ export type {
 	ApplicationUpdateRequest,
 	ApplicationCreateRequest,
 	ApplicationReviewAction,
-	ScrapingResult,
 } from './types';
 
 // Value exports
@@ -20,16 +19,7 @@ export { VALID_APPLICATION_STATUSES } from './types';
 export { setupCors, setupPrettyJSON, setupSupabaseAuth, setupHyperdrive, setupTokenRepository } from './middleware/setup';
 
 // Gmail route exports
-export {
-	initiateGmailOAuth,
-	handleGmailOAuthCallback,
-	getGmailUserInfo,
-	getGmailMessages,
-	initiateGmailSync,
-	getGmailSyncStatus,
-	getFailedEmails,
-	processFailedEmail,
-} from './routes/gmail';
+export { getGmailMessages, getFailedEmails, processFailedEmail } from './routes/gmail';
 
 // Application route exports
 export {
@@ -41,21 +31,41 @@ export {
 	getApplicationSources,
 } from './routes/applications';
 
-// Scraping route exports
-export { handleJobScraping } from './routes/scraping';
+// Company enrichment route exports
+export { storeCompanyEnrichment, getCompanyEnrichment, deleteCompanyEnrichment } from './routes/company-enrichment';
 
 // Debug route exports
-export { testEncryption, triggerManualSync, healthCheck, getCurrentUser, sayHello } from './routes/debug';
+export { healthCheck, getCurrentUser, sayHello } from './routes/debug';
 
 // Auth utility exports
+export { getValidGmailAccessToken } from './auth/utils';
+
+// Job discovery route exports
 export {
-	getValidGmailAccessToken,
-	generateOAuthState,
-	setOAuthStateCookie,
-	validateOAuthState,
-	createAuthorizationUrl,
-	exchangeOAuthCode,
-	fetchGoogleUserInfo,
-} from './auth/utils';
+	getJobDiscoveryJobs,
+	updateJobDiscoveryJobStatus,
+	getJobDiscoveryRuns,
+	saveJobToApplications,
+	getJobDiscoveryStats,
+	getJobDiscoveryPreferences,
+	updateJobDiscoveryPreferences,
+	testAutoDiscovery,
+	getJSearchQuotaStatus,
+	checkJSearchUsageLimits,
+} from './routes/job-discovery';
+
+// Interview prep route exports
+export {
+	getInterviewSessions,
+	createInterviewSession,
+	getInterviewSessionDetails,
+	updateInterviewSession,
+	deleteInterviewSession,
+	getInterviewQuestions,
+	getInterviewBrief,
+	getStarStories,
+	updateStarStory,
+	deleteStarStory,
+} from './routes/interview-prep';
 
 // ... rest of the file remains unchanged ...

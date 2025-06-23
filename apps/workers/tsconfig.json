@@ -39,7 +39,7 @@
 		"outDir": "dist",
 		"baseUrl": ".",
 		"paths": {
-			"@trackflow/shared": ["../../packages/shared/index.ts"]
+			"@careercopilot/shared": ["../../packages/shared/index.ts"]
 		},
 		"types": []
 	},

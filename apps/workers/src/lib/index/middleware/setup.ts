@@ -3,10 +3,9 @@ import { cors } from 'hono/cors';
 import { prettyJSON } from 'hono/pretty-json';
 import postgres from 'postgres';
 import { supabaseMiddleware } from '../../../middleware/auth.middleware';
-import { KvTokenRepository } from '../../kv-token-repository';
 import { SupabaseTokenRepository } from '../../supabase-token-repository';
 import type { Env } from '../types';
-import type { TokenRepository } from '../../token-repository';
+import type { TokenRepository } from '../../supabase-token-repository';
 
 /**
  * Setup CORS middleware
@@ -14,10 +13,7 @@ import type { TokenRepository } from '../../token-repository';
 export function setupCors() {
 	return cors({
 		origin: (origin) => {
-			const allowedOrigins = [
-				'http://localhost:3000',
-				'https://trackflow-web.vercel.app', // Your actual Vercel domain
-			];
+			const allowedOrigins = ['http://localhost:3000', 'https://careercopilot-web.vercel.app', `https://careercopilot.app`];
 			if (allowedOrigins.includes(origin)) {
 				return origin;
 			}
@@ -44,7 +40,7 @@ export function setupSupabaseAuth() {
 }
 
 /**
- * Setup Hyperdrive database middleware
+ * OPTIMIZED: Setup Hyperdrive database middleware with latency optimizations
  */
 export function setupHyperdrive() {
 	return async (c: Context<Env>, next: Next) => {
@@ -53,10 +49,23 @@ export function setupHyperdrive() {
 			return c.json({ error: 'Database not configured' }, 500);
 		}
 		try {
-			// Essential configuration for Supabase transaction pooler compatibility
+			// LATENCY OPTIMIZED: Enhanced configuration for faster queries
 			const sql = postgres(c.env.HYPERDRIVE_SUPABASE.connectionString, {
 				prepare: false, // Critical for transaction pooler - prevents prepared statement conflicts
-				max: 3, // Limit connections for Workers
+				max: 5, // Increased from 3 - more connections for better concurrency
+				connect_timeout: 5, // Reduced from 10 - faster connection timeout
+				idle_timeout: 20, // Reduced from 30 - faster cleanup of idle connections
+				max_lifetime: 5 * 60, // Reduced from 10 minutes - faster connection cycling
+				transform: {
+					// PERFORMANCE: Optimize common column transformations
+					undefined: null,
+				},
+				// LATENCY: Add connection-level optimizations
+				connection: {
+					application_name: 'careercopilot-worker-optimized',
+				},
+				// PERFORMANCE: Enable connection warming
+				onnotice: () => {}, // Suppress notice messages for performance
 			});
 			c.set('db', sql);
 		} catch (err: any) {
@@ -68,30 +77,21 @@ export function setupHyperdrive() {
 }
 
 /**
- * Setup token repository middleware
+ * 🚀 OPTIMIZED: Supabase Token Repository with enhanced performance
+ * Updated to use Supabase for token storage to align with the auth flow that stores tokens in Supabase
  */
 export function setupTokenRepository() {
 	return async (c: Context<Env>, next: Next) => {
-		const backendType = c.env.TOKEN_BACKEND || 'supabase'; // Default to supabase
-		let repository: TokenRepository;
-
-		if (backendType === 'kv') {
-			if (!c.env.TOKEN_KV) {
-				console.error("TOKEN_BACKEND is set to 'kv' but TOKEN_KV binding is not available.");
-				return c.json({ error: 'Token storage (KV) not configured.' }, 500);
-			}
-			repository = new KvTokenRepository(c.env.TOKEN_KV);
-			console.log('Using KvTokenRepository for token storage.');
-		} else {
-			const db = c.var.db;
-			if (!db) {
-				console.error("TOKEN_BACKEND is set to 'supabase' but database client (db) is not available.");
-				return c.json({ error: 'Token storage (DB) not configured.' }, 500);
-			}
-			repository = new SupabaseTokenRepository(db);
-			console.log('Using SupabaseTokenRepository for token storage.');
+		const db = c.get('db');
+		if (!db) {
+			console.error('Database connection not available - required for Supabase token storage.');
+			return c.json({ error: 'Database not configured for token storage.' }, 500);
 		}
+
+		// Use Supabase token repository to match the auth flow and Trigger.dev setup
+		const repository: TokenRepository = new SupabaseTokenRepository(db);
 		c.set('tokenRepository', repository);
+
 		await next();
 	};
 }

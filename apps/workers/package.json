@@ -8,8 +8,6 @@
 		"dev:remote": "wrangler dev --remote",
 		"start": "wrangler dev",
 		"test": "vitest",
-		"trigger-cron": "curl \"http://localhost:8787/cdn-cgi/handler/scheduled\"",
-		"sync": "./scripts/trigger-sync.sh",
 		"cf-typegen": "wrangler types",
 		"lint": "eslint .",
 		"typecheck": "tsc --noEmit --project tsconfig.json"
@@ -27,8 +25,8 @@
 	},
 	"devDependencies": {
 		"@cloudflare/vitest-pool-workers": "^0.8.19",
-		"@typescript-eslint/eslint-plugin": "^8.32.1",
-		"@typescript-eslint/parser": "^8.32.1",
+		"@typescript-eslint/eslint-plugin": "^6.15.0",
+		"@typescript-eslint/parser": "^6.15.0",
 		"eslint": "^9.16.0",
 		"globals": "^16.2.0",
 		"typescript": "^5.5.2",

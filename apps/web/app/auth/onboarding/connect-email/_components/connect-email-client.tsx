@@ -3,7 +3,6 @@
 import { Button } from "@/components/ui/button";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { initiateGmailOAuth } from "../_lib/actions";
 
 // Helper to map error codes to user-friendly messages
 function getFriendlyErrorMessage(
@@ -57,16 +56,11 @@ export function ConnectEmailClient() {
     setIsConnecting(true);
 
     try {
-      const result = await initiateGmailOAuth();
-
-      if (result.success && result.authorizeUrl) {
-        window.location.href = result.authorizeUrl;
-      } else {
-        setError(result.error || "Could not retrieve authorization URL.");
-      }
+      // Simply navigate the browser to the initiate endpoint; the route will
+      // set the CSRF cookie and handle the Google redirect in one step.
+      window.location.href = "/api/auth/gmail/initiate";
     } catch {
       setError("An unexpected error occurred while trying to connect.");
-    } finally {
       setIsConnecting(false);
     }
   };
@@ -81,8 +75,8 @@ export function ConnectEmailClient() {
       <main className="flex w-full flex-1 flex-col items-center justify-center px-20 text-center">
         <h1 className="mb-8 text-4xl font-bold">Connect Your Email Account</h1>
         <p className="mb-8 text-lg">
-          To get started with TrackFlow, please connect your Gmail account. This
-          will allow us to automatically track your job applications.
+          To get started with CareerCopilot, please connect your Gmail account.
+          This will allow us to automatically track your job applications.
         </p>
         {error && (
           <p className="mb-4 rounded-md bg-red-100 p-3 text-red-600">{error}</p>

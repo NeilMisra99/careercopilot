@@ -1,38 +1,18 @@
 /**
- * Welcome to Cloudflare Workers! This is your first worker.
+ * Cloudflare Worker for CareerCopilot API endpoints
  *
- * - Run `npm run dev` in your terminal to start a development server
- * - Open a browser tab at http://localhost:8787/ to see your worker in action
- * - Run `npm run deploy` to publish your worker
- *
- * Bind resources to your worker in `wrangler.jsonc`. After adding bindings, a type definition for the
- * `Env` object can be regenerated with `npm run cf-typegen`.
- *
- * Learn more at https://developers.cloudflare.com/workers/
+ * This worker now handles only API routes for the frontend.
+ * Background processing has been moved to Trigger.dev.
  */
 
 import { Hono } from 'hono';
-import type { MessageBatch, ExecutionContext, ScheduledController } from '@cloudflare/workers-types';
-import type { QueueMessage } from './lib/types';
-import { handleEmailParseQueueBatch } from './lib/queue-consumer';
-import type { QueueConsumerEnv } from './lib/queue-consumer';
-import emailFetcher from './email-fetcher';
 import type { Env } from './lib/index/types';
 
 // Import middleware setup functions
 import { setupCors, setupPrettyJSON, setupSupabaseAuth, setupHyperdrive, setupTokenRepository } from './lib/index/middleware/setup';
 
 // Import route handlers
-import {
-	initiateGmailOAuth,
-	exchangeGmailOAuthCode,
-	getGmailUserInfo,
-	getGmailMessages,
-	initiateGmailSync,
-	getGmailSyncStatus,
-	getFailedEmails,
-	processFailedEmail,
-} from './lib/index/routes/gmail';
+import { getGmailMessages, getFailedEmails, processFailedEmail } from './lib/index/routes/gmail';
 
 import {
 	getApplicationsPendingReview,
@@ -43,9 +23,45 @@ import {
 	getApplicationSources,
 } from './lib/index/routes/applications';
 
-import { handleJobScraping } from './lib/index/routes/scraping';
+import {
+	getJobDiscoveryJobs,
+	updateJobDiscoveryJobStatus,
+	getJobDiscoveryRuns,
+	saveJobToApplications,
+	getJobDiscoveryStats,
+	getJobDiscoveryPreferences,
+	updateJobDiscoveryPreferences,
+	getJSearchQuotaStatus,
+	checkJSearchUsageLimits,
+} from './lib/index/routes/job-discovery';
 
-import { testEncryption, triggerManualSync, healthCheck, getCurrentUser, sayHello } from './lib/index/routes/debug';
+import { storeCompanyEnrichment, getCompanyEnrichment, deleteCompanyEnrichment } from './lib/index/routes/company-enrichment';
+
+import { healthCheck, getCurrentUser, sayHello } from './lib/index/routes/debug';
+
+import { getResumes, getResumeDetails, setPrimaryResume, deleteResume } from './lib/index/routes/resumes';
+
+import {
+	getMatches,
+	getMatchDetails,
+	triggerMatching,
+	getMatchStats,
+	getRecommendations,
+	updateRecommendation,
+} from './lib/index/routes/matches';
+
+import {
+	getInterviewSessions,
+	createInterviewSession,
+	getInterviewSessionDetails,
+	updateInterviewSession,
+	deleteInterviewSession,
+	getInterviewQuestions,
+	getInterviewBrief,
+	getStarStories,
+	updateStarStory,
+	deleteStarStory,
+} from './lib/index/routes/interview-prep';
 
 /**
  * Main Hono application
@@ -64,15 +80,8 @@ app.use('/api/*', setupTokenRepository());
 // Health check (public)
 app.get('/api/health', healthCheck);
 
-// === Gmail OAuth Routes ===
-app.post('/api/auth/gmail/initiate', initiateGmailOAuth);
-app.post('/api/auth/gmail/exchange', exchangeGmailOAuthCode);
-
 // === Gmail API Routes ===
-app.get('/api/gmail/user-info', getGmailUserInfo);
 app.get('/api/gmail/messages', getGmailMessages);
-app.post('/api/gmail/sync-now', initiateGmailSync);
-app.get('/api/gmail/sync-status', getGmailSyncStatus);
 app.get('/api/gmail/failed-emails', getFailedEmails);
 app.post('/api/gmail/process-failed-email', processFailedEmail);
 
@@ -84,12 +93,55 @@ app.post('/api/applications/:id', updateApplication);
 app.post('/api/applications', createApplication);
 app.get('/api/applications/:id/sources', getApplicationSources);
 
-// === Web Scraping Routes ===
-app.get('/api/job-boards/scrape', handleJobScraping);
+// === Company Enrichment Routes ===
+app.post('/api/company-enrichment', storeCompanyEnrichment);
+app.get('/api/company-enrichment', getCompanyEnrichment);
+app.delete('/api/company-enrichment/:id', deleteCompanyEnrichment);
+
+// === Resume Management Routes ===
+app.get('/api/resumes', getResumes);
+app.get('/api/resumes/:id', getResumeDetails);
+app.post('/api/resumes/:id/set-primary', setPrimaryResume);
+app.delete('/api/resumes/:id', deleteResume);
+
+// === Job-Resume Matching Routes ===
+app.get('/api/matches', getMatches);
+app.get('/api/matches/stats', getMatchStats);
+app.get('/api/matches/:id', getMatchDetails);
+app.post('/api/matches/trigger', triggerMatching);
+
+// === Resume Recommendations Routes ===
+app.get('/api/recommendations', getRecommendations);
+app.post('/api/recommendations/:id', updateRecommendation);
+
+// === Job Discovery Routes ===
+app.get('/api/job-discovery/jobs', getJobDiscoveryJobs);
+app.put('/api/job-discovery/jobs/:jobId/status', updateJobDiscoveryJobStatus);
+app.get('/api/job-discovery/runs', getJobDiscoveryRuns);
+app.post('/api/job-discovery/jobs/:jobId/save', saveJobToApplications);
+app.get('/api/job-discovery/stats', getJobDiscoveryStats);
+
+// Phase 1: Job Discovery Preferences
+app.get('/api/job-discovery/preferences', getJobDiscoveryPreferences);
+app.put('/api/job-discovery/preferences', updateJobDiscoveryPreferences);
+
+// JSearch Quota Management
+app.get('/api/job-discovery/jsearch/quota-status', getJSearchQuotaStatus);
+app.get('/api/job-discovery/jsearch/usage-limits', checkJSearchUsageLimits);
+
+// === Interview Prep Routes ===
+app.get('/api/interview-prep/sessions', getInterviewSessions);
+app.post('/api/interview-prep/sessions', createInterviewSession);
+app.get('/api/interview-prep/sessions/:sessionId', getInterviewSessionDetails);
+app.put('/api/interview-prep/sessions/:sessionId', updateInterviewSession);
+app.delete('/api/interview-prep/sessions/:sessionId', deleteInterviewSession);
+app.get('/api/interview-prep/sessions/:sessionId/questions', getInterviewQuestions);
+app.get('/api/interview-prep/sessions/:sessionId/brief', getInterviewBrief);
+app.get('/api/interview-prep/star-stories', getStarStories);
+app.put('/api/interview-prep/star-stories/:storyId', updateStarStory);
+app.delete('/api/interview-prep/star-stories/:storyId', deleteStarStory);
 
 // === Debug/Development Routes ===
-app.get('/api/debug/test-encryption', testEncryption);
-app.post('/api/dev/trigger-sync', triggerManualSync);
 app.get('/api/me', getCurrentUser);
 app.get('/api/hello', sayHello);
 
@@ -99,28 +151,10 @@ app.onError((err, c) => {
 	return c.json({ error: 'Internal Server Error', message: err.message }, 500);
 });
 
-app.notFound((c) => {
-	return c.json({ error: 'Not Found', message: `The path ${c.req.url} was not found.` }, 404);
-});
-
-// === Worker Handlers ===
+/**
+ * Worker export - only handles HTTP requests now
+ * Background processing moved to Trigger.dev
+ */
 export default {
 	fetch: app.fetch,
-
-	/**
-	 * Queue handler for processing email messages
-	 */
-	async queue(batch: MessageBatch<QueueMessage>, env: Env['Bindings'], ctx: ExecutionContext): Promise<void> {
-		console.log(`Main queue handler in index.ts invoked for queue: ${batch.queue}`);
-		console.log('Routing to main email parse queue consumer');
-		await handleEmailParseQueueBatch(batch, env as QueueConsumerEnv, ctx);
-	},
-
-	/**
-	 * Scheduled handler for email fetching cron jobs
-	 */
-	async scheduled(controller: ScheduledController, env: Env['Bindings'], ctx: ExecutionContext): Promise<void> {
-		console.log('Main scheduled handler in index.ts invoked by cron trigger.');
-		await emailFetcher.scheduled(controller, env as any, ctx);
-	},
 };

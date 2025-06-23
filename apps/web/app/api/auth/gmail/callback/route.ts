@@ -1,111 +1,241 @@
-import { createClient } from "@/lib/supabase/server";
-import { cookies } from "next/headers";
+import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 
-export const runtime = "edge";
+// Import proper encryption functions that match Trigger.dev expectations
+async function getKeyMaterial(secretKeyString: string): Promise<CryptoKey> {
+  const encoder = new TextEncoder();
+  const keyDataBuffer = await crypto.subtle.digest(
+    "SHA-256",
+    encoder.encode(secretKeyString),
+  );
+  return crypto.subtle.importKey(
+    "raw",
+    keyDataBuffer,
+    { name: "AES-GCM" },
+    false,
+    ["encrypt", "decrypt"],
+  );
+}
 
-const WORKER_URL =
-  process.env.NODE_ENV === "production"
-    ? "https://trackflow-api.nilaanjann-misra.workers.dev"
-    : "http://localhost:8787";
+async function encryptToken(token: string, key: CryptoKey): Promise<string> {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const encodedToken = new TextEncoder().encode(token);
+
+  const encryptedBuffer = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv: iv },
+    key,
+    encodedToken,
+  );
+
+  const ivHex = Array.from(iv)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+  const encryptedHex = Array.from(new Uint8Array(encryptedBuffer))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+
+  return `${ivHex}:${encryptedHex}`;
+}
+
+async function encryptTokenWithEnvKey(token: string): Promise<string> {
+  const secretKey = process.env.TOKEN_ENCRYPTION_KEY;
+  if (!secretKey) {
+    throw new Error("TOKEN_ENCRYPTION_KEY environment variable is required");
+  }
+  const key = await getKeyMaterial(secretKey);
+  return encryptToken(token, key);
+}
+
+// Initialize Supabase client with service role for admin operations
+const supabaseAdmin = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+);
 
 export async function GET(request: NextRequest) {
-  const requestUrl = new URL(request.url);
-  const code = requestUrl.searchParams.get("code");
-  const state = requestUrl.searchParams.get("state");
-  const error = requestUrl.searchParams.get("error");
-
-  console.log(`[Gmail Callback] Starting OAuth callback processing`);
-  console.log(`[Gmail Callback] Code present: ${!!code}`);
-  console.log(`[Gmail Callback] State present: ${!!state}`);
-  console.log(`[Gmail Callback] Error: ${error || "none"}`);
-
-  // Handle OAuth errors
-  if (error) {
-    console.error(`[Gmail Callback] OAuth error: ${error}`);
-    return NextResponse.redirect(
-      `${requestUrl.origin}/auth/onboarding/connect-email?error=oauth_error&details=${encodeURIComponent(error)}`,
-    );
-  }
-
-  // Validate required parameters
-  if (!code || !state) {
-    console.error(`[Gmail Callback] Missing required parameters`);
-    return NextResponse.redirect(
-      `${requestUrl.origin}/auth/onboarding/connect-email?error=missing_parameters`,
-    );
-  }
-
   try {
-    // Get the user's session to pass cookies to worker
-    const cookieStore = await cookies();
-    const supabase = await createClient();
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
+    const { searchParams } = new URL(request.url);
+    const code = searchParams.get("code");
+    const state = searchParams.get("state");
+    const error = searchParams.get("error");
 
-    if (userError || !user) {
-      console.error(
-        `[Gmail Callback] User not authenticated:`,
-        userError?.message,
+    // Retrieve stored state from secure cookie
+    const cookieState = request.cookies.get("gmail_oauth_state")?.value;
+
+    // Validate state parameter against cookie to mitigate CSRF attacks
+    if (!state || !cookieState || state !== cookieState) {
+      console.error("CSRF state validation failed", {
+        state_from_param: state,
+        state_from_cookie: cookieState,
+      });
+      // Clear potentially stale cookie
+      const redirectResp = NextResponse.redirect(
+        `${process.env.NEXT_PUBLIC_APP_URL}/auth/onboarding/connect-email?error=invalid_state`,
       );
+      redirectResp.cookies.set("gmail_oauth_state", "", {
+        path: "/",
+        maxAge: 0,
+      });
+      return redirectResp;
+    }
+
+    // Handle OAuth errors
+    if (error) {
+      console.error("OAuth error:", error);
       return NextResponse.redirect(
-        `${requestUrl.origin}/auth/login?error=session_expired_oauth`,
+        `${process.env.NEXT_PUBLIC_APP_URL}/auth/onboarding/connect-email?error=oauth_error&details=${encodeURIComponent(error)}`,
       );
     }
 
-    console.log(`[Gmail Callback] User authenticated: ${user.id}`);
+    if (!code || !state) {
+      return NextResponse.redirect(
+        `${process.env.NEXT_PUBLIC_APP_URL}/auth/onboarding/connect-email?error=missing_parameters`,
+      );
+    }
 
-    // Exchange the OAuth code via worker
-    console.log(`[Gmail Callback] Calling worker to exchange OAuth code`);
-    const exchangeResponse = await fetch(
-      `${WORKER_URL}/api/auth/gmail/exchange`,
+    // Exchange code for tokens
+    const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        code,
+        client_id: process.env.GOOGLE_CLIENT_ID!,
+        client_secret: process.env.GOOGLE_CLIENT_SECRET!,
+        redirect_uri: `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/gmail/callback`,
+        grant_type: "authorization_code",
+      }),
+    });
+
+    if (!tokenResponse.ok) {
+      const errorData = await tokenResponse.text();
+      console.error("Token exchange failed:", errorData);
+      return NextResponse.redirect(
+        `${process.env.NEXT_PUBLIC_APP_URL}/auth/onboarding/connect-email?error=token_exchange_failed`,
+      );
+    }
+
+    const tokens = await tokenResponse.json();
+
+    // Get user info from Google
+    const userInfoResponse = await fetch(
+      "https://www.googleapis.com/oauth2/v2/userinfo",
       {
-        method: "POST",
         headers: {
-          "Content-Type": "application/json",
-          Cookie: cookieStore.toString(), // Pass session cookies to worker
+          Authorization: `Bearer ${tokens.access_token}`,
         },
-        body: JSON.stringify({
-          code,
-          state,
-        }),
       },
     );
 
-    const exchangeResult = await exchangeResponse.json();
-    console.log(`[Gmail Callback] Worker exchange response:`, exchangeResult);
-
-    if (!exchangeResponse.ok || !exchangeResult.success) {
-      console.error(
-        `[Gmail Callback] Worker exchange failed:`,
-        exchangeResult.error,
-      );
+    if (!userInfoResponse.ok) {
+      console.error("Failed to get user info from Google");
       return NextResponse.redirect(
-        `${requestUrl.origin}/auth/onboarding/connect-email?error=exchange_failed&details=${encodeURIComponent(exchangeResult.error || "Unknown error")}`,
+        `${process.env.NEXT_PUBLIC_APP_URL}/auth/onboarding/connect-email?error=user_info_failed`,
       );
     }
 
-    console.log(
-      `[Gmail Callback] OAuth exchange successful for user ${user.id}`,
-    );
-    console.log(
-      `[Gmail Callback] Integrated email: ${exchangeResult.userEmail}`,
-    );
+    const userInfo = await userInfoResponse.json();
 
-    // Redirect to setup page on success
-    return NextResponse.redirect(
-      `${requestUrl.origin}/setup?success=gmail_connected`,
-    );
-  } catch (error: unknown) {
-    console.error(`[Gmail Callback] Unexpected error:`, error);
-    let errorMessage = "An unexpected error occurred during Gmail integration";
-    if (error instanceof Error) {
-      errorMessage = error.message;
+    // State validated – extract userId (encoded as "userId:nonce" before base64)
+    let userId: string;
+    try {
+      // Decode the base64 state first
+      const decodedState = Buffer.from(state, "base64").toString("utf-8");
+      userId = decodedState.split(":")[0];
+    } catch (decodeError) {
+      console.error("Failed to decode state:", decodeError);
+      const resp = NextResponse.redirect(
+        `${process.env.NEXT_PUBLIC_APP_URL}/auth/onboarding/connect-email?error=invalid_state`,
+      );
+      resp.cookies.set("gmail_oauth_state", "", { path: "/", maxAge: 0 });
+      return resp;
     }
+
+    if (!userId) {
+      return NextResponse.redirect(
+        `${process.env.NEXT_PUBLIC_APP_URL}/auth/onboarding/connect-email?error=invalid_state`,
+      );
+    }
+
+    // Encrypt tokens (basic implementation - in production, use proper encryption)
+    const accessTokenEncrypted = await encryptTokenWithEnvKey(
+      tokens.access_token,
+    );
+    const refreshTokenEncrypted = tokens.refresh_token
+      ? await encryptTokenWithEnvKey(tokens.refresh_token)
+      : null;
+
+    // Calculate expiry time
+    const expiresAt = new Date(
+      Date.now() + tokens.expires_in * 1000,
+    ).toISOString();
+
+    // Save integration to database
+    const { data: existingIntegration } = await supabaseAdmin
+      .from("user_email_integrations")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("email_address", userInfo.email)
+      .eq("provider", "gmail")
+      .single();
+
+    if (existingIntegration) {
+      // Update existing integration
+      const { error: updateError } = await supabaseAdmin
+        .from("user_email_integrations")
+        .update({
+          access_token_encrypted: accessTokenEncrypted,
+          refresh_token_encrypted: refreshTokenEncrypted,
+          access_token_expires_at: expiresAt,
+          scopes: tokens.scope?.split(" ") || [],
+          sync_status: "active",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", existingIntegration.id);
+
+      if (updateError) {
+        console.error("Failed to update integration:", updateError);
+        return NextResponse.redirect(
+          `${process.env.NEXT_PUBLIC_APP_URL}/auth/onboarding/connect-email?error=database_error`,
+        );
+      }
+    } else {
+      // Create new integration
+      const { error: insertError } = await supabaseAdmin
+        .from("user_email_integrations")
+        .insert({
+          user_id: userId,
+          email_address: userInfo.email,
+          provider: "gmail",
+          access_token_encrypted: accessTokenEncrypted,
+          refresh_token_encrypted: refreshTokenEncrypted,
+          access_token_expires_at: expiresAt,
+          scopes: tokens.scope?.split(" ") || [],
+          sync_status: "active",
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
+
+      if (insertError) {
+        console.error("Failed to create integration:", insertError);
+        return NextResponse.redirect(
+          `${process.env.NEXT_PUBLIC_APP_URL}/auth/onboarding/connect-email?error=database_error`,
+        );
+      }
+    }
+
+    // Redirect to success page
+    const successResp = NextResponse.redirect(
+      `${process.env.NEXT_PUBLIC_APP_URL}/setup?gmail_connected=true&email=${encodeURIComponent(userInfo.email)}`,
+    );
+    // Clear the CSRF cookie after successful validation to avoid reuse
+    successResp.cookies.set("gmail_oauth_state", "", { path: "/", maxAge: 0 });
+    return successResp;
+  } catch (error) {
+    console.error("Gmail OAuth callback error:", error);
     return NextResponse.redirect(
-      `${requestUrl.origin}/auth/onboarding/connect-email?error=server_error&details=${encodeURIComponent(errorMessage)}`,
+      `${process.env.NEXT_PUBLIC_APP_URL}/auth/onboarding/connect-email?error=callback_error`,
     );
   }
 }

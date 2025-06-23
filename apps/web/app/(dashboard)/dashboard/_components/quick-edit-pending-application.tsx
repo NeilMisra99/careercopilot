@@ -28,6 +28,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
+import { updateApplicationAction } from "../_lib/actions/update-application-actions";
 
 const quickEditSchema = z.object({
   companyName: z.string().min(1, "Company name is required"),
@@ -101,29 +102,19 @@ export function QuickEditPendingApplication({
   const onSubmit = async (data: QuickEditFormData) => {
     setIsSubmitting(true);
     try {
-      const response = await fetch(
-        `/api/worker_proxy/applications/${application.id}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            companyName: data.companyName,
-            jobTitle: data.jobTitle,
-            status: data.status,
-            applicationDate: data.applicationDate,
-            jobUrl: data.jobUrl || null,
-            location: data.location || null,
-            salary: data.salary || null,
-            notes: data.notes || null,
-          }),
-        },
-      );
+      const result = await updateApplicationAction(application.id, {
+        companyName: data.companyName,
+        jobTitle: data.jobTitle,
+        status: data.status,
+        applicationDate: data.applicationDate,
+        jobUrl: data.jobUrl || null,
+        location: data.location || null,
+        salary: data.salary || null,
+        notes: data.notes || null,
+      });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to update application");
+      if (!result.success) {
+        throw new Error(result.error || "Failed to update application");
       }
 
       toast.success("Application updated successfully");
@@ -131,7 +122,9 @@ export function QuickEditPendingApplication({
       onApplicationUpdated?.();
     } catch (error: unknown) {
       console.error("Error updating application:", error);
-      toast.error("Failed to update application");
+      toast.error(
+        error instanceof Error ? error.message : "Failed to update application",
+      );
     } finally {
       setIsSubmitting(false);
     }
