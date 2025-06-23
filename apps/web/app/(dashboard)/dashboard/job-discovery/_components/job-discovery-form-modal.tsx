@@ -235,8 +235,8 @@ export function JobDiscoveryFormModal({
             Discover New Jobs
           </DialogTitle>
           <DialogDescription>
-            Search for job opportunities using ScrapingDog's LinkedIn Jobs API.
-            Results will be saved to your job discovery dashboard.
+            Search for job opportunities using ScrapingDog&apos;s LinkedIn Jobs
+            API. Results will be saved to your job discovery dashboard.
           </DialogDescription>
         </DialogHeader>
 
@@ -268,7 +268,7 @@ export function JobDiscoveryFormModal({
               <Alert>
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  You've reached your daily search limit of{" "}
+                  You&apos;ve reached your daily search limit of{" "}
                   {searchLimits.daily_limit} searches.
                   {searchLimits.subscription_tier === "free" && (
                     <span className="mt-1 block">
