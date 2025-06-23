@@ -35,6 +35,7 @@ import {
   Users,
   X,
 } from "lucide-react";
+import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { getJobsAction } from "../_lib/actions";
@@ -499,10 +500,12 @@ export function JobList({
                     {/* UI 2.0: Company Logo Avatar */}
                     {job.company_logo && job.discovery_source !== "serper" && (
                       <div className="flex-shrink-0 rounded-lg bg-white p-1 dark:bg-white">
-                        <img
+                        <Image
                           src={job.company_logo}
                           alt={`${job.company} logo`}
                           className="h-16 w-16 object-contain"
+                          width={56}
+                          height={56}
                           onError={(e) => {
                             // Hide on error
                             e.currentTarget.style.display = "none";

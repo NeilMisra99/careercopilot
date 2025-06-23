@@ -33,6 +33,7 @@ import {
   TrendingUp,
   Users,
 } from "lucide-react";
+import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { UseFormReturn } from "react-hook-form";
 import { ApplicationFormData } from "../_lib/types";
@@ -337,9 +338,11 @@ export function EnhancedCompanyField({ form }: EnhancedCompanyFieldProps) {
               {/* Company Logo */}
               {enrichmentData.logoUrl ? (
                 <div className="flex-shrink-0">
-                  <img
+                  <Image
                     src={enrichmentData.logoUrl}
                     alt={`${enrichmentData.companyName} logo`}
+                    width={56}
+                    height={56}
                     className="h-14 w-14 rounded-lg bg-white object-contain p-1.5 shadow-sm"
                     onError={(e) => {
                       e.currentTarget.style.display = "none";

@@ -81,7 +81,6 @@ export async function createApplicationAction(
         await autoEnrichNewApplication.trigger({
           applicationId: result.data.id,
           companyName: formData.companyName,
-          priority: "high", // New manual applications get high priority
         });
       } catch (error) {
         console.error("Failed to trigger auto-enrichment:", error);
