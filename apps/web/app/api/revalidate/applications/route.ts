@@ -1,6 +1,8 @@
 import { revalidateApplicationData } from "@/lib/cache";
 import { NextRequest, NextResponse } from "next/server";
 
+export const runtime = "edge";
+
 export async function POST(req: NextRequest) {
   const secret = req.headers.get("x-revalidate-secret");
   if (

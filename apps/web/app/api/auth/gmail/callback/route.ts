@@ -1,5 +1,7 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
+
+export const runtime = "edge";
 
 // Import proper encryption functions that match Trigger.dev expectations
 async function getKeyMaterial(secretKeyString: string): Promise<CryptoKey> {
@@ -47,10 +49,7 @@ async function encryptTokenWithEnvKey(token: string): Promise<string> {
 }
 
 // Initialize Supabase client with service role for admin operations
-const supabaseAdmin = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-);
+const supabaseAdmin = await createClient();
 
 export async function GET(request: NextRequest) {
   try {

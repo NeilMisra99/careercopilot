@@ -2,6 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import { randomBytes } from "crypto";
 import { NextResponse } from "next/server";
 
+export const runtime = "edge";
+
 export async function GET() {
   try {
     // Initialize Supabase client for auth verification

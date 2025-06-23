@@ -10,7 +10,7 @@ export interface Env {
 	Bindings: {
 		SUPABASE_URL: string; // Still needed for hono/adapter env(c) in middleware
 		SUPABASE_ANON_KEY: string; // Still needed for hono/adapter env(c) in middleware
-		HYPERDRIVE_SUPABASE: Hyperdrive;
+		HYPERDRIVE: Hyperdrive;
 		GOOGLE_CLIENT_ID: string; // Added
 		GOOGLE_CLIENT_SECRET: string; // Added for token exchange
 		TOKEN_ENCRYPTION_KEY: string; // Added for encrypting refresh tokens

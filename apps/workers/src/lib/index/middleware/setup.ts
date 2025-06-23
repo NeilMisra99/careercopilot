@@ -44,13 +44,13 @@ export function setupSupabaseAuth() {
  */
 export function setupHyperdrive() {
 	return async (c: Context<Env>, next: Next) => {
-		if (!c.env.HYPERDRIVE_SUPABASE) {
-			console.error('Hyperdrive binding HYPERDRIVE_SUPABASE not found.');
+		if (!c.env.HYPERDRIVE) {
+			console.error('Hyperdrive binding HYPERDRIVE not found.');
 			return c.json({ error: 'Database not configured' }, 500);
 		}
 		try {
 			// LATENCY OPTIMIZED: Enhanced configuration for faster queries
-			const sql = postgres(c.env.HYPERDRIVE_SUPABASE.connectionString, {
+			const sql = postgres(c.env.HYPERDRIVE.connectionString, {
 				prepare: false, // Critical for transaction pooler - prevents prepared statement conflicts
 				max: 5, // Increased from 3 - more connections for better concurrency
 				connect_timeout: 5, // Reduced from 10 - faster connection timeout
