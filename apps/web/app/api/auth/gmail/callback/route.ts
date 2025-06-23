@@ -46,11 +46,11 @@ async function encryptTokenWithEnvKey(token: string): Promise<string> {
   return encryptToken(token, key);
 }
 
-// Initialize Supabase client with service role for admin operations
-const supabaseAdmin = await createClient();
-
 export async function GET(request: NextRequest) {
   try {
+    // Initialize Supabase client within request scope to avoid build-time cookie access
+    const supabaseAdmin = await createClient();
+
     const { searchParams } = new URL(request.url);
     const code = searchParams.get("code");
     const state = searchParams.get("state");
