@@ -1,6 +1,6 @@
-# Trackflow Workers
+# CareerCopilot Workers
 
-This directory contains the Cloudflare Workers that power the Trackflow application's backend services.
+This directory contains the Cloudflare Workers that power the CareerCopilot application's backend services.
 
 ## Development
 

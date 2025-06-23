@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
 import {
   Tooltip,
   TooltipContent,
@@ -437,7 +438,7 @@ export function PendingApplicationsReview({
                 </div>
               </div>
               {index < applications.length - 1 && (
-                <div className="mx-2 border-b border-violet-200/80 dark:border-slate-700/40"></div>
+                <Separator className="mt-2 bg-slate-300 dark:bg-slate-700" />
               )}
             </div>
           ))}

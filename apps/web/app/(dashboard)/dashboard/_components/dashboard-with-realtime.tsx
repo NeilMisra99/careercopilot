@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { GooeyFilter } from "@/components/ui/gooey-filter";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
 import {
   Tooltip,
   TooltipContent,
@@ -17,6 +18,7 @@ import {
   ArrowUpRight,
   Brain,
   Briefcase,
+  Building,
   Calendar,
   Clock,
   ExternalLink,
@@ -220,7 +222,7 @@ export function DashboardWithRealtime({
     pendingReview: pendingApplications.length,
   };
 
-  const recentApplications = (initialData?.rawApplications || []).slice(0, 5);
+  const recentApplications = initialData?.rawApplications || [];
 
   // Animation variants
   const containerVariants = {
@@ -558,77 +560,99 @@ export function DashboardWithRealtime({
                     >
                       {activeTab === 0 ? (
                         // Recent Applications Content
-                        <div className="h-full space-y-4">
+                        <div className="h-full">
                           <AnimatePresence>
                             {recentApplications.length > 0 ? (
                               <motion.div
-                                className="space-y-4"
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ duration: 0.5 }}
+                                className="h-full"
                               >
-                                {recentApplications
-                                  .slice(0, 4)
-                                  .map((app, index) => (
-                                    <motion.div
-                                      key={app.id}
-                                      initial={{ opacity: 0, x: -20 }}
-                                      animate={{ opacity: 1, x: 0 }}
-                                      transition={{
-                                        delay: index * 0.1,
-                                        duration: 0.5,
-                                      }}
-                                      className="group relative overflow-hidden rounded-xl border border-slate-200/50 bg-white/90 p-4 backdrop-blur-sm transition-all duration-300 hover:bg-white hover:shadow-md dark:border-slate-600/50 dark:bg-slate-700/90 dark:hover:bg-slate-700"
-                                    >
-                                      <div className="flex items-center justify-between">
-                                        <div className="min-w-0 flex-1">
-                                          <div className="flex items-center space-x-3">
-                                            <div className="flex-shrink-0">
-                                              <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-slate-200/50 bg-white text-sm font-bold text-slate-700 shadow-sm dark:border-slate-600/50 dark:bg-slate-600 dark:text-slate-200">
-                                                {app.company_name
-                                                  .charAt(0)
-                                                  .toUpperCase()}
+                                <ScrollArea className="h-full">
+                                  <div className="space-y-0 px-3">
+                                    {recentApplications.map((app, index) => {
+                                      const getStatusColor = (
+                                        status: string,
+                                      ) => {
+                                        switch (status) {
+                                          case "Opportunity":
+                                            return "bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-300";
+                                          case "Applied":
+                                            return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300";
+                                          case "Screening":
+                                            return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300";
+                                          case "Interviewing":
+                                            return "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300";
+                                          case "Offer":
+                                            return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300";
+                                          case "Rejected":
+                                            return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
+                                          case "Withdrawn":
+                                            return "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300";
+                                          default:
+                                            return "bg-slate-100 text-slate-800 dark:bg-slate-900/30 dark:text-slate-300";
+                                        }
+                                      };
+
+                                      return (
+                                        <div key={app.id}>
+                                          <motion.div
+                                            initial={{ opacity: 0, x: -20 }}
+                                            animate={{ opacity: 1, x: 0 }}
+                                            transition={{
+                                              delay: index * 0.1,
+                                              duration: 0.5,
+                                            }}
+                                            className="group rounded-md px-3 py-3 transition-colors duration-150 hover:bg-slate-50/80 dark:hover:bg-slate-700/30"
+                                          >
+                                            <div className="flex items-start justify-between gap-3">
+                                              <div className="min-w-0 flex-1 space-y-1">
+                                                <div className="flex items-center gap-2">
+                                                  <Building className="h-3 w-3 flex-shrink-0 text-slate-600 dark:text-slate-400" />
+                                                  <span className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">
+                                                    {app.company_name}
+                                                  </span>
+                                                </div>
+                                                <div className="ml-5 flex items-center gap-2">
+                                                  <span className="text-xs text-slate-700 dark:text-slate-300">
+                                                    {app.role}
+                                                  </span>
+                                                  <span className="text-xs text-slate-500 dark:text-slate-500">
+                                                    •{" "}
+                                                    {new Date(
+                                                      app.applied_at,
+                                                    ).toLocaleDateString(
+                                                      "en-US",
+                                                      {
+                                                        month: "short",
+                                                        day: "numeric",
+                                                      },
+                                                    )}
+                                                  </span>
+                                                </div>
+                                              </div>
+
+                                              <div className="ml-2 flex items-center">
+                                                <div
+                                                  className={`cursor-default rounded px-2 py-0.5 text-xs font-medium ${getStatusColor(
+                                                    app.status,
+                                                  )}`}
+                                                >
+                                                  {app.status}
+                                                </div>
                                               </div>
                                             </div>
-                                            <div className="min-w-0 flex-1">
-                                              <h4 className="truncate text-lg font-semibold text-slate-900 dark:text-slate-100">
-                                                {app.role}
-                                              </h4>
-                                              <p className="truncate text-sm text-slate-600 dark:text-slate-400">
-                                                {app.company_name}
-                                              </p>
-                                            </div>
-                                          </div>
+                                          </motion.div>
+                                          {index <
+                                            recentApplications.length - 1 && (
+                                            <Separator className="my-2 bg-slate-300 dark:bg-slate-700" />
+                                          )}
                                         </div>
-                                        <div className="flex items-center space-x-3">
-                                          <Badge
-                                            variant="secondary"
-                                            className={`px-3 py-1 text-xs font-medium ${
-                                              app.status === "Applied"
-                                                ? "bg-blue-100 text-blue-700 dark:bg-blue-900/60 dark:text-blue-300"
-                                                : app.status === "Interviewing"
-                                                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300"
-                                                  : app.status === "Offer"
-                                                    ? "bg-amber-100 text-amber-700 dark:bg-amber-900/60 dark:text-amber-300"
-                                                    : app.status === "Rejected"
-                                                      ? "bg-red-100 text-red-700 dark:bg-red-900/60 dark:text-red-300"
-                                                      : "bg-slate-100 text-slate-700 dark:bg-slate-800/60 dark:text-slate-300"
-                                            }`}
-                                          >
-                                            {app.status}
-                                          </Badge>
-                                          <p className="text-xs text-slate-500 dark:text-slate-500">
-                                            {new Date(
-                                              app.applied_at,
-                                            ).toLocaleDateString("en-US", {
-                                              month: "short",
-                                              day: "numeric",
-                                            })}
-                                          </p>
-                                        </div>
-                                      </div>
-                                    </motion.div>
-                                  ))}
+                                      );
+                                    })}
+                                  </div>
+                                </ScrollArea>
                               </motion.div>
                             ) : (
                               <motion.div
