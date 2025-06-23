@@ -18,6 +18,13 @@ export const errorHandlingMaintenance = schedules.task({
         olderThanDays: 30,
       });
 
+      if (!cleanupResult.ok) {
+        logger.error("Cleanup failed", {
+          error: cleanupResult.error,
+        });
+        throw new Error("Failed to cleanup old emails");
+      }
+
       logger.info("Cleanup completed", {
         deletedCount: cleanupResult.output.deletedCount,
         cutoffDate: cleanupResult.output.cutoffDate,
@@ -26,6 +33,14 @@ export const errorHandlingMaintenance = schedules.task({
       // 2. Get overall system statistics
       logger.info("Gathering failed email statistics");
       const overallStatsResult = await getFailedEmailStats.triggerAndWait({});
+
+      if (!overallStatsResult.ok) {
+        logger.error("Failed to get statistics", {
+          error: overallStatsResult.error,
+        });
+        throw new Error("Failed to get failed email statistics");
+      }
+
       const overallStats = overallStatsResult.output;
 
       // 3. Alert if error rates are high
@@ -52,7 +67,7 @@ export const errorHandlingMaintenance = schedules.task({
         oldEmailsCleanedUp: cleanupResult.output.deletedCount,
         errorRate: (errorRate * 100).toFixed(2) + "%",
         topFailureReasons: Object.entries(overallStats.reasonBreakdown)
-          .sort(([, a], [, b]) => b - a)
+          .sort(([, a], [, b]) => (b as number) - (a as number))
           .slice(0, 5)
           .map(([reason, count]) => ({ reason, count })),
       });
@@ -91,7 +106,16 @@ export const weeklyErrorAnalysis = schedules.task({
 
     try {
       // Get detailed statistics
-      const stats = await getFailedEmailStats.triggerAndWait({});
+      const statsResult = await getFailedEmailStats.triggerAndWait({});
+
+      if (!statsResult.ok) {
+        logger.error("Failed to get statistics for weekly analysis", {
+          error: statsResult.error,
+        });
+        throw new Error("Failed to get failed email statistics");
+      }
+
+      const stats = statsResult.output;
 
       // Analyze error patterns
       const errorAnalysis = {
@@ -100,13 +124,14 @@ export const weeklyErrorAnalysis = schedules.task({
         resolvedFailures: stats.reviewed,
         avgRetryCount: stats.avgRetryCount,
         topErrorCategories: Object.entries(stats.reasonBreakdown)
-          .sort(([, a], [, b]) => b - a)
+          .sort(([, a], [, b]) => (b as number) - (a as number))
           .slice(0, 10)
           .map(([reason, count], index) => ({
             rank: index + 1,
             reason,
             count,
-            percentage: ((count / stats.totalFailed) * 100).toFixed(1) + "%",
+            percentage:
+              (((count as number) / stats.totalFailed) * 100).toFixed(1) + "%",
           })),
       };
 
