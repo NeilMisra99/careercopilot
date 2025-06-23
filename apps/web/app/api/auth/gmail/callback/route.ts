@@ -1,8 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 
-export const runtime = "edge";
-
 // Import proper encryption functions that match Trigger.dev expectations
 async function getKeyMaterial(secretKeyString: string): Promise<CryptoKey> {
   const encoder = new TextEncoder();
