@@ -6,7 +6,7 @@ CareerCopilot is an intelligent, AI-powered platform designed to streamline and 
 
 - **🤖 AI-Powered Resume Parsing:** Automatically upload and parse your resumes to extract key information like work experience, skills, and education.
 - **📩 Automated Application Tracking:** Seamlessly sync job applications from your email (with Gmail integration) into a centralized dashboard.
-- ** Boards:** Visualize and manage your job application pipeline with a drag-and-drop Kanban board.
+- 📋 **Boards:** Visualize and manage your job application pipeline with a drag-and-drop Kanban board.
 - **🔍 Intelligent Job Matching:** Discover new job opportunities that match your skills and experience.
 - **🏢 Company Enrichment:** Get AI-generated insights and details about the companies you're applying to.
 - **🎤 Interview Preparation:** Generate tailored interview questions and preparation briefs for specific roles and companies.
@@ -46,45 +46,45 @@ To get a local copy up and running, follow these simple steps.
 
 ### Installation & Setup
 
-1.  **Clone the repository:**
+1. **Clone the repository:**
 
-    ```sh
-    git clone https://github.com/NeilMisra99/careercopilot.git
-    cd careercopilot-app
-    ```
+   ```sh
+   git clone https://github.com/NeilMisra99/careercopilot.git
+   cd careercopilot-app
+   ```
 
-2.  **Install dependencies:**
+2. **Install dependencies:**
 
-    ```sh
-    npm install
-    ```
+   ```sh
+   npm install
+   ```
 
-3.  **Set up environment variables:**
-    Create a `.env.local` file in the `apps/web` directory by copying the example:
+3. **Set up environment variables:** Create a `.env.local` file in the `apps/web` directory by copying the example:
 
-    ```sh
-    cp apps/web/.env.example apps/web/.env.local
-    ```
+   ```sh
+   cp apps/web/.env.example apps/web/.env.local
+   ```
 
-    Fill in the required environment variables, including your Supabase, OpenAI, and Trigger.dev API keys.
+   Fill in the required environment variables, including your Supabase, OpenAI, and Trigger.dev API keys.
 
-4.  **Run database migrations:**
-    Link your local repository to your Supabase project and push the database migrations.
+4. **Run database migrations:** Link your local repository to your Supabase project and push the database migrations.
 
-    ```sh
-    supabase link --project-ref <your-project-id>
-    supabase db push
-    ```
+   ```sh
+   supabase link --project-ref <your-project-id>
+   supabase db push
+   ```
 
-5.  **Run the development servers:**
-    To run the web application and the Trigger.dev CLI concurrently, you can use the following command from the root directory:
-    ```sh
-    # You might need to set up a `dev` script in the root package.json using `concurrently`
-    npm run dev:web
-    ```
-    In a separate terminal, run the Trigger.dev development server:
-    ```sh
-    npx trigger.dev@latest dev
-    ```
+5. **Run the development servers:** To run the web application and the Trigger.dev CLI concurrently, you can use the following command from the root directory:
+
+   ```sh
+   # You might need to set up a `dev` script in the root package.json using `concurrently`
+   npm run dev:web
+   ```
+
+   In a separate terminal, run the Trigger.dev development server:
+
+   ```sh
+   npx trigger.dev@latest dev
+   ```
 
 Your application should now be running on `http://localhost:3000`.
