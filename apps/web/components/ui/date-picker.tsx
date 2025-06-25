@@ -50,8 +50,7 @@ export function DatePicker({
           variant={"outline"}
           className={cn(
             "border-input w-full justify-start bg-transparent text-left font-normal",
-            "hover:bg-accent hover:text-accent-foreground",
-            "dark:bg-input/30 dark:hover:bg-input/50",
+            "dark:bg-input/30",
             !date && "text-muted-foreground",
             className,
           )}
@@ -61,7 +60,7 @@ export function DatePicker({
           {date ? format(date, "PPP") : <span>{placeholder}</span>}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0 dark:bg-gray-800">
+      <PopoverContent className="bg-popover text-popover-foreground w-auto p-0">
         <Calendar
           mode="single"
           selected={date}

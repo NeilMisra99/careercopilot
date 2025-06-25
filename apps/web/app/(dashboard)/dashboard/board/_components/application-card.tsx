@@ -6,7 +6,13 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { formatDistanceToNow } from "date-fns";
 import { motion } from "framer-motion";
-import { Building2, Calendar, ExternalLink, PencilIcon } from "lucide-react";
+import {
+  Building2,
+  Calendar,
+  ExternalLink,
+  PencilIcon,
+  User,
+} from "lucide-react";
 import React, { useState } from "react";
 import { EditApplicationDialog } from "../../_components/edit-application-dialog";
 
@@ -27,14 +33,12 @@ interface Application {
 
 interface ApplicationCardProps {
   application: Application;
-  color?: string;
   bgColor?: string;
   onApplicationUpdated?: () => void;
 }
 
 export function ApplicationCard({
   application,
-  color = "text-primary",
   bgColor = "bg-primary/5",
   onApplicationUpdated,
 }: ApplicationCardProps) {
@@ -86,25 +90,30 @@ export function ApplicationCard({
         className="cursor-grab active:cursor-grabbing"
       >
         <Card
-          className={`group relative overflow-hidden border border-slate-200/60 bg-white/90 backdrop-blur-sm transition-all duration-300 ease-out hover:border-slate-300/80 hover:bg-slate-50/95 hover:shadow-md hover:shadow-black/5 dark:border-slate-700/60 dark:bg-slate-800/80 dark:hover:border-slate-600/80 dark:hover:bg-slate-700/90 dark:hover:shadow-black/15 ${isDragging ? "scale-105 rotate-2 shadow-xl shadow-black/10 dark:shadow-black/30" : ""} `}
+          className={`group cursor-pointer rounded-lg border p-3 transition-all duration-200 ${
+            isDragging
+              ? "border-border bg-card dark:bg-muted scale-105 shadow-xl shadow-black/20 dark:shadow-black/40"
+              : "border-border bg-card hover:bg-accent/50 dark:bg-muted dark:hover:bg-accent/30 shadow-sm hover:shadow-md"
+          }`}
         >
-          {/* Status indicator */}
-          <div
-            className={`absolute top-0 left-0 h-1 w-full ${bgColor.replace(/\/\d+/, "/60")}`}
-          />
-
-          <div className="p-4">
+          <div>
             {/* Header */}
             <div className="mb-3 flex items-start justify-between">
-              <div className="flex min-w-0 flex-1 items-center gap-2">
-                <div className={`flex-shrink-0 ${color}`}>
-                  <Building2 className="h-4 w-4" />
+              <div className="flex min-w-0 flex-1 flex-col gap-1">
+                <div className="flex items-start gap-2">
+                  <Building2 className="text-muted-foreground mt-0.5 h-3 w-3 flex-shrink-0" />
+                  <h3 className="text-foreground line-clamp-2 text-sm leading-tight font-medium">
+                    {application.company_name}
+                  </h3>
                 </div>
-                <h3 className="text-foreground/90 truncate text-sm font-semibold">
-                  {application.company_name}
-                </h3>
+                <div className="flex items-start gap-2">
+                  <User className="text-muted-foreground mt-0.5 h-3 w-3 flex-shrink-0" />
+                  <p className="text-muted-foreground line-clamp-2 text-xs leading-tight">
+                    {application.role}
+                  </p>
+                </div>
               </div>
-              <div className="flex items-center gap-1">
+              <div className="ml-2 flex flex-shrink-0 items-start gap-1">
                 <Button
                   variant="ghost"
                   size="sm"
@@ -130,20 +139,13 @@ export function ApplicationCard({
               </div>
             </div>
 
-            {/* Role */}
-            <div className="mb-3">
-              <p className="text-muted-foreground text-sm leading-relaxed font-medium">
-                {application.role}
-              </p>
-            </div>
-
             {/* Notes preview */}
             {application.notes && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: "auto" }}
                 transition={{ duration: 0.3 }}
-                className="bg-muted/30 mb-3 rounded-md p-2"
+                className="bg-muted/50 mb-3 rounded-md p-2"
               >
                 <p className="text-muted-foreground line-clamp-2 text-xs leading-relaxed">
                   {application.notes}
@@ -152,16 +154,17 @@ export function ApplicationCard({
             )}
 
             {/* Footer */}
-            <div className="text-muted-foreground/80 flex items-center justify-between text-xs">
-              <div className="flex items-center gap-1">
+            <div className="flex items-center justify-between text-xs">
+              <div className="text-muted-foreground flex items-center gap-1">
                 <Calendar className="h-3 w-3" />
-                <span className="font-medium">{timeAgo}</span>
+                <span>{timeAgo}</span>
               </div>
-              <motion.div
-                className={`rounded-full px-2 py-1 text-xs font-medium ${bgColor} ${color}`}
-              >
-                {application.status}
-              </motion.div>
+              <div className="flex items-center gap-2">
+                <div className={`h-2 w-2 rounded-full ${bgColor}`} />
+                <span className="text-muted-foreground">
+                  {application.status}
+                </span>
+              </div>
             </div>
           </div>
         </Card>

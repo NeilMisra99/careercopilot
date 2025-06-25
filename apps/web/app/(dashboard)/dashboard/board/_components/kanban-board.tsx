@@ -1,6 +1,5 @@
 "use client";
 
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import {
   Active,
   DndContext,
@@ -327,71 +326,82 @@ export function KanbanBoard({
       count: failedEmailsState.length,
       color: "text-orange-500",
       bgColor: "bg-orange-500/10",
+      badgeColor: "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/30 dark:text-orange-300 dark:border-orange-800/30",
       isFailedEmails: true,
     },
     {
       id: "Opportunity",
       title: "Opportunity",
-      icon: <Users className="h-4 w-4 text-cyan-500" />,
+      icon: <Users className="h-4 w-4 text-teal-500 dark:text-teal-400" />,
       count: appsByStatus.Opportunity.length,
-      color: "text-cyan-500",
-      bgColor: "bg-cyan-500/10",
+      color: "text-teal-500 dark:text-teal-400",
+      bgColor: "bg-teal-500 dark:bg-teal-400",
+      badgeColor: "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/30 dark:text-teal-300 dark:border-teal-800/30",
     },
     {
       id: "Wishlist",
       title: "Wishlist",
-      icon: <ListTodo className="h-4 w-4 text-blue-500" />,
+      icon: <ListTodo className="h-4 w-4 text-indigo-500 dark:text-indigo-400" />,
       count: appsByStatus.Wishlist.length,
-      color: "text-blue-500",
-      bgColor: "bg-blue-500/10",
+      color: "text-indigo-500 dark:text-indigo-400",
+      bgColor: "bg-indigo-500 dark:bg-indigo-400",
+      badgeColor: "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/30 dark:text-indigo-300 dark:border-indigo-800/30",
     },
     {
       id: "Applied",
       title: "Applied",
-      icon: <ClipboardCheck className="h-4 w-4 text-violet-500" />,
+      icon: (
+        <ClipboardCheck className="h-4 w-4 text-blue-500 dark:text-blue-400" />
+      ),
       count: appsByStatus.Applied.length,
-      color: "text-violet-500",
-      bgColor: "bg-violet-500/10",
+      color: "text-blue-500 dark:text-blue-400",
+      bgColor: "bg-blue-500 dark:bg-blue-400",
+      badgeColor: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/30 dark:text-blue-300 dark:border-blue-800/30",
     },
     {
       id: "Screening",
       title: "Screening",
-      icon: <Phone className="h-4 w-4 text-orange-500" />,
+      icon: <Phone className="h-4 w-4 text-amber-500 dark:text-amber-400" />,
       count: appsByStatus.Screening.length,
-      color: "text-orange-500",
-      bgColor: "bg-orange-500/10",
+      color: "text-amber-500 dark:text-amber-400",
+      bgColor: "bg-amber-500 dark:bg-amber-400",
+      badgeColor: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-300 dark:border-amber-800/30",
     },
     {
       id: "Interviewing",
       title: "Interviewing",
-      icon: <Video className="h-4 w-4 text-indigo-500" />,
+      icon: <Video className="h-4 w-4 text-violet-500 dark:text-violet-400" />,
       count: appsByStatus.Interviewing.length,
-      color: "text-indigo-500",
-      bgColor: "bg-indigo-500/10",
+      color: "text-violet-500 dark:text-violet-400",
+      bgColor: "bg-violet-500 dark:bg-violet-400",
+      badgeColor: "bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950/30 dark:text-violet-300 dark:border-violet-800/30",
     },
     {
       id: "Offer",
       title: "Offer",
-      icon: <Award className="h-4 w-4 text-green-500" />,
+      icon: <Award className="h-4 w-4 text-emerald-500 dark:text-emerald-400" />,
       count: appsByStatus.Offer.length,
-      color: "text-green-500",
-      bgColor: "bg-green-500/10",
+      color: "text-emerald-500 dark:text-emerald-400",
+      bgColor: "bg-emerald-500 dark:bg-emerald-400",
+      badgeColor: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-800/30",
     },
     {
       id: "Rejected",
       title: "Rejected",
-      icon: <XCircle className="h-4 w-4 text-red-500" />,
+      icon: <XCircle className="h-4 w-4 text-rose-500 dark:text-rose-400" />,
       count: appsByStatus.Rejected.length,
-      color: "text-red-500",
-      bgColor: "bg-red-500/10",
+      color: "text-rose-500 dark:text-rose-400",
+      bgColor: "bg-rose-500 dark:bg-rose-400",
+      badgeColor: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-300 dark:border-rose-800/30",
     },
     {
       id: "Withdrawn",
       title: "Withdrawn",
-      icon: <FileX className="h-4 w-4 text-gray-500" />,
+      icon: <FileX className="h-4 w-4 text-slate-500 dark:text-slate-400" />,
       count: appsByStatus.Withdrawn.length,
-      color: "text-gray-500",
-      bgColor: "bg-gray-500/10",
+      color: "text-slate-500 dark:text-slate-400",
+      bgColor: "bg-slate-500 dark:bg-slate-400",
+      badgeColor: "bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-950/30 dark:text-slate-300 dark:border-slate-800/30",
     },
   ];
 
@@ -403,14 +413,9 @@ export function KanbanBoard({
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div className="flex h-full flex-col">
-        <ScrollArea className="max-h-full min-h-0 flex-1">
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.4 }}
-            className="flex h-[calc(100vh-210px)] gap-4 py-4 pr-6 pl-6"
-          >
+      <div className="h-full">
+        <div className="scrollbar-thin scrollbar-thumb-border/40 scrollbar-track-transparent h-full overflow-x-auto overflow-y-hidden">
+          <div className="flex h-full gap-4 p-1">
             {columns.map((column, index) => (
               <ApplicationColumn
                 key={column.id}
@@ -418,12 +423,8 @@ export function KanbanBoard({
                 title={column.title}
                 icon={column.icon}
                 count={column.count}
-                index={index}
-                className={`h-full w-[340px] min-w-[340px] snap-center ${
-                  index !== columns.length - 1
-                    ? "border-border/30 border-r"
-                    : ""
-                }`}
+                badgeColor={column.badgeColor}
+                className="h-full w-[340px] min-w-[340px] flex-shrink-0"
               >
                 {column.isFailedEmails ? (
                   // Failed emails column - not draggable
@@ -434,10 +435,12 @@ export function KanbanBoard({
                     className="space-y-3"
                   >
                     {failedEmailsState.length === 0 ? (
-                      <div className="text-muted-foreground/60 border-border/50 flex h-32 flex-col items-center justify-center rounded-xl border border-dashed bg-white/50 p-6 text-center text-sm dark:bg-gray-800/30">
-                        <AlertCircle className="text-muted-foreground/40 mb-2 h-8 w-8" />
-                        <p className="font-medium">No failed emails</p>
-                        <p className="text-muted-foreground/50 mt-1 text-xs">
+                      <div className="flex h-32 flex-col items-center justify-center text-center">
+                        <AlertCircle className="text-muted-foreground mb-2 h-6 w-6" />
+                        <p className="text-muted-foreground text-sm">
+                          No failed emails
+                        </p>
+                        <p className="text-muted-foreground mt-1 text-xs">
                           All emails processed successfully
                         </p>
                       </div>
@@ -475,12 +478,16 @@ export function KanbanBoard({
                     >
                       {appsByStatus[column.id as keyof typeof appsByStatus]
                         .length === 0 ? (
-                        <div className="text-muted-foreground/60 border-border/50 flex h-32 flex-col items-center justify-center rounded-xl border border-dashed bg-white/50 p-6 text-center text-sm dark:bg-gray-800/30">
+                        <div className="flex h-32 flex-col items-center justify-center text-center">
                           {column.icon && (
-                            <div className="mb-2 opacity-40">{column.icon}</div>
+                            <div className="text-muted-foreground mb-2">
+                              {column.icon}
+                            </div>
                           )}
-                          <p className="font-medium">No applications</p>
-                          <p className="text-muted-foreground/50 mt-1 text-xs">
+                          <p className="text-muted-foreground text-sm">
+                            No applications
+                          </p>
+                          <p className="text-muted-foreground mt-1 text-xs">
                             Drag cards here
                           </p>
                         </div>
@@ -499,7 +506,6 @@ export function KanbanBoard({
                           >
                             <ApplicationCard
                               application={application}
-                              color={column.color}
                               bgColor={column.bgColor}
                               onApplicationUpdated={onApplicationUpdated}
                             />
@@ -511,17 +517,12 @@ export function KanbanBoard({
                 )}
               </ApplicationColumn>
             ))}
-          </motion.div>
-          <ScrollBar orientation="horizontal" className="bg-border/20 h-2" />
-        </ScrollArea>
+          </div>
+        </div>
         <DragOverlay>
           {activeDraggedItem ? (
             <ApplicationCard
               application={activeDraggedItem}
-              color={
-                columns.find((col) => col.id === activeDraggedItem.status)
-                  ?.color || "text-primary"
-              }
               bgColor={
                 columns.find((col) => col.id === activeDraggedItem.status)
                   ?.bgColor || "bg-primary/5"

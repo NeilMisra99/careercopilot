@@ -289,13 +289,13 @@ export function QuickEditPendingApplication({
             <div className="flex justify-end space-x-3 pt-4">
               <Button
                 type="button"
-                variant="outline"
+                variant="destructive"
                 onClick={() => setOpen(false)}
                 disabled={isSubmitting}
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
+              <Button variant="submit" type="submit" disabled={isSubmitting}>
                 {isSubmitting ? "Updating..." : "Update Application"}
               </Button>
             </div>

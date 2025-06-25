@@ -150,22 +150,25 @@ export function PendingApplicationsReview({
   const getStatusColor = (status: string) => {
     switch (status) {
       case "Opportunity":
-        return "bg-cyan-50 text-cyan-700 border-cyan-200 dark:bg-cyan-950/30 dark:text-cyan-300 dark:border-cyan-800/30 hover:bg-cyan-100 dark:hover:bg-cyan-900/40";
+        return "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/30 dark:text-teal-300 dark:border-teal-800/30 hover:bg-teal-100 dark:hover:bg-teal-900/40";
+      case "Wishlist":
+        return "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/30 dark:text-indigo-300 dark:border-indigo-800/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/40";
       case "Applied":
         return "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/30 dark:text-blue-300 dark:border-blue-800/30 hover:bg-blue-100 dark:hover:bg-blue-900/40";
       case "Screening":
-        return "bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-950/30 dark:text-yellow-300 dark:border-yellow-800/30 hover:bg-yellow-100 dark:hover:bg-yellow-900/40";
+        return "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-300 dark:border-amber-800/30 hover:bg-amber-100 dark:hover:bg-amber-900/40";
       case "Interviewing":
-        return "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/30 dark:text-purple-300 dark:border-purple-800/30 hover:bg-purple-100 dark:hover:bg-purple-900/40";
+        return "bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950/30 dark:text-violet-300 dark:border-violet-800/30 hover:bg-violet-100 dark:hover:bg-violet-900/40";
       case "Offer Extended":
       case "Offer Accepted":
-        return "bg-green-50 text-green-700 border-green-200 dark:bg-green-950/30 dark:text-green-300 dark:border-green-800/30 hover:bg-green-100 dark:hover:bg-green-900/40";
+      case "Offer":
+        return "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-800/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/40";
       case "Rejected":
-        return "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/30 dark:text-red-300 dark:border-red-800/30 hover:bg-red-100 dark:hover:bg-red-900/40";
+        return "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-300 dark:border-rose-800/30 hover:bg-rose-100 dark:hover:bg-rose-900/40";
       case "Withdrawn":
-        return "bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-950/30 dark:text-gray-300 dark:border-gray-800/30 hover:bg-gray-100 dark:hover:bg-gray-900/40";
+        return "bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-950/30 dark:text-slate-300 dark:border-slate-800/30 hover:bg-slate-100 dark:hover:bg-slate-900/40";
       case "On Hold":
-        return "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/30 dark:text-orange-300 dark:border-orange-800/30 hover:bg-orange-100 dark:hover:bg-orange-900/40";
+        return "bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-950/30 dark:text-yellow-300 dark:border-yellow-800/30 hover:bg-yellow-100 dark:hover:bg-yellow-900/40";
       default:
         return "bg-muted text-muted-foreground border-border hover:bg-muted/80";
     }
