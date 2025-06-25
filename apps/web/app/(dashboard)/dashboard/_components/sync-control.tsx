@@ -244,7 +244,7 @@ export function SyncControl({ className }: SyncControlProps) {
       <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
         {/* Unified sync control button */}
         <PopoverTrigger asChild>
-          <Button size="default" variant={getVariant()} className="gap-2">
+          <Button size="sm" variant={getVariant()} className="gap-2">
             {getStatusIcon()}
             <span>{getButtonText()}</span>
             <ChevronDown className="h-3 w-3 opacity-60" />
