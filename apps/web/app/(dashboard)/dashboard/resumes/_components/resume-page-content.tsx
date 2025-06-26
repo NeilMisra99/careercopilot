@@ -355,7 +355,9 @@ export function ResumePageContent({
             <p className="text-muted-foreground mt-1 text-xs">{subtitle}</p>
           )}
         </div>
-        <div className={`h-10 w-10 rounded-lg bg-${borderColor} flex items-center justify-center shadow-lg`}>
+        <div
+          className={`h-10 w-10 rounded-lg bg-${borderColor} flex items-center justify-center shadow-lg`}
+        >
           <Icon className="h-5 w-5 text-white" />
         </div>
       </div>
@@ -504,7 +506,7 @@ export function ResumePageContent({
             {stats.totalResumes > 0 && (
               <Badge
                 variant="outline"
-                className="text-xs bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/30 dark:text-blue-300 dark:border-blue-800/30"
+                className="border-blue-200 bg-blue-50 text-xs text-blue-700 dark:border-blue-800/30 dark:bg-blue-950/30 dark:text-blue-300"
               >
                 {stats.totalResumes}
               </Badge>
