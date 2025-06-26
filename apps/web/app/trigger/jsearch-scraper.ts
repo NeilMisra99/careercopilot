@@ -50,7 +50,9 @@ const JSearchScraperInputSchema = z.object({
   autoSave: z.boolean().default(true),
   maxPages: z.number().min(1).max(20).default(1), // JSearch allows 1-20 pages
   // Optional user preferences for better filtering
-  remotePreference: z.enum(["remote_only", "hybrid", "on_site", "any"]).optional(),
+  remotePreference: z
+    .enum(["remote_only", "hybrid", "on_site", "any"])
+    .optional(),
   jobTypes: z.array(z.string()).optional(), // ["Full-time", "Part-time", etc.]
   experienceLevels: z.array(z.string()).optional(), // ["Entry level", "Mid-senior level", etc.]
   // Premium filters
@@ -76,7 +78,7 @@ const JSearchJobSchema = z.object({
   job_apply_quality_score: z.number().nullable().optional(),
 
   // Employment and location
-  job_employment_type: z.string(),
+  job_employment_type: z.string().nullable(),
   job_employment_types: z.array(z.string()),
   job_employment_type_text: z.string().optional(),
   job_location: z.string().optional(),
@@ -330,7 +332,7 @@ class JSearchApiClient {
         .map((type) => this.mapJobTypeToEmploymentType(type))
         .filter((type) => type !== null)
         .join(",");
-      
+
       if (employmentTypes) {
         searchParams.append("employment_types", employmentTypes);
       }
@@ -338,7 +340,9 @@ class JSearchApiClient {
 
     // Map experience levels to job_requirements parameter
     if (params.experienceLevels && params.experienceLevels.length > 0) {
-      const requirements = this.mapExperienceLevelsToRequirements(params.experienceLevels);
+      const requirements = this.mapExperienceLevelsToRequirements(
+        params.experienceLevels,
+      );
       if (requirements.length > 0) {
         searchParams.append("job_requirements", requirements.join(","));
       }
@@ -393,23 +397,25 @@ class JSearchApiClient {
     const typeMap: Record<string, string | null> = {
       "full-time": "FULLTIME",
       "part-time": "PARTTIME",
-      "contract": "CONTRACTOR",
-      "temporary": "CONTRACTOR", // Map temporary to contractor
-      "internship": "INTERN",
-      "volunteer": null, // JSearch doesn't support volunteer
+      contract: "CONTRACTOR",
+      temporary: "CONTRACTOR", // Map temporary to contractor
+      internship: "INTERN",
+      volunteer: null, // JSearch doesn't support volunteer
     };
 
     const normalized = jobType.toLowerCase().replace(/\s+/g, "-");
     return typeMap[normalized] || null;
   }
 
-  private mapExperienceLevelsToRequirements(experienceLevels: string[]): string[] {
+  private mapExperienceLevelsToRequirements(
+    experienceLevels: string[],
+  ): string[] {
     // Map user preference experience levels to JSearch job_requirements
     const requirements: Set<string> = new Set();
 
     for (const level of experienceLevels) {
       const normalized = level.toLowerCase();
-      
+
       if (normalized.includes("internship") || normalized.includes("entry")) {
         requirements.add("under_3_years_experience");
         if (normalized.includes("internship")) {
@@ -418,8 +424,8 @@ class JSearchApiClient {
       } else if (normalized.includes("associate")) {
         requirements.add("under_3_years_experience");
       } else if (
-        normalized.includes("mid-senior") || 
-        normalized.includes("director") || 
+        normalized.includes("mid-senior") ||
+        normalized.includes("director") ||
         normalized.includes("executive")
       ) {
         requirements.add("more_than_3_years_experience");
@@ -427,10 +433,13 @@ class JSearchApiClient {
     }
 
     // If user selected entry-level positions, also include no degree requirement
-    if (experienceLevels.some(level => 
-      level.toLowerCase().includes("entry") || 
-      level.toLowerCase().includes("internship")
-    )) {
+    if (
+      experienceLevels.some(
+        (level) =>
+          level.toLowerCase().includes("entry") ||
+          level.toLowerCase().includes("internship"),
+      )
+    ) {
       requirements.add("no_degree");
     }
 
@@ -489,7 +498,7 @@ function mapJSearchJobToUniversal(job: JSearchJob): {
     job_url: job.job_apply_link,
     posted_at: job.job_posted_at_datetime_utc || undefined,
     salary_json: salaryData,
-    employment_type: job.job_employment_type,
+    employment_type: job.job_employment_type || undefined,
     experience_level: experienceLevel,
     company_url: job.employer_website || undefined,
     company_logo: job.employer_logo || undefined,
@@ -793,11 +802,16 @@ export const jsearchScraper = task({
           const universalJob = mapJSearchJobToUniversal(job);
 
           // Apply premium filters if provided
-          if (validatedPayload.excludedCompanies && validatedPayload.excludedCompanies.length > 0) {
+          if (
+            validatedPayload.excludedCompanies &&
+            validatedPayload.excludedCompanies.length > 0
+          ) {
             const companyLower = job.employer_name.toLowerCase();
-            if (validatedPayload.excludedCompanies.some(excluded => 
-              companyLower.includes(excluded.toLowerCase())
-            )) {
+            if (
+              validatedPayload.excludedCompanies.some((excluded) =>
+                companyLower.includes(excluded.toLowerCase()),
+              )
+            ) {
               filteredOutJobs++;
               logger.info("🚫 Job filtered out - excluded company", {
                 company: job.employer_name,
@@ -807,14 +821,20 @@ export const jsearchScraper = task({
             }
           }
 
-          if (validatedPayload.excludedKeywords && validatedPayload.excludedKeywords.length > 0) {
+          if (
+            validatedPayload.excludedKeywords &&
+            validatedPayload.excludedKeywords.length > 0
+          ) {
             const titleLower = job.job_title.toLowerCase();
             const descriptionLower = (job.job_description || "").toLowerCase();
-            
-            if (validatedPayload.excludedKeywords.some(keyword => 
-              titleLower.includes(keyword.toLowerCase()) || 
-              descriptionLower.includes(keyword.toLowerCase())
-            )) {
+
+            if (
+              validatedPayload.excludedKeywords.some(
+                (keyword) =>
+                  titleLower.includes(keyword.toLowerCase()) ||
+                  descriptionLower.includes(keyword.toLowerCase()),
+              )
+            ) {
               filteredOutJobs++;
               logger.info("🚫 Job filtered out - excluded keyword", {
                 company: job.employer_name,
@@ -949,7 +969,10 @@ export const jsearchScraper = task({
         shouldAutoSave,
         processingTimeMs: processingTime,
         usageDebited: debitResult.success,
-        hasExclusionFilters: !!(validatedPayload.excludedCompanies?.length || validatedPayload.excludedKeywords?.length),
+        hasExclusionFilters: !!(
+          validatedPayload.excludedCompanies?.length ||
+          validatedPayload.excludedKeywords?.length
+        ),
       });
 
       return {
