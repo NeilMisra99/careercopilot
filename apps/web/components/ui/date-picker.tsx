@@ -18,6 +18,7 @@ interface DatePickerProps {
   placeholder?: string;
   disabled?: boolean;
   className?: string;
+  hideToday?: boolean;
 }
 
 // Helper function to format date without timezone issues
@@ -42,6 +43,7 @@ export function DatePicker({
   placeholder = "Pick a date",
   disabled = false,
   className,
+  hideToday = false,
 }: DatePickerProps) {
   return (
     <Popover>
@@ -66,6 +68,8 @@ export function DatePicker({
           selected={date}
           onSelect={onDateChange}
           initialFocus
+          modifiers={hideToday ? { today: undefined } : undefined}
+          classNames={hideToday ? { today: "" } : undefined}
         />
       </PopoverContent>
     </Popover>

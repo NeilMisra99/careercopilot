@@ -19,8 +19,8 @@ export function AdditionalInfoSection({ form }: AdditionalInfoSectionProps) {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-medium">Additional Information</h3>
-        <p className="text-sm text-muted-foreground">
+        <h3 className="text-foreground text-lg font-medium">Additional Information</h3>
+        <p className="text-muted-foreground mt-1 text-sm">
           Optional details to help you track and organize your applications.
         </p>
       </div>

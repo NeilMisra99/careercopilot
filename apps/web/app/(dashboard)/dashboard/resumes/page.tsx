@@ -299,15 +299,17 @@ export default async function ResumesPage() {
   const resumesData = await getResumesData(cookieString);
 
   return (
-    <div className="container mx-auto max-w-6xl px-4 py-6">
-      <Suspense fallback={<ResumeListSkeleton />}>
-        <ResumePageContent
-          userId={user.id}
-          initialResumes={resumesData.resumes}
-          initialStats={resumesData.stats}
-          error={resumesData.error}
-        />
-      </Suspense>
+    <div className="bg-background min-h-full">
+      <div className="mx-auto max-w-7xl p-6">
+        <Suspense fallback={<ResumeListSkeleton />}>
+          <ResumePageContent
+            userId={user.id}
+            initialResumes={resumesData.resumes}
+            initialStats={resumesData.stats}
+            error={resumesData.error}
+          />
+        </Suspense>
+      </div>
     </div>
   );
 }

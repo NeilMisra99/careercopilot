@@ -9,7 +9,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { AnimatePresence, motion } from "framer-motion";
 import { AlertCircle, Brain, RefreshCw, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
@@ -191,11 +190,7 @@ export function MatchesPageContent({
   return (
     <div className="space-y-8">
       {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="space-y-4"
-      >
+      <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 p-3">
@@ -266,44 +261,31 @@ export function MatchesPageContent({
         </div>
 
         {error && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            className="rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-950/50"
-          >
+          <div className="rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-950/50">
             <div className="flex items-center gap-2">
               <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
               <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
             </div>
-          </motion.div>
+          </div>
         )}
 
         {successMessage && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            className="rounded-lg border border-green-200 bg-green-50 p-4 dark:border-green-800 dark:bg-green-950/50"
-          >
+          <div className="rounded-lg border border-green-200 bg-green-50 p-4 dark:border-green-800 dark:bg-green-950/50">
             <div className="flex items-center gap-2">
               <Brain className="h-5 w-5 text-green-600 dark:text-green-400" />
               <p className="text-sm text-green-700 dark:text-green-300">
                 {successMessage}
               </p>
             </div>
-          </motion.div>
+          </div>
         )}
-      </motion.div>
+      </div>
 
       {/* Stats Cards */}
       <MatchStatsCards stats={stats} isLoading={isLoading} />
 
       {/* Filters and Search */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="rounded-xl border border-slate-200/60 bg-white/80 p-6 shadow-sm backdrop-blur-xl dark:border-slate-700/60 dark:bg-slate-900/80"
-      >
+      <div className="rounded-xl border border-slate-200/60 bg-white/80 p-6 shadow-sm backdrop-blur-xl dark:border-slate-700/60 dark:bg-slate-900/80">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-1 gap-4">
             <div className="relative max-w-md flex-1">
@@ -375,55 +357,36 @@ export function MatchesPageContent({
             </Button>
           )}
         </div>
-      </motion.div>
+      </div>
 
       {/* Matches Grid */}
-      <AnimatePresence mode="wait">
-        {filteredMatches.length === 0 ? (
-          <motion.div
-            key="empty"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="py-12 text-center"
-          >
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800">
-              <Brain className="h-8 w-8 text-slate-400" />
+      {filteredMatches.length === 0 ? (
+        <div className="py-12 text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800">
+            <Brain className="h-8 w-8 text-slate-400" />
+          </div>
+          <h3 className="mb-2 text-lg font-medium text-slate-900 dark:text-white">
+            No matches found
+          </h3>
+          <p className="mx-auto max-w-md text-slate-600 dark:text-slate-400">
+            {matches.length === 0
+              ? "Upload resumes and add applications to start seeing AI-powered matches."
+              : "Try adjusting your filters or search terms."}
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-3">
+          {filteredMatches.map((match) => (
+            <div key={match.id}>
+              <MatchCard
+                match={match}
+                onViewDetails={handleViewDetails}
+                onTriggerReanalysis={handleTriggerReanalysis}
+              />
             </div>
-            <h3 className="mb-2 text-lg font-medium text-slate-900 dark:text-white">
-              No matches found
-            </h3>
-            <p className="mx-auto max-w-md text-slate-600 dark:text-slate-400">
-              {matches.length === 0
-                ? "Upload resumes and add applications to start seeing AI-powered matches."
-                : "Try adjusting your filters or search terms."}
-            </p>
-          </motion.div>
-        ) : (
-          <motion.div
-            key="matches"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="grid grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-3"
-          >
-            {filteredMatches.map((match, index) => (
-              <motion.div
-                key={match.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.05 }}
-              >
-                <MatchCard
-                  match={match}
-                  onViewDetails={handleViewDetails}
-                  onTriggerReanalysis={handleTriggerReanalysis}
-                />
-              </motion.div>
-            ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
+          ))}
+        </div>
+      )}
 
       {/* Match Details Sheet */}
       <MatchDetailsSheet

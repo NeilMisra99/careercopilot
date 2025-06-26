@@ -5,7 +5,6 @@ import { Card } from "@/components/ui/card";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { formatDistanceToNow } from "date-fns";
-import { motion } from "framer-motion";
 import {
   Building2,
   Calendar,
@@ -76,17 +75,11 @@ export function ApplicationCard({
 
   return (
     <>
-      <motion.div
+      <div
         ref={setNodeRef}
         style={style}
         {...attributes}
         {...listeners}
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        whileHover={{
-          transition: { duration: 0.2, ease: "easeOut" },
-        }}
-        whileTap={{ scale: 0.98 }}
         className="cursor-grab active:cursor-grabbing"
       >
         <Card
@@ -124,33 +117,26 @@ export function ApplicationCard({
                   <PencilIcon className="h-3 w-3" />
                 </Button>
                 {application.job_url && (
-                  <motion.a
+                  <a
                     href={application.job_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                    className="hover:bg-muted/50 flex-shrink-0 rounded p-1 opacity-0 transition-opacity group-hover:opacity-70 hover:opacity-100"
+                    className="hover:bg-muted/50 flex-shrink-0 rounded p-1 opacity-0 transition-all duration-200 group-hover:opacity-70 hover:opacity-100 hover:scale-110"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <ExternalLink className="text-muted-foreground h-3.5 w-3.5" />
-                  </motion.a>
+                  </a>
                 )}
               </div>
             </div>
 
             {/* Notes preview */}
             {application.notes && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                transition={{ duration: 0.3 }}
-                className="bg-muted/50 mb-3 rounded-md p-2"
-              >
+              <div className="bg-muted/50 mb-3 rounded-md p-2">
                 <p className="text-muted-foreground line-clamp-2 text-xs leading-relaxed">
                   {application.notes}
                 </p>
-              </motion.div>
+              </div>
             )}
 
             {/* Footer */}
@@ -168,7 +154,7 @@ export function ApplicationCard({
             </div>
           </div>
         </Card>
-      </motion.div>
+      </div>
 
       <EditApplicationDialog
         application={application}

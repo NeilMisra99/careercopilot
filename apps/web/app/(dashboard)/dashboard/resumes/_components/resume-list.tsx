@@ -2,13 +2,7 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardHeader } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import {
   DropdownMenu,
@@ -17,14 +11,20 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   Award,
   Briefcase,
   Building2,
   Calendar,
   ChevronDown,
-  ChevronRight,
+  ChevronUp,
   Crown,
   Download,
   FileText,
@@ -263,13 +263,13 @@ export function ResumeList({ initialResumes }: ResumeListProps) {
   const getStatusColor = (status: string) => {
     switch (status) {
       case "completed":
-        return "bg-green-100 text-green-800 border-green-200";
+        return "bg-green-50 text-green-700 border-green-200 dark:bg-green-950/30 dark:text-green-300 dark:border-green-800/30";
       case "processing":
-        return "bg-blue-100 text-blue-800 border-blue-200";
+        return "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/30 dark:text-blue-300 dark:border-blue-800/30";
       case "failed":
-        return "bg-red-100 text-red-800 border-red-200";
+        return "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/30 dark:text-red-300 dark:border-red-800/30";
       default:
-        return "bg-gray-100 text-gray-800 border-gray-200";
+        return "bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-950/30 dark:text-gray-300 dark:border-gray-800/30";
     }
   };
 
@@ -369,21 +369,23 @@ export function ResumeList({ initialResumes }: ResumeListProps) {
   const getSkillCategoryColor = (category: string) => {
     const colors: Record<string, string> = {
       programming:
-        "bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200",
+        "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/30 dark:text-blue-300 dark:border-blue-800/30",
       frameworks:
-        "bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-200",
+        "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/30 dark:text-purple-300 dark:border-purple-800/30",
       tools:
-        "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-200",
+        "bg-green-50 text-green-700 border-green-200 dark:bg-green-950/30 dark:text-green-300 dark:border-green-800/30",
       languages:
-        "bg-orange-100 text-orange-800 dark:bg-orange-900/50 dark:text-orange-200",
+        "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/30 dark:text-orange-300 dark:border-orange-800/30",
       soft_skills:
-        "bg-pink-100 text-pink-800 dark:bg-pink-900/50 dark:text-pink-200",
+        "bg-pink-50 text-pink-700 border-pink-200 dark:bg-pink-950/30 dark:text-pink-300 dark:border-pink-800/30",
       databases:
-        "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200",
-      cloud: "bg-cyan-100 text-cyan-800 dark:bg-cyan-900/50 dark:text-cyan-200",
+        "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/30 dark:text-indigo-300 dark:border-indigo-800/30",
+      cloud:
+        "bg-cyan-50 text-cyan-700 border-cyan-200 dark:bg-cyan-950/30 dark:text-cyan-300 dark:border-cyan-800/30",
       methodologies:
-        "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-200",
-      other: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200",
+        "bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-950/30 dark:text-yellow-300 dark:border-yellow-800/30",
+      other:
+        "bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-950/30 dark:text-gray-300 dark:border-gray-800/30",
     };
     return colors[category] || colors.other;
   };
@@ -405,63 +407,58 @@ export function ResumeList({ initialResumes }: ResumeListProps) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {resumes.map((resume) => {
         const isExpanded = expandedCards.has(resume.id);
 
         return (
-          <Card
+          <div
             key={resume.id}
-            className="group transition-all duration-200 hover:shadow-md"
+            className="bg-card border-border dark:bg-muted relative rounded-lg border p-2 pb-0 shadow-sm"
           >
-            <CardHeader className="pb-4">
+            <div
+              className={`p-3 ${!isExpanded ? "cursor-pointer" : ""}`}
+              onClick={!isExpanded ? () => toggleCard(resume.id) : undefined}
+            >
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => toggleCard(resume.id)}
-                    className="h-auto p-1"
-                  >
-                    {isExpanded ? (
-                      <ChevronDown className="h-4 w-4" />
-                    ) : (
-                      <ChevronRight className="h-4 w-4" />
-                    )}
-                  </Button>
-
+                <div className="flex flex-1 items-center gap-3">
                   <div className="flex flex-col">
                     <div className="flex items-center gap-2">
-                      <CardTitle className="text-lg">{resume.name}</CardTitle>
+                      <h3 className="text-foreground text-sm font-medium">
+                        {resume.name}
+                      </h3>
                       {resume.is_primary && (
                         <Badge
-                          variant="secondary"
-                          className="border-yellow-200 bg-yellow-100 text-yellow-800 transition-colors hover:border-yellow-300 hover:bg-yellow-200 dark:border-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-200 dark:hover:border-yellow-700 dark:hover:bg-yellow-800/50"
+                          variant="outline"
+                          className="border-yellow-200 bg-yellow-50 text-xs text-yellow-700 dark:border-yellow-800/30 dark:bg-yellow-950/30 dark:text-yellow-300"
                         >
                           <Crown className="mr-1 h-3 w-3" />
                           Primary
                         </Badge>
                       )}
                     </div>
-                    <CardDescription className="mt-1 flex items-center gap-1 text-sm">
+                    <p className="text-muted-foreground mt-1 flex items-center gap-1 text-xs">
                       <span>v{resume.version_number}</span>
                       <span>•</span>
                       <span>{resume.file_name}</span>
                       <span>•</span>
                       <span>Uploaded {formatDate(resume.created_at)}</span>
-                    </CardDescription>
+                    </p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-shrink-0 items-center gap-2">
                   {!progressInitialized &&
                   (resume.parsing_status === "processing" ||
                     resume.parsing_status === "pending") ? (
                     <Skeleton className="h-6 w-20" />
                   ) : (
-                    <Badge className={getStatusColor(resume.parsing_status)}>
+                    <Badge
+                      variant="outline"
+                      className={`text-xs ${getStatusColor(resume.parsing_status)}`}
+                    >
                       {getStatusIcon(resume.parsing_status)}
-                      <span className="ml-2">
+                      <span className="ml-1">
                         {getStatusText(resume.parsing_status)}
                       </span>
                     </Badge>
@@ -502,23 +499,29 @@ export function ResumeList({ initialResumes }: ResumeListProps) {
               </div>
 
               {/* Quick Stats */}
-              <div className="text-muted-foreground mt-4 flex items-center gap-6 text-sm">
+              <div className="text-muted-foreground mt-3 flex items-center gap-4 text-xs">
                 <div className="flex items-center gap-1">
-                  <Briefcase className="h-4 w-4" />
-                  <span>{resume.experiences_count || 0} experiences</span>
+                  <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-blue-500 shadow-lg">
+                    <Briefcase className="h-3 w-3 text-white" />
+                  </div>
+                  <span>{resume.experiences_count || 0} exp</span>
                 </div>
                 <div className="flex items-center gap-1">
-                  <Wrench className="h-4 w-4" />
+                  <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-green-500 shadow-lg">
+                    <Wrench className="h-3 w-3 text-white" />
+                  </div>
                   <span>{resume.skills_count || 0} skills</span>
                 </div>
                 <div className="flex items-center gap-1">
-                  <GraduationCap className="h-4 w-4" />
-                  <span>{resume.education_count || 0} education</span>
+                  <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-purple-500 shadow-lg">
+                    <GraduationCap className="h-3 w-3 text-white" />
+                  </div>
+                  <span>{resume.education_count || 0} edu</span>
                 </div>
                 {resume.full_name && (
-                  <div className="flex items-center gap-1">
-                    <User className="h-4 w-4" />
-                    <span>{resume.full_name}</span>
+                  <div className="ml-auto flex items-center gap-1">
+                    <User className="h-3 w-3" />
+                    <span className="text-xs">{resume.full_name}</span>
                   </div>
                 )}
               </div>
@@ -562,11 +565,27 @@ export function ResumeList({ initialResumes }: ResumeListProps) {
                   )}
                 </div>
               )}
-            </CardHeader>
+
+              {/* Chevron down indicator for collapsed cards */}
+              {!isExpanded && (
+                <div className="flex justify-center pt-1">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="text-muted-foreground">
+                        <ChevronDown className="h-4 w-4" />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Click to expand</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+              )}
+            </div>
 
             <Collapsible open={isExpanded}>
               <CollapsibleContent>
-                <CardContent className="pt-0">
+                <div className="border-border border-t px-3 pt-3">
                   <div className="space-y-6">
                     {/* Personal Information */}
                     <div>
@@ -574,7 +593,7 @@ export function ResumeList({ initialResumes }: ResumeListProps) {
                         <User className="h-4 w-4" />
                         PERSONAL INFORMATION
                       </h4>
-                      <div className="bg-muted/50 grid grid-cols-1 gap-4 rounded-lg p-4 md:grid-cols-2">
+                      <div className="dark:bg-accent grid grid-cols-1 gap-4 rounded-lg bg-gray-50 p-4 md:grid-cols-2">
                         <div className="flex items-center gap-2">
                           <User className="text-muted-foreground h-4 w-4" />
                           <span className="font-medium">
@@ -605,259 +624,294 @@ export function ResumeList({ initialResumes }: ResumeListProps) {
 
                     {/* Work Experience */}
                     {resume.experiences && resume.experiences.length > 0 && (
-                      <div>
-                        <h4 className="text-muted-foreground mb-3 flex items-center gap-2 text-sm font-semibold">
-                          <Briefcase className="h-4 w-4" />
-                          WORK EXPERIENCE ({resume.experiences.length})
-                        </h4>
-                        <div className="space-y-3">
-                          {resume.experiences.map((exp, index) => (
-                            <div
-                              key={index}
-                              className="bg-muted/50 rounded-lg p-4"
-                            >
-                              <div className="mb-2 flex items-start justify-between">
-                                <div>
-                                  <h5 className="font-semibold">
-                                    {exp.job_title}
-                                  </h5>
-                                  <p className="text-muted-foreground flex items-center gap-2">
-                                    <Building2 className="h-4 w-4" />
-                                    {exp.company_name}
-                                    {exp.location && (
-                                      <>
-                                        <span>•</span>
-                                        <MapPin className="h-4 w-4" />
-                                        {exp.location}
-                                      </>
-                                    )}
-                                  </p>
-                                  <p className="text-muted-foreground flex items-center gap-1 text-sm">
-                                    <Calendar className="h-4 w-4" />
-                                    {formatResumeDate(exp.start_date)} -{" "}
-                                    {exp.is_current
-                                      ? "Present"
-                                      : formatResumeDate(exp.end_date)}
-                                  </p>
-                                </div>
-                              </div>
-
-                              {exp.description && (
-                                <p className="text-muted-foreground mb-3 text-sm">
-                                  {exp.description}
-                                </p>
-                              )}
-
-                              {exp.achievements &&
-                                exp.achievements.length > 0 && (
-                                  <div className="mb-3">
-                                    <h6 className="mb-1 text-sm font-medium">
-                                      Achievements:
-                                    </h6>
-                                    <ul className="text-muted-foreground list-inside list-disc space-y-1 text-sm">
-                                      {exp.achievements.map(
-                                        (achievement, achIndex) => (
-                                          <li key={achIndex}>{achievement}</li>
-                                        ),
-                                      )}
-                                    </ul>
-                                  </div>
-                                )}
-
-                              {exp.skills_used &&
-                                exp.skills_used.length > 0 && (
+                      <>
+                        <Separator className="bg-border dark:bg-border" />
+                        <div>
+                          <h4 className="text-muted-foreground mb-3 flex items-center gap-2 text-sm font-semibold">
+                            <Briefcase className="h-4 w-4" />
+                            WORK EXPERIENCE ({resume.experiences.length})
+                          </h4>
+                          <div className="space-y-3">
+                            {resume.experiences.map((exp, index) => (
+                              <div
+                                key={index}
+                                className="dark:bg-accent rounded-lg bg-gray-50 p-4"
+                              >
+                                <div className="mb-2 flex items-start justify-between">
                                   <div>
-                                    <h6 className="mb-2 text-sm font-medium">
-                                      Technologies & Skills:
-                                    </h6>
-                                    <div className="flex flex-wrap gap-1">
-                                      {exp.skills_used.map(
-                                        (skill, skillIndex) => (
-                                          <Badge
-                                            key={skillIndex}
-                                            variant="secondary"
-                                            className="text-xs"
-                                          >
-                                            {skill}
-                                          </Badge>
-                                        ),
+                                    <h5 className="font-semibold">
+                                      {exp.job_title}
+                                    </h5>
+                                    <p className="text-muted-foreground flex items-center gap-2">
+                                      <Building2 className="h-4 w-4" />
+                                      {exp.company_name}
+                                      {exp.location && (
+                                        <>
+                                          <span>•</span>
+                                          <MapPin className="h-4 w-4" />
+                                          {exp.location}
+                                        </>
                                       )}
-                                    </div>
+                                    </p>
+                                    <p className="text-muted-foreground flex items-center gap-1 text-sm">
+                                      <Calendar className="h-4 w-4" />
+                                      {formatResumeDate(exp.start_date)} -{" "}
+                                      {exp.is_current
+                                        ? "Present"
+                                        : formatResumeDate(exp.end_date)}
+                                    </p>
                                   </div>
+                                </div>
+
+                                {exp.description && (
+                                  <p className="text-muted-foreground mb-3 text-sm">
+                                    {exp.description}
+                                  </p>
                                 )}
-                            </div>
-                          ))}
+
+                                {exp.achievements &&
+                                  exp.achievements.length > 0 && (
+                                    <div className="mb-3">
+                                      <h6 className="mb-1 text-sm font-medium">
+                                        Achievements:
+                                      </h6>
+                                      <ul className="text-muted-foreground list-inside list-disc space-y-1 text-sm">
+                                        {exp.achievements.map(
+                                          (achievement, achIndex) => (
+                                            <li key={achIndex}>
+                                              {achievement}
+                                            </li>
+                                          ),
+                                        )}
+                                      </ul>
+                                    </div>
+                                  )}
+
+                                {exp.skills_used &&
+                                  exp.skills_used.length > 0 && (
+                                    <div>
+                                      <h6 className="mb-2 text-sm font-medium">
+                                        Technologies & Skills:
+                                      </h6>
+                                      <div className="flex flex-wrap gap-1">
+                                        {exp.skills_used.map(
+                                          (skill, skillIndex) => (
+                                            <Badge
+                                              key={skillIndex}
+                                              variant="outline"
+                                              className="border-orange-200 bg-orange-50 text-xs text-orange-700 dark:border-orange-800/30 dark:bg-orange-950/30 dark:text-orange-300"
+                                            >
+                                              {skill}
+                                            </Badge>
+                                          ),
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                      </div>
+                      </>
                     )}
 
                     {/* Skills */}
                     {resume.skills && resume.skills.length > 0 && (
-                      <div>
-                        <h4 className="text-muted-foreground mb-3 flex items-center gap-2 text-sm font-semibold">
-                          <Wrench className="h-4 w-4" />
-                          SKILLS ({resume.skills.length})
-                        </h4>
-                        <div className="space-y-3">
-                          {Object.entries(
-                            resume.skills.reduce(
-                              (acc, skill) => {
-                                const category =
-                                  skill.skill_category || "other";
-                                if (!acc[category]) acc[category] = [];
-                                acc[category].push(skill);
-                                return acc;
-                              },
-                              {} as Record<string, typeof resume.skills>,
-                            ),
-                          ).map(([category, skills]) => (
-                            <div
-                              key={category}
-                              className="bg-muted/50 rounded-lg p-3"
-                            >
-                              <h5 className="mb-2 font-medium capitalize">
-                                {category.replace("_", " ")} ({skills!.length})
-                              </h5>
-                              <div className="flex flex-wrap gap-2">
-                                {skills!.map((skill, index) => (
-                                  <Badge
-                                    key={index}
-                                    className={getSkillCategoryColor(
-                                      skill.skill_category,
-                                    )}
-                                  >
-                                    {skill.skill_name}
-                                    {skill.years_experience > 0 && (
-                                      <span className="ml-1 text-xs opacity-75">
-                                        ({skill.years_experience}y)
-                                      </span>
-                                    )}
-                                  </Badge>
-                                ))}
+                      <>
+                        <Separator className="bg-border dark:bg-border" />
+                        <div>
+                          <h4 className="text-muted-foreground mb-3 flex items-center gap-2 text-sm font-semibold">
+                            <Wrench className="h-4 w-4" />
+                            SKILLS ({resume.skills.length})
+                          </h4>
+                          <div className="space-y-3">
+                            {Object.entries(
+                              resume.skills.reduce(
+                                (acc, skill) => {
+                                  const category =
+                                    skill.skill_category || "other";
+                                  if (!acc[category]) acc[category] = [];
+                                  acc[category].push(skill);
+                                  return acc;
+                                },
+                                {} as Record<string, typeof resume.skills>,
+                              ),
+                            ).map(([category, skills]) => (
+                              <div
+                                key={category}
+                                className="dark:bg-accent rounded-lg bg-gray-50 p-3"
+                              >
+                                <h5 className="mb-2 font-medium capitalize">
+                                  {category.replace("_", " ")} ({skills!.length}
+                                  )
+                                </h5>
+                                <div className="flex flex-wrap gap-2">
+                                  {skills!.map((skill, index) => (
+                                    <Badge
+                                      key={index}
+                                      className={getSkillCategoryColor(
+                                        skill.skill_category,
+                                      )}
+                                    >
+                                      {skill.skill_name}
+                                      {skill.years_experience > 0 && (
+                                        <span className="ml-1 text-xs opacity-75">
+                                          ({skill.years_experience}y)
+                                        </span>
+                                      )}
+                                    </Badge>
+                                  ))}
+                                </div>
                               </div>
-                            </div>
-                          ))}
+                            ))}
+                          </div>
                         </div>
-                      </div>
+                      </>
                     )}
 
                     {/* Education */}
                     {resume.education && resume.education.length > 0 && (
-                      <div>
-                        <h4 className="text-muted-foreground mb-3 flex items-center gap-2 text-sm font-semibold">
-                          <GraduationCap className="h-4 w-4" />
-                          EDUCATION ({resume.education.length})
-                        </h4>
-                        <div className="space-y-3">
-                          {resume.education.map((edu, index) => (
-                            <div
-                              key={index}
-                              className="bg-muted/50 rounded-lg p-4"
-                            >
-                              <div className="mb-2">
-                                <h5 className="font-semibold">
-                                  {edu.degree && edu.field_of_study
-                                    ? `${edu.degree} in ${edu.field_of_study}`
-                                    : edu.degree || edu.field_of_study}
-                                </h5>
-                                <p className="text-muted-foreground">
-                                  {edu.institution}
-                                </p>
-                                <p className="text-muted-foreground text-sm">
-                                  {formatResumeDate(edu.start_date)} -{" "}
-                                  {formatResumeDate(edu.end_date)}
-                                  {edu.grade_gpa && (
-                                    <span className="ml-2">
-                                      • GPA: {edu.grade_gpa}
-                                    </span>
-                                  )}
-                                </p>
+                      <>
+                        <Separator className="bg-border dark:bg-border" />
+                        <div>
+                          <h4 className="text-muted-foreground mb-3 flex items-center gap-2 text-sm font-semibold">
+                            <GraduationCap className="h-4 w-4" />
+                            EDUCATION ({resume.education.length})
+                          </h4>
+                          <div className="space-y-3">
+                            {resume.education.map((edu, index) => (
+                              <div
+                                key={index}
+                                className="dark:bg-accent rounded-lg bg-gray-50 p-4"
+                              >
+                                <div className="mb-2">
+                                  <h5 className="font-semibold">
+                                    {edu.degree && edu.field_of_study
+                                      ? `${edu.degree} in ${edu.field_of_study}`
+                                      : edu.degree || edu.field_of_study}
+                                  </h5>
+                                  <p className="text-muted-foreground">
+                                    {edu.institution}
+                                  </p>
+                                  <p className="text-muted-foreground text-sm">
+                                    {formatResumeDate(edu.start_date)} -{" "}
+                                    {formatResumeDate(edu.end_date)}
+                                    {edu.grade_gpa && (
+                                      <span className="ml-2">
+                                        • GPA: {edu.grade_gpa}
+                                      </span>
+                                    )}
+                                  </p>
+                                </div>
                               </div>
-                            </div>
-                          ))}
+                            ))}
+                          </div>
                         </div>
-                      </div>
+                      </>
                     )}
 
                     {/* Projects */}
                     {resume.projects && resume.projects.length > 0 && (
-                      <div>
-                        <h4 className="text-muted-foreground mb-3 flex items-center gap-2 text-sm font-semibold">
-                          <FileText className="h-4 w-4" />
-                          PROJECTS ({resume.projects.length})
-                        </h4>
-                        <div className="space-y-3">
-                          {resume.projects.map((project, index) => (
-                            <div
-                              key={index}
-                              className="bg-muted/50 rounded-lg p-4"
-                            >
-                              <div className="mb-2">
-                                <h5 className="font-semibold">
-                                  {project.project_name}
-                                </h5>
-                                {project.description && (
-                                  <p className="text-muted-foreground text-sm">
-                                    {project.description}
-                                  </p>
-                                )}
-                              </div>
+                      <>
+                        <Separator className="bg-border dark:bg-border" />
+                        <div>
+                          <h4 className="text-muted-foreground mb-3 flex items-center gap-2 text-sm font-semibold">
+                            <FileText className="h-4 w-4" />
+                            PROJECTS ({resume.projects.length})
+                          </h4>
+                          <div className="space-y-3">
+                            {resume.projects.map((project, index) => (
+                              <div
+                                key={index}
+                                className="dark:bg-accent rounded-lg bg-gray-50 p-4"
+                              >
+                                <div className="mb-2">
+                                  <h5 className="font-semibold">
+                                    {project.project_name}
+                                  </h5>
+                                  {project.description && (
+                                    <p className="text-muted-foreground text-sm">
+                                      {project.description}
+                                    </p>
+                                  )}
+                                </div>
 
-                              {project.technologies_used &&
-                                project.technologies_used.length > 0 && (
-                                  <div className="flex flex-wrap gap-1">
-                                    {project.technologies_used.map(
-                                      (tech, techIndex) => (
-                                        <Badge
-                                          key={techIndex}
-                                          variant="outline"
-                                          className="text-xs"
-                                        >
-                                          {tech}
-                                        </Badge>
-                                      ),
-                                    )}
-                                  </div>
-                                )}
-                            </div>
-                          ))}
+                                {project.technologies_used &&
+                                  project.technologies_used.length > 0 && (
+                                    <div className="flex flex-wrap gap-1">
+                                      {project.technologies_used.map(
+                                        (tech, techIndex) => (
+                                          <Badge
+                                            key={techIndex}
+                                            variant="outline"
+                                            className="text-xs"
+                                          >
+                                            {tech}
+                                          </Badge>
+                                        ),
+                                      )}
+                                    </div>
+                                  )}
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                      </div>
+                      </>
                     )}
 
                     {/* Certifications */}
                     {resume.certifications &&
                       resume.certifications.length > 0 && (
-                        <div>
-                          <h4 className="text-muted-foreground mb-3 flex items-center gap-2 text-sm font-semibold">
-                            <Award className="h-4 w-4" />
-                            CERTIFICATIONS ({resume.certifications.length})
-                          </h4>
-                          <div className="space-y-3">
-                            {resume.certifications.map((cert, index) => (
-                              <div
-                                key={index}
-                                className="bg-muted/50 rounded-lg p-4"
-                              >
-                                <h5 className="font-semibold">
-                                  {cert.certification_name}
-                                </h5>
-                                <p className="text-muted-foreground">
-                                  {cert.issuing_organization}
-                                </p>
-                                <p className="text-muted-foreground text-sm">
-                                  Issued: {formatResumeDate(cert.issue_date)}
-                                </p>
-                              </div>
-                            ))}
+                        <>
+                          <Separator className="bg-border dark:bg-border" />
+                          <div>
+                            <h4 className="text-muted-foreground mb-3 flex items-center gap-2 text-sm font-semibold">
+                              <Award className="h-4 w-4" />
+                              CERTIFICATIONS ({resume.certifications.length})
+                            </h4>
+                            <div className="space-y-3">
+                              {resume.certifications.map((cert, index) => (
+                                <div
+                                  key={index}
+                                  className="dark:bg-accent rounded-lg bg-gray-50 p-4"
+                                >
+                                  <h5 className="font-semibold">
+                                    {cert.certification_name}
+                                  </h5>
+                                  <p className="text-muted-foreground">
+                                    {cert.issuing_organization}
+                                  </p>
+                                  <p className="text-muted-foreground text-sm">
+                                    Issued: {formatResumeDate(cert.issue_date)}
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
                           </div>
-                        </div>
+                        </>
                       )}
                   </div>
-                </CardContent>
+
+                  {/* Hide Details Button */}
+                  <div className="flex justify-center py-4">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div
+                          className="text-muted-foreground cursor-pointer"
+                          onClick={() => toggleCard(resume.id)}
+                        >
+                          <ChevronUp className="h-4 w-4" />
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Click to hide</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                </div>
               </CollapsibleContent>
             </Collapsible>
-          </Card>
+          </div>
         );
       })}
     </div>

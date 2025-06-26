@@ -16,7 +16,6 @@ import {
   arrayMove,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { motion } from "framer-motion";
 import {
   AlertCircle,
   Award,
@@ -428,12 +427,7 @@ export function KanbanBoard({
               >
                 {column.isFailedEmails ? (
                   // Failed emails column - not draggable
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ duration: 0.4, delay: index * 0.1 + 0.3 }}
-                    className="space-y-3"
-                  >
+                  <div className="space-y-3">
                     {failedEmailsState.length === 0 ? (
                       <div className="flex h-32 flex-col items-center justify-center text-center">
                         <AlertCircle className="text-muted-foreground mb-2 h-6 w-6" />
@@ -446,23 +440,15 @@ export function KanbanBoard({
                       </div>
                     ) : (
                       failedEmailsState.map((failedEmail, emailIndex) => (
-                        <motion.div
-                          key={failedEmail.id}
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{
-                            duration: 0.3,
-                            delay: index * 0.1 + 0.4 + emailIndex * 0.05,
-                          }}
-                        >
+                        <div key={failedEmail.id}>
                           <FailedEmailCard
                             failedEmail={failedEmail}
                             onClick={handleFailedEmailClick}
                           />
-                        </motion.div>
+                        </div>
                       ))
                     )}
-                  </motion.div>
+                  </div>
                 ) : (
                   <SortableContext
                     items={appsByStatus[
@@ -470,12 +456,7 @@ export function KanbanBoard({
                     ].map((app) => app.id)}
                     strategy={verticalListSortingStrategy}
                   >
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ duration: 0.4, delay: index * 0.1 + 0.3 }}
-                      className="space-y-3"
-                    >
+                    <div className="space-y-3">
                       {appsByStatus[column.id as keyof typeof appsByStatus]
                         .length === 0 ? (
                         <div className="flex h-32 flex-col items-center justify-center text-center">
@@ -495,24 +476,16 @@ export function KanbanBoard({
                         appsByStatus[
                           column.id as keyof typeof appsByStatus
                         ].map((application, appIndex) => (
-                          <motion.div
-                            key={application.id}
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{
-                              duration: 0.3,
-                              delay: index * 0.1 + 0.4 + appIndex * 0.05,
-                            }}
-                          >
+                          <div key={application.id}>
                             <ApplicationCard
                               application={application}
                               bgColor={column.bgColor}
                               onApplicationUpdated={onApplicationUpdated}
                             />
-                          </motion.div>
+                          </div>
                         ))
                       )}
-                    </motion.div>
+                    </div>
                   </SortableContext>
                 )}
               </ApplicationColumn>

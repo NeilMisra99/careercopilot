@@ -1,7 +1,6 @@
 "use client";
 
 import { Card, CardContent } from "@/components/ui/card";
-import { motion } from "framer-motion";
 import { Activity, Brain, Star, Target } from "lucide-react";
 import { MatchStats } from "../_lib/types";
 
@@ -119,15 +118,8 @@ export function MatchStatsCards({
 
   return (
     <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-      {statCards.map((card, index) => (
-        <motion.div
-          key={card.title}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: index * 0.1, duration: 0.4 }}
-          whileHover={{ scale: 1.02, y: -2 }}
-          className="group"
-        >
+      {statCards.map((card) => (
+        <div key={card.title} className="group">
           <Card
             className={`border-0 bg-gradient-to-br ${card.bgGradient} h-full shadow-lg backdrop-blur-sm transition-all duration-300 hover:shadow-xl`}
           >
@@ -160,10 +152,8 @@ export function MatchStatsCards({
                     <span>{Math.round(card.progressValue || 0)}%</span>
                   </div>
                   <div className="h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${card.progressValue || 0}%` }}
-                      transition={{ delay: 0.5, duration: 1, ease: "easeOut" }}
+                    <div
+                      style={{ width: `${card.progressValue || 0}%` }}
                       className={`h-full bg-gradient-to-r ${card.gradient} shadow-sm`}
                     />
                   </div>
@@ -174,7 +164,7 @@ export function MatchStatsCards({
               <div className="pointer-events-none absolute inset-0 rounded-lg bg-gradient-to-br from-white/5 to-transparent" />
             </CardContent>
           </Card>
-        </motion.div>
+        </div>
       ))}
     </div>
   );

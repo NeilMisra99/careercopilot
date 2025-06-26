@@ -282,7 +282,7 @@ export function EnhancedCompanyField({ form }: EnhancedCompanyFieldProps) {
             className="col-span-full space-y-2"
           >
             {suggestedValues.website && (
-              <div className="flex items-center gap-2 rounded-md bg-blue-50 p-2 text-sm dark:bg-blue-900/20">
+              <div className="flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 bg-gradient-to-b from-blue-50 to-blue-100/60 p-2 text-sm shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.25)] dark:border-blue-800/30 dark:bg-blue-950/30 dark:from-blue-950/30 dark:to-blue-950/20 dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.1)]">
                 <Globe className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                 <span className="text-blue-700 dark:text-blue-300">
                   Suggestion: Use company website as job URL?
@@ -294,14 +294,14 @@ export function EnhancedCompanyField({ form }: EnhancedCompanyFieldProps) {
                   onClick={() =>
                     handleApplySuggestion("website", suggestedValues.website!)
                   }
-                  className="ml-auto h-6 px-2 text-xs text-blue-600 hover:bg-blue-100 dark:text-blue-400 dark:hover:bg-blue-800/50"
+                  className="ml-auto h-6 px-2 text-xs"
                 >
                   Apply
                 </Button>
               </div>
             )}
             {suggestedValues.location && (
-              <div className="flex items-center gap-2 rounded-md bg-purple-50 p-2 text-sm dark:bg-purple-900/20">
+              <div className="flex items-center gap-2 rounded-md border border-purple-200 bg-purple-50 bg-gradient-to-b from-purple-50 to-purple-100/60 p-2 text-sm shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.25)] dark:border-purple-800/30 dark:bg-purple-950/30 dark:from-purple-950/30 dark:to-purple-950/20 dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.1)]">
                 <MapPin className="h-4 w-4 text-purple-600 dark:text-purple-400" />
                 <span className="text-purple-700 dark:text-purple-300">
                   Suggestion: Use &quot;{suggestedValues.location}&quot; as
@@ -314,7 +314,7 @@ export function EnhancedCompanyField({ form }: EnhancedCompanyFieldProps) {
                   onClick={() =>
                     handleApplySuggestion("location", suggestedValues.location!)
                   }
-                  className="ml-auto h-6 px-2 text-xs text-purple-600 hover:bg-purple-100 dark:text-purple-400 dark:hover:bg-purple-800/50"
+                  className="ml-auto h-6 px-2 text-xs"
                 >
                   Apply
                 </Button>
@@ -332,7 +332,7 @@ export function EnhancedCompanyField({ form }: EnhancedCompanyFieldProps) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -10, scale: 0.95 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
-            className="col-span-full rounded-lg border border-emerald-200 bg-gradient-to-r from-emerald-50 to-emerald-100/50 p-4 shadow-sm dark:border-emerald-700 dark:from-emerald-900/20 dark:to-emerald-800/10"
+            className="col-span-full rounded-lg border border-emerald-200 bg-emerald-50 bg-gradient-to-b from-emerald-50 to-emerald-100/60 p-4 shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.25)] dark:border-emerald-800/30 dark:bg-emerald-950/30 dark:from-emerald-950/30 dark:to-emerald-950/20 dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.1)]"
           >
             <div className="flex items-start gap-4">
               {/* Company Logo */}
@@ -367,7 +367,7 @@ export function EnhancedCompanyField({ form }: EnhancedCompanyFieldProps) {
                       variant="secondary"
                       className="bg-emerald-100 text-xs text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
                     >
-                      <Star className="mr-1 h-3 w-3" />
+                      <Star className="mr-1 h-3 w-3 fill-emerald-700 text-emerald-700 dark:fill-emerald-300 dark:text-emerald-300" />
                       Verified
                     </Badge>
                   )}
@@ -378,12 +378,12 @@ export function EnhancedCompanyField({ form }: EnhancedCompanyFieldProps) {
                   <div className="space-y-1">
                     <p
                       className={`text-sm leading-relaxed text-slate-600 dark:text-slate-400 ${
-                        isDescriptionExpanded ? "" : "line-clamp-2"
+                        isDescriptionExpanded ? "" : "line-clamp-1"
                       }`}
                     >
                       {enrichmentData.description}
                     </p>
-                    {enrichmentData.description.length > 200 && (
+                    {enrichmentData.description.length > 160 && (
                       <button
                         type="button"
                         onClick={() =>
@@ -489,7 +489,7 @@ export function EnhancedCompanyField({ form }: EnhancedCompanyFieldProps) {
                 {"newsData" in enrichmentData &&
                   enrichmentData.newsData &&
                   enrichmentData.newsData.length > 0 && (
-                    <div className="rounded-md bg-gradient-to-r from-blue-50 to-indigo-50 p-3 dark:from-blue-900/20 dark:to-indigo-900/20">
+                    <div className="rounded-md border border-blue-200 bg-blue-50 bg-gradient-to-b from-blue-50 to-blue-100/60 p-3 shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.25)] dark:border-blue-800/30 dark:bg-blue-950/30 dark:from-blue-950/30 dark:to-blue-950/20 dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.1)]">
                       <div className="mb-2 flex items-center gap-2">
                         <TrendingUp className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                         <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
@@ -519,9 +519,9 @@ export function EnhancedCompanyField({ form }: EnhancedCompanyFieldProps) {
                     (enrichmentData.groundingMetadata.groundingSupports &&
                       enrichmentData.groundingMetadata.groundingSupports
                         .length > 0)) && (
-                    <div className="rounded-md bg-gradient-to-r from-emerald-50 to-green-50 p-3 dark:from-emerald-900/20 dark:to-green-900/20">
+                    <div className="rounded-md border-2 border-emerald-200 bg-transparent p-3 dark:border-emerald-800/30 dark:bg-transparent">
                       <div className="mb-2 flex items-center gap-2">
-                        <Star className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                        <Star className="h-4 w-4 fill-emerald-600 text-emerald-600 dark:fill-emerald-400 dark:text-emerald-400" />
                         <span className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
                           Information Sources
                         </span>
@@ -541,7 +541,7 @@ export function EnhancedCompanyField({ form }: EnhancedCompanyFieldProps) {
                                 .map((query, index) => (
                                   <span
                                     key={index}
-                                    className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-700 dark:bg-emerald-800/30 dark:text-emerald-300"
+                                    className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-100 px-2 py-0.5 text-xs text-emerald-700 dark:border-emerald-700 dark:bg-emerald-800/30 dark:text-emerald-300"
                                   >
                                     &ldquo;{query}&rdquo;
                                   </span>
@@ -595,11 +595,11 @@ export function EnhancedCompanyField({ form }: EnhancedCompanyFieldProps) {
                   <div className="flex items-center gap-3">
                     <Button
                       type="button"
-                      variant="ghost"
+                      variant="outline"
                       size="sm"
                       onClick={handleStartComprehensiveEnrichment}
                       disabled={isEnriching}
-                      className="text-xs text-blue-600 hover:text-blue-700 disabled:opacity-50 dark:text-blue-400 dark:hover:text-blue-300"
+                      className="border-emerald-200 bg-white text-emerald-700 shadow-sm hover:bg-emerald-50 hover:text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 dark:hover:bg-emerald-950/70 dark:hover:text-emerald-200"
                     >
                       {isEnriching ? (
                         <>
@@ -637,7 +637,7 @@ export function EnhancedCompanyField({ form }: EnhancedCompanyFieldProps) {
 
       {/* Loading State - Also positioned to not disrupt grid */}
       {isEnriching && !enrichmentData && (
-        <div className="col-span-full mt-2 rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/50">
+        <div className="col-span-full mt-2 rounded-lg border border-gray-200/80 bg-white bg-gradient-to-b from-white to-gray-50/40 p-4 shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.25)] dark:border-white/10 dark:bg-transparent dark:from-white/3 dark:to-transparent dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.1)]">
           <div className="flex items-center gap-3">
             <Skeleton className="h-14 w-14 rounded-lg" />
             <div className="flex-1 space-y-2">

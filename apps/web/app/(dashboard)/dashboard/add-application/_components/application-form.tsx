@@ -68,9 +68,9 @@ export function ApplicationForm() {
       {/* Loading overlay for form submission */}
       {isSubmitting && (
         <div className="bg-background/50 absolute inset-0 z-10 flex items-center justify-center backdrop-blur-sm">
-          <div className="bg-background rounded-lg border p-6 shadow-lg">
+          <div className="bg-card border-border from-card to-card/95 dark:from-card dark:to-card/90 rounded-lg border bg-gradient-to-b p-6 shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.25)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.1)]">
             <div className="flex items-center space-x-3">
-              <div className="border-primary h-5 w-5 animate-spin rounded-full border-2 border-t-transparent" />
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
               <span className="text-sm font-medium">
                 Creating application...
               </span>
@@ -90,10 +90,11 @@ export function ApplicationForm() {
           <AdditionalInfoSection form={form} />
 
           {/* Form Actions */}
-          <div className="flex items-center justify-end space-x-4 pt-6">
+          <div className="flex items-center justify-end gap-3 pt-6">
             <Button
               type="button"
               variant="outline"
+              size="sm"
               onClick={() => router.back()}
               disabled={isSubmitting}
             >
@@ -101,8 +102,9 @@ export function ApplicationForm() {
             </Button>
             <Button
               type="submit"
+              size="sm"
+              variant="default"
               disabled={isSubmitting}
-              className="min-w-[120px]"
             >
               {isSubmitting ? "Creating..." : "Create Application"}
             </Button>

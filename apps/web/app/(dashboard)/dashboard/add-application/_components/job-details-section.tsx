@@ -44,8 +44,8 @@ export function JobDetailsSection({ form }: JobDetailsSectionProps) {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-medium">Job Details</h3>
-        <p className="text-muted-foreground text-sm">
+        <h3 className="text-foreground text-lg font-medium">Job Details</h3>
+        <p className="text-muted-foreground mt-1 text-sm">
           Enter the basic information about this job application.
         </p>
       </div>
@@ -110,6 +110,7 @@ export function JobDetailsSection({ form }: JobDetailsSectionProps) {
                     field.onChange(date ? formatDateToLocalString(date) : "");
                   }}
                   placeholder="Select application date"
+                  hideToday={true}
                 />
               </FormControl>
               <FormMessage />

@@ -1,7 +1,8 @@
 "use client";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -330,47 +331,43 @@ export function ResumePageContent({
     borderColor: string;
     trend?: "up" | "down" | "neutral";
   }) => (
-    <Card
-      className={`border-l-4 ${borderColor} transition-all duration-200 hover:shadow-lg dark:hover:shadow-xl`}
-    >
-      <CardContent className="p-6">
-        <div className="mb-2 flex items-center justify-between">
-          <div className="flex-1">
-            <p className="text-muted-foreground mb-1 text-sm font-medium">
-              {title}
-            </p>
-            <div className="flex items-center gap-2">
-              <div className="text-2xl font-bold">{value}</div>
-              {trend && (
-                <TrendingUp
-                  className={`h-4 w-4 ${
-                    trend === "up"
-                      ? "text-green-500 dark:text-green-400"
-                      : trend === "down"
-                        ? "text-red-500 dark:text-red-400"
-                        : "text-gray-400 dark:text-gray-500"
-                  }`}
-                />
-              )}
+    <div className="rounded-lg border border-gray-200/80 bg-white bg-gradient-to-b from-white to-gray-50/40 p-4 shadow-[0_1px_4px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.4),0_1px_2px_rgba(0,0,0,0.06)] dark:border-white/10 dark:bg-transparent dark:from-white/3 dark:to-transparent dark:shadow-[0_1px_4px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.08),0_1px_2px_rgba(0,0,0,0.12)]">
+      <div className="flex items-center justify-between">
+        <div className="flex-1">
+          <p className="text-muted-foreground text-sm font-medium">{title}</p>
+          <div className="flex items-center gap-2">
+            <div className="text-foreground mt-2 text-2xl leading-none font-semibold">
+              {value}
             </div>
-            {subtitle && (
-              <p className="text-muted-foreground mt-1 text-xs">{subtitle}</p>
+            {trend && (
+              <TrendingUp
+                className={`h-4 w-4 ${
+                  trend === "up"
+                    ? "text-green-500 dark:text-green-400"
+                    : trend === "down"
+                      ? "text-red-500 dark:text-red-400"
+                      : "text-gray-400 dark:text-gray-500"
+                }`}
+              />
             )}
           </div>
-          <Icon
-            className={`h-8 w-8 ${borderColor.replace("border-l-", "text-").replace("500", "500 dark:text-")}`}
-          />
+          {subtitle && (
+            <p className="text-muted-foreground mt-1 text-xs">{subtitle}</p>
+          )}
         </div>
-        {progress !== undefined && (
-          <div className="mt-3">
-            <Progress value={progress} className="h-2" />
-            <p className="text-muted-foreground mt-1 text-xs">
-              {progress.toFixed(1)}% complete
-            </p>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+        <div className={`h-10 w-10 rounded-lg bg-${borderColor} flex items-center justify-center shadow-lg`}>
+          <Icon className="h-5 w-5 text-white" />
+        </div>
+      </div>
+      {progress !== undefined && (
+        <div className="mt-3">
+          <Progress value={progress} className="h-2" />
+          <p className="text-muted-foreground mt-1 text-xs">
+            {progress.toFixed(1)}% complete
+          </p>
+        </div>
+      )}
+    </div>
   );
 
   if (error) {
@@ -394,19 +391,19 @@ export function ResumePageContent({
   return (
     <>
       {/* Header Section */}
-      <div className="mb-8">
+      <div className="mb-6">
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">
+            <h1 className="text-foreground text-2xl font-medium">
               Resume Management
             </h1>
-            <p className="text-muted-foreground mt-2">
+            <p className="text-muted-foreground mt-1 text-sm">
               Upload, manage, and optimize your resumes with AI-powered insights
             </p>
           </div>
           <div className="flex items-center gap-3">
             <ResumeUploadDialog onResumeUploaded={handleResumeUploaded}>
-              <Button className="bg-blue-600 font-semibold text-white shadow-sm hover:bg-blue-700">
+              <Button size="sm" variant="default">
                 <Plus className="mr-2 h-4 w-4" />
                 Upload Resume
               </Button>
@@ -427,7 +424,7 @@ export function ResumePageContent({
                   ? `Primary: ${resumes.find((r) => r.is_primary)?.name}`
                   : "No primary resume set"
             }
-            borderColor="border-l-blue-500 dark:border-l-blue-400"
+            borderColor="blue-500"
             trend="up"
           />
 
@@ -437,7 +434,7 @@ export function ResumePageContent({
             icon={Brain}
             progress={stats.processingRate}
             subtitle={stats.processingRate === 100 ? "Complete" : "In progress"}
-            borderColor="border-l-green-500 dark:border-l-green-400"
+            borderColor="green-500"
             trend="up"
           />
 
@@ -446,7 +443,7 @@ export function ResumePageContent({
             value={stats.totalDataPoints}
             icon={Database}
             subtitle={`${stats.avgExperiences} exp • ${stats.avgSkills} skills • ${stats.avgEducation} edu`}
-            borderColor="border-l-purple-500 dark:border-l-purple-400"
+            borderColor="purple-500"
             trend="up"
           />
 
@@ -472,50 +469,50 @@ export function ResumePageContent({
                   ? "Experience-focused profile"
                   : "Building your profile"
             }
-            borderColor="border-l-orange-500 dark:border-l-orange-400"
+            borderColor="orange-500"
             trend="neutral"
           />
         </div>
 
         {/* Processing Status Alert */}
         {stats.pendingProcessing > 0 && (
-          <Card className="mb-8 border-orange-200 bg-orange-50 dark:border-orange-800 dark:bg-orange-950/30">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <AlertCircle className="h-5 w-5 text-orange-600 dark:text-orange-400" />
-                <div>
-                  <p className="font-medium text-orange-900 dark:text-orange-100">
-                    {stats.pendingProcessing} resume
-                    {stats.pendingProcessing > 1 ? "s" : ""} processing
-                  </p>
-                  <p className="text-sm text-orange-700 dark:text-orange-200">
-                    AI analysis in progress. Usually takes 1-2 minutes per
-                    resume.
-                  </p>
-                </div>
+          <div className="mb-6 rounded-lg border border-orange-200 bg-orange-50 bg-gradient-to-b from-orange-50 to-orange-100/60 p-4 shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.25)] dark:border-orange-800/30 dark:bg-orange-950/30 dark:from-orange-950/30 dark:to-orange-950/20 dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.1)]">
+            <div className="flex items-center gap-3">
+              <AlertCircle className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+              <div>
+                <p className="font-medium text-orange-900 dark:text-orange-100">
+                  {stats.pendingProcessing} resume
+                  {stats.pendingProcessing > 1 ? "s" : ""} processing
+                </p>
+                <p className="text-sm text-orange-700 dark:text-orange-200">
+                  AI analysis in progress. Usually takes 1-2 minutes per resume.
+                </p>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         )}
       </div>
 
       {/* Resume List */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            Your Resumes
+      <div className="rounded-lg border border-gray-200/80 bg-white bg-gradient-to-b from-white to-gray-50/40 p-6 shadow-[0_1px_4px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.4),0_1px_2px_rgba(0,0,0,0.06)] dark:border-white/10 dark:bg-transparent dark:from-white/3 dark:to-transparent dark:shadow-[0_1px_4px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.08),0_1px_2px_rgba(0,0,0,0.12)]">
+        <div className="mb-6">
+          <div className="flex items-center gap-2">
+            <h2 className="text-foreground flex items-center gap-2 text-lg font-medium">
+              <FileText className="h-5 w-5" />
+              Your Resumes
+            </h2>
             {stats.totalResumes > 0 && (
-              <span className="text-muted-foreground ml-2 text-sm font-normal">
-                ({stats.totalResumes})
-              </span>
+              <Badge
+                variant="outline"
+                className="text-xs bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/30 dark:text-blue-300 dark:border-blue-800/30"
+              >
+                {stats.totalResumes}
+              </Badge>
             )}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ResumeList initialResumes={resumes} />
-        </CardContent>
-      </Card>
+          </div>
+        </div>
+        <ResumeList initialResumes={resumes} />
+      </div>
     </>
   );
 }

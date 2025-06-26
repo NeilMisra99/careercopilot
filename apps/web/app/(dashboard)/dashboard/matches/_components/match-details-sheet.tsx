@@ -9,7 +9,6 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { motion } from "framer-motion";
 import {
   AlertTriangle,
   Award,
@@ -111,18 +110,6 @@ export function MatchDetailsSheet({
 
   const statusConfig = getStatusConfig(match.application_status);
 
-  const cardVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: (i: number) => ({
-      opacity: 1,
-      y: 0,
-      transition: {
-        delay: i * 0.1,
-        duration: 0.5,
-        ease: "easeOut",
-      },
-    }),
-  };
 
   const scoreCardData = [
     {
@@ -154,11 +141,7 @@ export function MatchDetailsSheet({
         <div className="flex h-full flex-col">
           <SheetHeader className="border-b border-slate-200/60 p-6 dark:border-slate-800">
             <div className="flex items-center gap-6">
-              <motion.div
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                className="relative text-center"
-              >
+              <div className="relative text-center">
                 <div
                   className={`flex h-24 w-24 items-center justify-center rounded-full bg-white ring-4 dark:bg-slate-900 ${getFitScoreRingColor(
                     match.overall_fit_score,
@@ -186,7 +169,7 @@ export function MatchDetailsSheet({
                 >
                   Fit Score
                 </p>
-              </motion.div>
+              </div>
               <div className="flex-1 space-y-2">
                 <SheetTitle className="text-2xl font-bold text-slate-800 dark:text-slate-100">
                   {match.job_title}
@@ -225,12 +208,7 @@ export function MatchDetailsSheet({
           <div className="flex-1 overflow-hidden">
             <ScrollArea className="h-full px-6 py-8">
               <div className="space-y-6">
-                <motion.div
-                  custom={0}
-                  initial="hidden"
-                  animate="visible"
-                  variants={cardVariants}
-                >
+                <div>
                   <Card className="overflow-hidden border-slate-200/60 bg-white/80 shadow-sm dark:border-slate-800 dark:bg-slate-900/80">
                     <CardHeader>
                       <CardTitle className="text-lg font-semibold">
@@ -260,13 +238,9 @@ export function MatchDetailsSheet({
                       ))}
                     </CardContent>
                   </Card>
-                </motion.div>
+                </div>
 
-                <motion.div
-                  custom={1}
-                  initial="hidden"
-                  animate="visible"
-                  variants={cardVariants}
+                <div
                 >
                   <Card className="border-slate-200/60 bg-white/80 shadow-sm dark:border-slate-800 dark:bg-slate-900/80">
                     <CardHeader>
@@ -311,15 +285,11 @@ export function MatchDetailsSheet({
                       </div>
                     </CardContent>
                   </Card>
-                </motion.div>
+                </div>
 
                 {match.match_analysis?.recommendations &&
                   match.match_analysis.recommendations.length > 0 && (
-                    <motion.div
-                      custom={2}
-                      initial="hidden"
-                      animate="visible"
-                      variants={cardVariants}
+                    <div
                     >
                       <Card className="border-slate-200/60 bg-white/80 shadow-sm dark:border-slate-800 dark:bg-slate-900/80">
                         <CardHeader>
@@ -345,16 +315,12 @@ export function MatchDetailsSheet({
                           </ul>
                         </CardContent>
                       </Card>
-                    </motion.div>
+                    </div>
                   )}
 
                 {/* Job Requirements Analysis */}
                 {match.match_analysis?.job_requirements && (
-                  <motion.div
-                    custom={3}
-                    initial="hidden"
-                    animate="visible"
-                    variants={cardVariants}
+                  <div
                   >
                     <Card className="border-slate-200/60 bg-white/80 shadow-sm dark:border-slate-800 dark:bg-slate-900/80">
                       <CardHeader>
@@ -431,15 +397,11 @@ export function MatchDetailsSheet({
                         </div>
                       </CardContent>
                     </Card>
-                  </motion.div>
+                  </div>
                 )}
 
                 {/* Skills Match Analysis */}
-                <motion.div
-                  custom={4}
-                  initial="hidden"
-                  animate="visible"
-                  variants={cardVariants}
+                <div
                 >
                   <Card className="border-slate-200/60 bg-white/80 shadow-sm dark:border-slate-800 dark:bg-slate-900/80">
                     <CardHeader>
@@ -486,16 +448,12 @@ export function MatchDetailsSheet({
                       </div>
                     </CardContent>
                   </Card>
-                </motion.div>
+                </div>
 
                 {/* Experience Relevance Analysis */}
                 {match.match_analysis?.relevant_experiences &&
                   match.match_analysis.relevant_experiences.length > 0 && (
-                    <motion.div
-                      custom={5}
-                      initial="hidden"
-                      animate="visible"
-                      variants={cardVariants}
+                    <div
                     >
                       <Card className="border-slate-200/60 bg-white/80 shadow-sm dark:border-slate-800 dark:bg-slate-900/80">
                         <CardHeader>
@@ -542,15 +500,11 @@ export function MatchDetailsSheet({
                           </div>
                         </CardContent>
                       </Card>
-                    </motion.div>
+                    </div>
                   )}
 
                 {/* AI Confidence & Reasoning */}
-                <motion.div
-                  custom={6}
-                  initial="hidden"
-                  animate="visible"
-                  variants={cardVariants}
+                <div
                 >
                   <Card className="border-slate-200/60 bg-white/80 shadow-sm dark:border-slate-800 dark:bg-slate-900/80">
                     <CardHeader>
@@ -601,13 +555,9 @@ export function MatchDetailsSheet({
                       )}
                     </CardContent>
                   </Card>
-                </motion.div>
+                </div>
 
-                <motion.div
-                  custom={7}
-                  initial="hidden"
-                  animate="visible"
-                  variants={cardVariants}
+                <div
                   className="grid grid-cols-1 gap-6 md:grid-cols-2"
                 >
                   <Card className="border-slate-200/60 bg-white/80 shadow-sm dark:border-slate-800 dark:bg-slate-900/80">
@@ -651,7 +601,7 @@ export function MatchDetailsSheet({
                       </div>
                     </CardContent>
                   </Card>
-                </motion.div>
+                </div>
               </div>
             </ScrollArea>
           </div>
