@@ -325,7 +325,8 @@ export function KanbanBoard({
       count: failedEmailsState.length,
       color: "text-orange-500",
       bgColor: "bg-orange-500/10",
-      badgeColor: "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/30 dark:text-orange-300 dark:border-orange-800/30",
+      badgeColor:
+        "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/30 dark:text-orange-300 dark:border-orange-800/30",
       isFailedEmails: true,
     },
     {
@@ -335,16 +336,20 @@ export function KanbanBoard({
       count: appsByStatus.Opportunity.length,
       color: "text-teal-500 dark:text-teal-400",
       bgColor: "bg-teal-500 dark:bg-teal-400",
-      badgeColor: "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/30 dark:text-teal-300 dark:border-teal-800/30",
+      badgeColor:
+        "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/30 dark:text-teal-300 dark:border-teal-800/30",
     },
     {
       id: "Wishlist",
       title: "Wishlist",
-      icon: <ListTodo className="h-4 w-4 text-indigo-500 dark:text-indigo-400" />,
+      icon: (
+        <ListTodo className="h-4 w-4 text-indigo-500 dark:text-indigo-400" />
+      ),
       count: appsByStatus.Wishlist.length,
       color: "text-indigo-500 dark:text-indigo-400",
       bgColor: "bg-indigo-500 dark:bg-indigo-400",
-      badgeColor: "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/30 dark:text-indigo-300 dark:border-indigo-800/30",
+      badgeColor:
+        "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/30 dark:text-indigo-300 dark:border-indigo-800/30",
     },
     {
       id: "Applied",
@@ -355,7 +360,8 @@ export function KanbanBoard({
       count: appsByStatus.Applied.length,
       color: "text-blue-500 dark:text-blue-400",
       bgColor: "bg-blue-500 dark:bg-blue-400",
-      badgeColor: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/30 dark:text-blue-300 dark:border-blue-800/30",
+      badgeColor:
+        "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/30 dark:text-blue-300 dark:border-blue-800/30",
     },
     {
       id: "Screening",
@@ -364,7 +370,8 @@ export function KanbanBoard({
       count: appsByStatus.Screening.length,
       color: "text-amber-500 dark:text-amber-400",
       bgColor: "bg-amber-500 dark:bg-amber-400",
-      badgeColor: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-300 dark:border-amber-800/30",
+      badgeColor:
+        "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-300 dark:border-amber-800/30",
     },
     {
       id: "Interviewing",
@@ -373,16 +380,20 @@ export function KanbanBoard({
       count: appsByStatus.Interviewing.length,
       color: "text-violet-500 dark:text-violet-400",
       bgColor: "bg-violet-500 dark:bg-violet-400",
-      badgeColor: "bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950/30 dark:text-violet-300 dark:border-violet-800/30",
+      badgeColor:
+        "bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950/30 dark:text-violet-300 dark:border-violet-800/30",
     },
     {
       id: "Offer",
       title: "Offer",
-      icon: <Award className="h-4 w-4 text-emerald-500 dark:text-emerald-400" />,
+      icon: (
+        <Award className="h-4 w-4 text-emerald-500 dark:text-emerald-400" />
+      ),
       count: appsByStatus.Offer.length,
       color: "text-emerald-500 dark:text-emerald-400",
       bgColor: "bg-emerald-500 dark:bg-emerald-400",
-      badgeColor: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-800/30",
+      badgeColor:
+        "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-800/30",
     },
     {
       id: "Rejected",
@@ -391,7 +402,8 @@ export function KanbanBoard({
       count: appsByStatus.Rejected.length,
       color: "text-rose-500 dark:text-rose-400",
       bgColor: "bg-rose-500 dark:bg-rose-400",
-      badgeColor: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-300 dark:border-rose-800/30",
+      badgeColor:
+        "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-300 dark:border-rose-800/30",
     },
     {
       id: "Withdrawn",
@@ -400,7 +412,8 @@ export function KanbanBoard({
       count: appsByStatus.Withdrawn.length,
       color: "text-slate-500 dark:text-slate-400",
       bgColor: "bg-slate-500 dark:bg-slate-400",
-      badgeColor: "bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-950/30 dark:text-slate-300 dark:border-slate-800/30",
+      badgeColor:
+        "bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-950/30 dark:text-slate-300 dark:border-slate-800/30",
     },
   ];
 
@@ -415,7 +428,7 @@ export function KanbanBoard({
       <div className="h-full">
         <div className="scrollbar-thin scrollbar-thumb-border/40 scrollbar-track-transparent h-full overflow-x-auto overflow-y-hidden">
           <div className="flex h-full gap-4 p-1">
-            {columns.map((column, index) => (
+            {columns.map((column) => (
               <ApplicationColumn
                 key={column.id}
                 id={column.id}
@@ -439,7 +452,7 @@ export function KanbanBoard({
                         </p>
                       </div>
                     ) : (
-                      failedEmailsState.map((failedEmail, emailIndex) => (
+                      failedEmailsState.map((failedEmail) => (
                         <div key={failedEmail.id}>
                           <FailedEmailCard
                             failedEmail={failedEmail}
@@ -475,7 +488,7 @@ export function KanbanBoard({
                       ) : (
                         appsByStatus[
                           column.id as keyof typeof appsByStatus
-                        ].map((application, appIndex) => (
+                        ].map((application) => (
                           <div key={application.id}>
                             <ApplicationCard
                               application={application}
