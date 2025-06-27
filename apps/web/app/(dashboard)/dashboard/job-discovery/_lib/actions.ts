@@ -1,10 +1,12 @@
 "use server";
 
 import { linkedinScraper } from "@/app/trigger/linkedin-scraper";
-import { revalidateJobDiscoveryData } from "@/lib/cache";
+import {
+  revalidateApplicationData,
+  revalidateJobDiscoveryData,
+} from "@/lib/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getWorkerUrl } from "@/lib/worker-utils";
-import { revalidateTag } from "next/cache";
 import { cookies } from "next/headers";
 
 interface JobDiscoveryResult {
@@ -473,7 +475,7 @@ export async function saveJobToApplicationsAction(
 
     // Revalidate cache
     revalidateJobDiscoveryData();
-    revalidateTag("applications"); // Also revalidate applications since we added one
+    revalidateApplicationData();
 
     return {
       success: true,
