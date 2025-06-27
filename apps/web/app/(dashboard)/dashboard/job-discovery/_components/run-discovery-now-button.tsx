@@ -26,11 +26,17 @@ export function RunDiscoveryNowButton() {
   };
 
   return (
-    <Button onClick={handleClick} disabled={loading} variant="secondary">
+    <Button
+      size="sm"
+      onClick={handleClick}
+      disabled={loading}
+      variant="secondary"
+      className="gap-2"
+    >
       {loading ? (
-        <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+        <RefreshCw className="h-4 w-4 animate-spin" />
       ) : (
-        <Sparkles className="mr-2 h-4 w-4" />
+        <Sparkles className="h-4 w-4" />
       )}
       {loading ? "Launching…" : "Run Discovery Now"}
     </Button>

@@ -35,15 +35,6 @@ interface DiscoveredJob {
   applicants?: number;
   employment_type?: string;
   experience_level?: string;
-  opportunity_score?: number;
-  opportunity_reasoning?: string[];
-  market_intelligence?: {
-    salary_percentile?: number;
-    competition_level?: "low" | "medium" | "high";
-    urgency_level?: "low" | "medium" | "high";
-    seniority_alignment?: "under" | "match" | "over";
-    golden_opportunity?: boolean;
-  };
   discovery_source?: string;
 
   // UI 2.0 Normalized Fields
@@ -340,43 +331,37 @@ export default async function JobDiscoveryPage() {
   try {
     const { jobs, stats } = await getJobDiscoveryData(cookieString);
 
-    console.log("jobs", jobs);
-
     return (
-      <div className="container mx-auto p-6">
-        <JobDiscoveryPageContent
-          initialJobs={jobs}
-          initialStats={{
-            totalJobs: stats.totalJobs,
-            discoveredJobs: stats.discoveredJobs,
-            autoSavedJobs: stats.autoSavedJobs,
-            manuallySavedJobs: stats.manuallySavedJobs,
-            savedJobs: stats.savedJobs,
-            appliedJobs: stats.appliedJobs,
-            ignoredJobs: stats.ignoredJobs,
-            recentJobs: stats.recentJobs,
-          }}
-        />
-      </div>
+      <JobDiscoveryPageContent
+        initialJobs={jobs}
+        initialStats={{
+          totalJobs: stats.totalJobs,
+          discoveredJobs: stats.discoveredJobs,
+          autoSavedJobs: stats.autoSavedJobs,
+          manuallySavedJobs: stats.manuallySavedJobs,
+          savedJobs: stats.savedJobs,
+          appliedJobs: stats.appliedJobs,
+          ignoredJobs: stats.ignoredJobs,
+          recentJobs: stats.recentJobs,
+        }}
+      />
     );
   } catch (error) {
     console.error("Failed to load job discovery data:", error);
     return (
-      <div className="container mx-auto p-6">
-        <JobDiscoveryPageContent
-          initialJobs={[]}
-          initialStats={{
-            totalJobs: 0,
-            discoveredJobs: 0,
-            autoSavedJobs: 0,
-            manuallySavedJobs: 0,
-            savedJobs: 0,
-            appliedJobs: 0,
-            ignoredJobs: 0,
-            recentJobs: 0,
-          }}
-        />
-      </div>
+      <JobDiscoveryPageContent
+        initialJobs={[]}
+        initialStats={{
+          totalJobs: 0,
+          discoveredJobs: 0,
+          autoSavedJobs: 0,
+          manuallySavedJobs: 0,
+          savedJobs: 0,
+          appliedJobs: 0,
+          ignoredJobs: 0,
+          recentJobs: 0,
+        }}
+      />
     );
   }
 }

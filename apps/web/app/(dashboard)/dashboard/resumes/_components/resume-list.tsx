@@ -416,10 +416,7 @@ export function ResumeList({ initialResumes }: ResumeListProps) {
             key={resume.id}
             className="bg-card border-border dark:bg-muted relative rounded-lg border p-2 pb-0 shadow-sm"
           >
-            <div
-              className={`p-3 ${!isExpanded ? "cursor-pointer" : ""}`}
-              onClick={!isExpanded ? () => toggleCard(resume.id) : undefined}
-            >
+            <div className="p-3">
               <div className="flex items-center justify-between">
                 <div className="flex flex-1 items-center gap-3">
                   <div className="flex flex-col">
@@ -571,7 +568,10 @@ export function ResumeList({ initialResumes }: ResumeListProps) {
                 <div className="flex justify-center pt-1">
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <div className="text-muted-foreground">
+                      <div
+                        className="text-muted-foreground cursor-pointer"
+                        onClick={() => toggleCard(resume.id)}
+                      >
                         <ChevronDown className="h-4 w-4" />
                       </div>
                     </TooltipTrigger>

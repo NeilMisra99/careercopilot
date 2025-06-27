@@ -219,8 +219,8 @@ export function JobDiscoveryFormModal({
   };
 
   const defaultTrigger = (
-    <Button className="gap-2">
-      <Sparkles className="h-5 w-5" />
+    <Button size="sm" variant="default">
+      <Sparkles className="h-4 w-4" />
       Discover New Jobs
     </Button>
   );
@@ -391,6 +391,7 @@ export function JobDiscoveryFormModal({
 
         <div className="flex justify-end gap-2">
           <Button
+            size="sm"
             variant="outline"
             onClick={() => setOpen(false)}
             disabled={searching}
@@ -398,11 +399,12 @@ export function JobDiscoveryFormModal({
             Cancel
           </Button>
           <Button
+            size="sm"
             onClick={handleSearch}
             disabled={
               searching || (searchLimits ? !searchLimits.can_search : false)
             }
-            className="gap-2"
+            className="gap-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700"
           >
             {searching ? (
               <RefreshCw className="h-4 w-4 animate-spin" />

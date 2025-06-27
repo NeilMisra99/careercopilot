@@ -90,6 +90,15 @@ export function JobDiscoveryPageContent({
   const [refreshing, setRefreshing] = useState(false);
   const [preferencesOpen, setPreferencesOpen] = useState(false);
 
+  // Sync state with props when they change (after router.refresh())
+  useEffect(() => {
+    setJobs(initialJobs);
+  }, [initialJobs]);
+
+  useEffect(() => {
+    setStats(initialStats);
+  }, [initialStats]);
+
   // Load search limits on component mount
   useEffect(() => {
     loadSearchLimits();
@@ -209,20 +218,22 @@ export function JobDiscoveryPageContent({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6">
       {/* Header with Stats and Actions */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Job Discovery</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-foreground text-2xl font-medium">
+            Job Discovery
+          </h1>
+          <p className="text-muted-foreground mt-1 text-sm">
             Discover and track job opportunities automatically
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-3">
           <RunDiscoveryNowButton />
           <Sheet open={preferencesOpen} onOpenChange={setPreferencesOpen}>
             <SheetTrigger asChild>
-              <Button variant="outline" className="gap-2">
+              <Button size="sm" variant="outline" className="gap-2">
                 <Settings className="h-4 w-4" />
                 Preferences
               </Button>
@@ -243,6 +254,7 @@ export function JobDiscoveryPageContent({
             </SheetContent>
           </Sheet>
           <Button
+            size="sm"
             variant="outline"
             onClick={handleRefresh}
             disabled={refreshing}
@@ -265,7 +277,7 @@ export function JobDiscoveryPageContent({
 
       {/* Search Limits Card */}
       {searchLimits && (
-        <Card>
+        <Card className="bg-card border-border from-card to-card/95 dark:from-card dark:to-card/90 rounded-lg border bg-gradient-to-b shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.25)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.1)]">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -307,61 +319,69 @@ export function JobDiscoveryPageContent({
 
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <div className="flex-1">
-                <p className="text-muted-foreground text-sm font-medium">
-                  Total Jobs
-                </p>
-                <p className="text-2xl font-bold">{stats.totalJobs}</p>
-              </div>
-              <Target className="h-8 w-8 text-blue-600" />
+        <div className="rounded-lg border border-gray-200/80 bg-white bg-gradient-to-b from-white to-gray-50/40 p-4 shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.5)] dark:border-white/10 dark:bg-transparent dark:from-white/3 dark:to-transparent dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.08)]">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-muted-foreground text-sm font-medium">
+                Total Jobs
+              </p>
+              <p className="text-foreground mt-2 text-2xl leading-none font-semibold">
+                {stats.totalJobs}
+              </p>
             </div>
-          </CardContent>
-        </Card>
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-500 shadow-lg">
+              <Target className="h-5 w-5 text-white" />
+            </div>
+          </div>
+        </div>
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <div className="flex-1">
-                <p className="text-muted-foreground text-sm font-medium">
-                  Discovered Jobs
-                </p>
-                <p className="text-2xl font-bold">{stats.discoveredJobs}</p>
-              </div>
-              <Sparkles className="h-8 w-8 text-green-600" />
+        <div className="rounded-lg border border-gray-200/80 bg-white bg-gradient-to-b from-white to-gray-50/40 p-4 shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.5)] dark:border-white/10 dark:bg-transparent dark:from-white/3 dark:to-transparent dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.08)]">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-muted-foreground text-sm font-medium">
+                Discovered Jobs
+              </p>
+              <p className="text-foreground mt-2 text-2xl leading-none font-semibold">
+                {stats.discoveredJobs}
+              </p>
             </div>
-          </CardContent>
-        </Card>
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-500 shadow-lg">
+              <Sparkles className="h-5 w-5 text-white" />
+            </div>
+          </div>
+        </div>
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <div className="flex-1">
-                <p className="text-muted-foreground text-sm font-medium">
-                  Saved Jobs
-                </p>
-                <p className="text-2xl font-bold">{stats.savedJobs}</p>
-              </div>
-              <TrendingUp className="h-8 w-8 text-purple-600" />
+        <div className="rounded-lg border border-gray-200/80 bg-white bg-gradient-to-b from-white to-gray-50/40 p-4 shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.5)] dark:border-white/10 dark:bg-transparent dark:from-white/3 dark:to-transparent dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.08)]">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-muted-foreground text-sm font-medium">
+                Saved Jobs
+              </p>
+              <p className="text-foreground mt-2 text-2xl leading-none font-semibold">
+                {stats.savedJobs}
+              </p>
             </div>
-          </CardContent>
-        </Card>
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-500 shadow-lg">
+              <TrendingUp className="h-5 w-5 text-white" />
+            </div>
+          </div>
+        </div>
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <div className="flex-1">
-                <p className="text-muted-foreground text-sm font-medium">
-                  Recent Jobs
-                </p>
-                <p className="text-2xl font-bold">{stats.recentJobs}</p>
-              </div>
-              <Calendar className="h-8 w-8 text-orange-600" />
+        <div className="rounded-lg border border-gray-200/80 bg-white bg-gradient-to-b from-white to-gray-50/40 p-4 shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.5)] dark:border-white/10 dark:bg-transparent dark:from-white/3 dark:to-transparent dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.08)]">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-muted-foreground text-sm font-medium">
+                Recent Jobs
+              </p>
+              <p className="text-foreground mt-2 text-2xl leading-none font-semibold">
+                {stats.recentJobs}
+              </p>
             </div>
-          </CardContent>
-        </Card>
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-500 shadow-lg">
+              <Calendar className="h-5 w-5 text-white" />
+            </div>
+          </div>
+        </div>
       </div>
 
       <Separator />

@@ -1,7 +1,53 @@
 import { logger, task } from "@trigger.dev/sdk/v3";
 import { z } from "zod";
 import createClient from "./create-client";
+import { matchJobToResume } from "./job-resume-matcher";
 import { saveJobWithUserAssociation } from "./shared-job-helpers";
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Helper Functions
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function getUserResumeForMatching(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+): Promise<{ id: string; name: string } | null> {
+  // First try to get primary resume
+  const { data: primaryResume } = await supabase
+    .from("resumes")
+    .select("id, name")
+    .eq("user_id", userId)
+    .eq("is_primary", true)
+    .eq("parsing_status", "completed")
+    .single();
+
+  if (primaryResume) {
+    logger.info("Using primary resume for matching", {
+      resumeId: primaryResume.id,
+      resumeName: primaryResume.name,
+    });
+    return primaryResume;
+  }
+
+  // Otherwise get most recent completed resume
+  const { data: recentResume } = await supabase
+    .from("resumes")
+    .select("id, name")
+    .eq("user_id", userId)
+    .eq("parsing_status", "completed")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .single();
+
+  if (recentResume) {
+    logger.info("Using most recent resume for matching", {
+      resumeId: recentResume.id,
+      resumeName: recentResume.name,
+    });
+  }
+
+  return recentResume || null;
+}
 
 // Simple rate limiter to ensure we don't exceed API limits
 class RateLimiter {
@@ -625,10 +671,47 @@ async function createOpportunityApplication(
   },
 ): Promise<string | null> {
   // Use the enhanced deduplication logic from universal-job-discovery
-  const { createOpportunityApplication: enhancedCreateOpportunityApplication } =
-    await import("./universal-job-discovery");
+  const { createEnhancedOpportunityApplication } = await import(
+    "./universal-job-discovery"
+  );
 
-  return enhancedCreateOpportunityApplication(supabase, userId, jobData);
+  // Get user preferences for enhanced scoring
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("subscription_tier")
+    .eq("id", userId)
+    .single();
+
+  const { data: preferences } = await supabase
+    .from("user_job_discovery_preferences")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("is_active", true)
+    .single();
+
+  const userPreferences = {
+    user_id: userId,
+    subscription_tier: profile?.subscription_tier || "free",
+    target_roles: preferences?.target_roles || [],
+    target_companies: preferences?.target_companies || [],
+    target_locations: preferences?.target_locations || [],
+    excluded_companies: preferences?.excluded_companies || [],
+    excluded_keywords: preferences?.excluded_keywords || [],
+    salary_min: preferences?.salary_min,
+    remote_preference: preferences?.remote_preference || "any",
+    job_types: preferences?.job_types || [],
+    experience_levels: preferences?.experience_levels || [],
+    is_active: preferences?.is_active || true,
+    last_discovery_at: preferences?.last_discovery_at,
+    auto_save_discovered_jobs: preferences?.auto_save_discovered_jobs || false,
+  };
+
+  return createEnhancedOpportunityApplication(
+    supabase,
+    userId,
+    jobData,
+    userPreferences,
+  );
 }
 
 async function debitJSearchUsage(
@@ -869,7 +952,7 @@ export const jsearchScraper = task({
               status: jobStatus,
             });
 
-            // 🎯 AUTO-SAVE FEATURE: Create application if user preference is enabled
+            // 🎯 AUTO-SAVE FEATURE: Create application with resume matching if enabled
             if (shouldAutoSave) {
               const applicationId = await createOpportunityApplication(
                 supabase,
@@ -931,7 +1014,66 @@ export const jsearchScraper = task({
                   });
                   // Don't fail the job processing if enrichment fails
                 }
+
+                // 🎯 AUTO-RESUME MATCHING: Match against user's resume
+                try {
+                  const resume = await getUserResumeForMatching(
+                    supabase,
+                    validatedPayload.userId,
+                  );
+
+                  if (resume) {
+                    await matchJobToResume.trigger({
+                      applicationId,
+                      resumeId: resume.id,
+                      jobDescription: job.job_description || "",
+                      companyName: job.employer_name,
+                      jobTitle: job.job_title,
+                      userId: validatedPayload.userId,
+                      forceRefresh: false,
+                    });
+
+                    logger.info(
+                      "✅ Triggered resume matching for auto-saved job",
+                      {
+                        applicationId,
+                        resumeId: resume.id,
+                        resumeName: resume.name,
+                        company: job.employer_name,
+                        title: job.job_title,
+                      },
+                    );
+                  } else {
+                    logger.info(
+                      "⏭️ Skipping resume matching - no completed resumes found",
+                      {
+                        applicationId,
+                        userId: validatedPayload.userId,
+                      },
+                    );
+                  }
+                } catch (matchError) {
+                  logger.error("Failed to trigger resume matching", {
+                    applicationId,
+                    error:
+                      matchError instanceof Error
+                        ? matchError.message
+                        : String(matchError),
+                  });
+                  // Don't fail the job processing if matching fails
+                }
               }
+            } else {
+              // Opportunity scoring has been removed
+
+              logger.info(
+                "✅ JSearch job discovered and saved",
+                {
+                  jobId,
+                  title: job.job_title,
+                  company: job.employer_name,
+                },
+              );
             }
           } else {
             logger.warn("⚠️ Failed to save job", {

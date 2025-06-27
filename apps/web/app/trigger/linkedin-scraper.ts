@@ -12,11 +12,57 @@
 import { task } from "@trigger.dev/sdk/v3";
 import { z } from "zod";
 import createClient from "./create-client";
+import { matchJobToResume } from "./job-resume-matcher";
 import {
   extractCountryCode,
   saveJobWithUserAssociation,
   type UniversalJobData,
 } from "./shared-job-helpers";
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Helper Functions
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function getUserResumeForMatching(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+): Promise<{ id: string; name: string } | null> {
+  // First try to get primary resume
+  const { data: primaryResume } = await supabase
+    .from("resumes")
+    .select("id, name")
+    .eq("user_id", userId)
+    .eq("is_primary", true)
+    .eq("parsing_status", "completed")
+    .single();
+
+  if (primaryResume) {
+    console.log("Using primary resume for matching", {
+      resumeId: primaryResume.id,
+      resumeName: primaryResume.name,
+    });
+    return primaryResume;
+  }
+
+  // Otherwise get most recent completed resume
+  const { data: recentResume } = await supabase
+    .from("resumes")
+    .select("id, name")
+    .eq("user_id", userId)
+    .eq("parsing_status", "completed")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .single();
+
+  if (recentResume) {
+    console.log("Using most recent resume for matching", {
+      resumeId: recentResume.id,
+      resumeName: recentResume.name,
+    });
+  }
+
+  return recentResume || null;
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ScrapingDog LinkedIn Jobs Scraper
@@ -62,7 +108,7 @@ const LinkedInScraperInputSchema = z.object({
       "associate",
       "mid-senior",
       "director",
-      "executive",
+      "executive", // Will fallback to "director" in ScrapingDog API
     ])
     .default("any"),
   remoteFilter: z.enum(["any", "remote", "on-site", "hybrid"]).default("any"),
@@ -151,8 +197,17 @@ function getGeoIdFromLocation(location?: string): string {
 function parseRelativeDate(dateString: string): Date | null {
   if (!dateString) return null;
 
+  const trimmedDate = dateString.trim();
+  
+  // First try to parse as absolute date (ISO format like "2025-06-26" or "2025-06-26T10:30:00Z")
+  const absoluteDate = new Date(trimmedDate);
+  if (!isNaN(absoluteDate.getTime())) {
+    return absoluteDate;
+  }
+
+  // If absolute date parsing fails, try relative date parsing
   const now = new Date();
-  const lowerDate = dateString.toLowerCase();
+  const lowerDate = trimmedDate.toLowerCase();
 
   // Parse relative dates like "2 days ago", "1 week ago", etc.
   if (lowerDate.includes("hour")) {
@@ -203,33 +258,53 @@ function buildScrapingDogUrl(
     url.searchParams.set("sort_by", sortMap[params.datePosted]);
   }
 
-  // Job type mapping (must be lowercase & without hyphen per docs)
+  // Job type mapping - ScrapingDog API requires underscore format
   if (params.jobType !== "any") {
-    const jt = params.jobType.replace("-", ""); // full-time -> fulltime
-    url.searchParams.set("job_type", jt);
+    const jobTypeMap = {
+      "full-time": "full_time",
+      "part-time": "part_time", 
+      contract: "contract",
+      temporary: "temporary",
+      internship: "internship", // Note: internship is both job_type and exp_level
+      volunteer: "volunteer",
+    } as const;
+    
+    const mappedJobType = jobTypeMap[params.jobType as keyof typeof jobTypeMap];
+    if (mappedJobType) {
+      url.searchParams.set("job_type", mappedJobType);
+    }
   }
 
-  // Experience level mapping (docs use entrylevel, midseniorlevel)
+  // Experience level mapping - ScrapingDog API uses underscore format
   if (params.experienceLevel !== "any") {
     const expLevelMap = {
       internship: "internship",
-      entry: "entrylevel",
-      associate: "associate",
-      "mid-senior": "midseniorlevel",
+      entry: "entry_level",
+      associate: "associate", 
+      "mid-senior": "mid_senior_level",
       director: "director",
-      executive: "executive",
+      executive: "director", // Fallback: executive maps to director (closest equivalent)
     } as const;
-    url.searchParams.set("exp_level", expLevelMap[params.experienceLevel]);
+    
+    const mappedExpLevel = expLevelMap[params.experienceLevel as keyof typeof expLevelMap];
+    if (mappedExpLevel) {
+      url.searchParams.set("exp_level", mappedExpLevel);
+      console.log(`🎯 Experience level mapping: "${params.experienceLevel}" -> "${mappedExpLevel}"`);
+    }
   }
 
-  // Remote / work type mapping
+  // Work type mapping - ScrapingDog API format
   if (params.remoteFilter !== "any") {
     const workMap = {
       remote: "remote",
-      "on-site": "atwork",
+      "on-site": "at_work", // Corrected from "atwork" to "at_work"
       hybrid: "hybrid",
     } as const;
-    url.searchParams.set("work_type", workMap[params.remoteFilter]);
+    
+    const mappedWorkType = workMap[params.remoteFilter as keyof typeof workMap];
+    if (mappedWorkType) {
+      url.searchParams.set("work_type", mappedWorkType);
+    }
   }
 
   if (params.salary) {
@@ -358,6 +433,7 @@ async function saveJobsToDatabase(
   const shouldAutoSave =
     autoSaveOverride && (preferences?.auto_save_discovered_jobs || false);
 
+
   console.log(`🔧 Auto-save enabled: ${shouldAutoSave} for user ${userId}`);
 
   let autoSavedCount = 0;
@@ -434,6 +510,51 @@ async function saveJobsToDatabase(
           console.log(
             `✅ Auto-saved LinkedIn job ${job.job_id} as application ${applicationId}`,
           );
+
+          // 🎯 AUTO-RESUME MATCHING: Match against user's resume
+          try {
+            const resume = await getUserResumeForMatching(supabase, userId);
+
+            if (resume) {
+              await matchJobToResume.trigger({
+                applicationId,
+                resumeId: resume.id,
+                jobDescription: job.job_description || "",
+                companyName: job.company_name,
+                jobTitle: job.job_position,
+                userId,
+                forceRefresh: false,
+              });
+
+              console.log(
+                `✅ Triggered resume matching for auto-saved LinkedIn job`,
+                {
+                  applicationId,
+                  resumeId: resume.id,
+                  resumeName: resume.name,
+                  company: job.company_name,
+                  title: job.job_position,
+                },
+              );
+            } else {
+              console.log(
+                `⏭️ Skipping resume matching - no completed resumes found`,
+                {
+                  applicationId,
+                  userId,
+                },
+              );
+            }
+          } catch (matchError) {
+            console.error("Failed to trigger resume matching", {
+              applicationId,
+              error:
+                matchError instanceof Error
+                  ? matchError.message
+                  : String(matchError),
+            });
+            // Don't fail the job processing if matching fails
+          }
         }
       }
     } catch (error) {
@@ -474,10 +595,48 @@ async function createOpportunityApplication(
   },
 ): Promise<string | null> {
   // Use the enhanced deduplication logic from universal-job-discovery
-  const { createOpportunityApplication: enhancedCreateOpportunityApplication } =
-    await import("./universal-job-discovery");
+  const { createEnhancedOpportunityApplication } = await import(
+    "./universal-job-discovery"
+  );
 
-  return enhancedCreateOpportunityApplication(supabase, userId, jobData);
+  // Get user preferences for the enhanced function
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("subscription_tier")
+    .eq("id", userId)
+    .single();
+
+  const { data: preferences } = await supabase
+    .from("user_job_discovery_preferences")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("is_active", true)
+    .single();
+
+  // Create the userPreferences object
+  const userPreferences = {
+    user_id: userId,
+    subscription_tier: (profile?.subscription_tier as "free" | "pro" | "executive") || "free",
+    target_roles: preferences?.target_roles || [],
+    target_companies: preferences?.target_companies || [],
+    target_locations: preferences?.target_locations || [],
+    excluded_companies: preferences?.excluded_companies || [],
+    excluded_keywords: preferences?.excluded_keywords || [],
+    salary_min: preferences?.salary_min,
+    remote_preference: preferences?.remote_preference || "any",
+    job_types: preferences?.job_types || [],
+    experience_levels: preferences?.experience_levels || [],
+    is_active: preferences?.is_active || true,
+    last_discovery_at: preferences?.last_discovery_at,
+    auto_save_discovered_jobs: preferences?.auto_save_discovered_jobs || false,
+  };
+
+  return createEnhancedOpportunityApplication(
+    supabase,
+    userId,
+    jobData,
+    userPreferences,
+  );
 }
 
 // ❹ Main LinkedIn Scraper Task

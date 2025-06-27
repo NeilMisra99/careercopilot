@@ -2,6 +2,7 @@ import { logger, schedules, task } from "@trigger.dev/sdk/v3";
 import { createHash } from "crypto";
 import { z } from "zod";
 import createClient from "./create-client";
+import { matchJobToResume } from "./job-resume-matcher";
 import { jsearchScraper } from "./jsearch-scraper";
 import { linkedinScraper } from "./linkedin-scraper";
 import {
@@ -12,6 +13,51 @@ import {
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { generateText } from "ai";
 import puppeteer from "puppeteer";
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Helper Functions
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function getUserResumeForMatching(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+): Promise<{ id: string; name: string } | null> {
+  // First try to get primary resume
+  const { data: primaryResume } = await supabase
+    .from("resumes")
+    .select("id, name")
+    .eq("user_id", userId)
+    .eq("is_primary", true)
+    .eq("parsing_status", "completed")
+    .single();
+
+  if (primaryResume) {
+    logger.info("Using primary resume for matching", {
+      resumeId: primaryResume.id,
+      resumeName: primaryResume.name,
+    });
+    return primaryResume;
+  }
+
+  // Otherwise get most recent completed resume
+  const { data: recentResume } = await supabase
+    .from("resumes")
+    .select("id, name")
+    .eq("user_id", userId)
+    .eq("parsing_status", "completed")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .single();
+
+  if (recentResume) {
+    logger.info("Using most recent resume for matching", {
+      resumeId: recentResume.id,
+      resumeName: recentResume.name,
+    });
+  }
+
+  return recentResume || null;
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // AI-Powered Job Analysis Setup
@@ -1255,347 +1301,13 @@ function extractCompanyName(
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Phase 2: Maximum Bright Data Intelligence Implementation
+// AI-Powered Job Opportunity Scoring
 // ═══════════════════════════════════════════════════════════════════════════
 
-interface OpportunityScore {
-  overall_score: number; // 0-100
-  salary_score: number; // 0-100
-  competition_score: number; // 0-100
-  timing_score: number; // 0-100
-  seniority_match_score: number; // 0-100
-  golden_opportunity: boolean;
-  reasoning: string[];
-}
-
-interface EnhancedJobData {
-  // Original job data
-  title: string;
-  company: string;
-  location?: string;
-  url: string;
-  description?: string;
-  source: "linkedin" | "serper";
-  searchKeywords?: string;
-
-  // Enhanced fields from various sources
-  salary_json?: SalaryData;
-  applicants?: number;
-  employment_type?: string;
-  experience_level?: string;
-  posted_at?: string;
-  job_summary?: string;
-
-  // Calculated intelligence
-  opportunity_score: OpportunityScore;
-  market_intelligence: {
-    salary_percentile?: number; // 0-100, where job salary ranks vs market
-    competition_level: "low" | "medium" | "high";
-    urgency_level: "low" | "medium" | "high";
-    seniority_alignment: "under" | "match" | "over";
-  };
-}
+// Import the new AI-powered scoring system
 
 /**
- * Calculate opportunity score for a job using available intelligence data
- * Golden Opportunity = High salary + Low competition + Recent posting + Good seniority match
- */
-function calculateOpportunityScore(
-  jobData: {
-    salary_json?: SalaryData;
-    applicants?: number;
-    posted_at?: string;
-    experience_level?: string;
-    employment_type?: string;
-    source?: string;
-  },
-  userPreferences: UserJobPreferences,
-): OpportunityScore {
-  const reasoning: string[] = [];
-  let overall_score = 0;
-
-  // 1. Salary Score (0-30 points)
-  let salary_score = 0;
-  if (jobData.salary_json) {
-    const salaryData = jobData.salary_json;
-    let avgSalary = 0;
-
-    // Parse different salary formats from Bright Data
-    if (typeof salaryData === "object" && salaryData !== null) {
-      if (salaryData.min && salaryData.max) {
-        avgSalary = (salaryData.min + salaryData.max) / 2;
-      } else if (salaryData.amount) {
-        avgSalary = salaryData.amount;
-      }
-    } else if (typeof salaryData === "number") {
-      avgSalary = salaryData;
-    }
-
-    if (avgSalary > 0) {
-      const userMinSalary = userPreferences.salary_min || 50000;
-      if (avgSalary >= userMinSalary * 1.2) {
-        salary_score = 30; // Significantly above user minimum
-        reasoning.push(
-          `💰 Salary 20%+ above your minimum (${avgSalary.toLocaleString()})`,
-        );
-      } else if (avgSalary >= userMinSalary) {
-        salary_score = 20; // Above user minimum
-        reasoning.push(
-          `💵 Salary meets your minimum (${avgSalary.toLocaleString()})`,
-        );
-      } else {
-        salary_score = 10; // Below minimum but has salary data
-        reasoning.push(
-          `📊 Salary information available (${avgSalary.toLocaleString()})`,
-        );
-      }
-    }
-  }
-
-  // 2. Competition Score (0-25 points)
-  let competition_score = 0;
-  if (jobData.applicants !== undefined && jobData.applicants !== null) {
-    if (jobData.applicants <= 10) {
-      competition_score = 25;
-      reasoning.push(
-        `🔥 Very low competition (${jobData.applicants} applicants)`,
-      );
-    } else if (jobData.applicants <= 50) {
-      competition_score = 20;
-      reasoning.push(`✨ Low competition (${jobData.applicants} applicants)`);
-    } else if (jobData.applicants <= 100) {
-      competition_score = 15;
-      reasoning.push(
-        `📈 Moderate competition (${jobData.applicants} applicants)`,
-      );
-    } else {
-      competition_score = 5;
-      reasoning.push(`📊 High competition (${jobData.applicants} applicants)`);
-    }
-  } else {
-    competition_score = 10; // Default for unknown competition
-  }
-
-  // 3. Timing Score (0-20 points)
-  let timing_score = 0;
-  if (jobData.posted_at) {
-    const postedDate = new Date(jobData.posted_at);
-    const now = new Date();
-    const hoursAgo = (now.getTime() - postedDate.getTime()) / (1000 * 60 * 60);
-
-    if (hoursAgo <= 6) {
-      timing_score = 20;
-      reasoning.push(`⚡ Just posted (${Math.round(hoursAgo)} hours ago)`);
-    } else if (hoursAgo <= 24) {
-      timing_score = 15;
-      reasoning.push(`🕐 Recently posted (${Math.round(hoursAgo)} hours ago)`);
-    } else if (hoursAgo <= 72) {
-      timing_score = 10;
-      reasoning.push(
-        `📅 Posted recently (${Math.round(hoursAgo / 24)} days ago)`,
-      );
-    } else {
-      timing_score = 5;
-      reasoning.push(`📊 Posted ${Math.round(hoursAgo / 24)} days ago`);
-    }
-  } else {
-    timing_score = 10; // Default for unknown timing
-  }
-
-  // 4. Seniority Match Score (0-25 points)
-  let seniority_match_score = 0;
-  if (
-    jobData.experience_level &&
-    userPreferences.experience_levels.length > 0
-  ) {
-    const jobLevel = jobData.experience_level.toLowerCase();
-    const userLevels = userPreferences.experience_levels.map((l) =>
-      l.toLowerCase(),
-    );
-
-    // Check for direct match
-    const directMatch = userLevels.some(
-      (level) => level.includes(jobLevel) || jobLevel.includes(level),
-    );
-
-    if (directMatch) {
-      seniority_match_score = 25;
-      reasoning.push(
-        `🎯 Perfect seniority match (${jobData.experience_level})`,
-      );
-    } else {
-      // Check for adjacent levels (basic career progression logic)
-      const levelHierarchy = [
-        "internship",
-        "entry",
-        "associate",
-        "mid-senior",
-        "director",
-        "executive",
-      ];
-      const userMaxLevel = Math.max(
-        ...userLevels
-          .map((l) => levelHierarchy.indexOf(l))
-          .filter((i) => i >= 0),
-      );
-      const jobLevelIndex = levelHierarchy.findIndex((l) =>
-        jobLevel.includes(l),
-      );
-
-      if (jobLevelIndex >= 0 && Math.abs(userMaxLevel - jobLevelIndex) <= 1) {
-        seniority_match_score = 15;
-        reasoning.push(
-          `📈 Good seniority alignment (${jobData.experience_level})`,
-        );
-      } else {
-        seniority_match_score = 5;
-        reasoning.push(`📊 Seniority level: ${jobData.experience_level}`);
-      }
-    }
-  } else {
-    seniority_match_score = 15; // Default for unknown seniority
-  }
-
-  overall_score =
-    salary_score + competition_score + timing_score + seniority_match_score;
-
-  // Golden Opportunity Criteria
-  const golden_opportunity =
-    salary_score >= 20 &&
-    competition_score >= 20 &&
-    timing_score >= 15 &&
-    seniority_match_score >= 15;
-
-  if (golden_opportunity) {
-    reasoning.unshift("🏆 GOLDEN OPPORTUNITY DETECTED!");
-  }
-
-  return {
-    overall_score,
-    salary_score,
-    competition_score,
-    timing_score,
-    seniority_match_score,
-    golden_opportunity,
-    reasoning,
-  };
-}
-
-/**
- * Generate market intelligence for a job
- */
-function generateMarketIntelligence(
-  jobData: {
-    salary_json?: SalaryData;
-    applicants?: number;
-    posted_at?: string;
-    experience_level?: string;
-    source?: string;
-  },
-  userPreferences: UserJobPreferences,
-): EnhancedJobData["market_intelligence"] {
-  // Competition Level
-  let competition_level: "low" | "medium" | "high" = "medium";
-  if (jobData.applicants !== undefined && jobData.applicants !== null) {
-    if (jobData.applicants <= 25) {
-      competition_level = "low";
-    } else if (jobData.applicants <= 100) {
-      competition_level = "medium";
-    } else {
-      competition_level = "high";
-    }
-  }
-
-  // Urgency Level (based on posting time)
-  let urgency_level: "low" | "medium" | "high" = "medium";
-  if (jobData.posted_at) {
-    const hoursAgo =
-      (new Date().getTime() - new Date(jobData.posted_at).getTime()) /
-      (1000 * 60 * 60);
-    if (hoursAgo <= 12) {
-      urgency_level = "high";
-    } else if (hoursAgo <= 48) {
-      urgency_level = "medium";
-    } else {
-      urgency_level = "low";
-    }
-  }
-
-  // Seniority Alignment
-  let seniority_alignment: "under" | "match" | "over" = "match";
-  if (
-    jobData.experience_level &&
-    userPreferences.experience_levels.length > 0
-  ) {
-    const jobLevel = jobData.experience_level.toLowerCase();
-    const userLevels = userPreferences.experience_levels.map((l) =>
-      l.toLowerCase(),
-    );
-
-    const levelHierarchy = [
-      "internship",
-      "entry",
-      "associate",
-      "mid-senior",
-      "director",
-      "executive",
-    ];
-    const userMaxLevel = Math.max(
-      ...userLevels.map((l) => levelHierarchy.indexOf(l)).filter((i) => i >= 0),
-    );
-    const jobLevelIndex = levelHierarchy.findIndex((l) => jobLevel.includes(l));
-
-    if (jobLevelIndex >= 0 && userMaxLevel >= 0) {
-      if (jobLevelIndex < userMaxLevel - 1) {
-        seniority_alignment = "under";
-      } else if (jobLevelIndex > userMaxLevel + 1) {
-        seniority_alignment = "over";
-      } else {
-        seniority_alignment = "match";
-      }
-    }
-  }
-
-  // Salary Percentile (simplified - would need market data for real implementation)
-  let salary_percentile: number | undefined;
-  if (jobData.salary_json) {
-    const salaryData = jobData.salary_json;
-    let avgSalary = 0;
-
-    if (typeof salaryData === "object" && salaryData !== null) {
-      if (salaryData.min && salaryData.max) {
-        avgSalary = (salaryData.min + salaryData.max) / 2;
-      } else if (salaryData.amount) {
-        avgSalary = salaryData.amount;
-      }
-    } else if (typeof salaryData === "number") {
-      avgSalary = salaryData;
-    }
-
-    if (avgSalary > 0) {
-      const userMinSalary = userPreferences.salary_min || 50000;
-      if (avgSalary >= userMinSalary * 1.5) {
-        salary_percentile = 90;
-      } else if (avgSalary >= userMinSalary * 1.2) {
-        salary_percentile = 75;
-      } else if (avgSalary >= userMinSalary) {
-        salary_percentile = 60;
-      } else {
-        salary_percentile = 30;
-      }
-    }
-  }
-
-  return {
-    salary_percentile,
-    competition_level,
-    urgency_level,
-    seniority_alignment,
-  };
-}
-
-/**
- * Enhanced job creation with available intelligence data
+ * Enhanced job creation with AI-powered opportunity scoring
  */
 async function createEnhancedOpportunityApplication(
   supabase: ReturnType<typeof createClient>,
@@ -1606,7 +1318,7 @@ async function createEnhancedOpportunityApplication(
     location?: string;
     url: string;
     description?: string;
-    source: "linkedin" | "serper";
+    source: "linkedin" | "serper" | "jsearch";
     searchKeywords?: string;
     // Enhanced fields
     salary_json?: SalaryData;
@@ -1618,14 +1330,7 @@ async function createEnhancedOpportunityApplication(
   },
   userPreferences: UserJobPreferences,
 ): Promise<string | null> {
-  // Calculate opportunity score and market intelligence
-  const opportunity_score = calculateOpportunityScore(jobData, userPreferences);
-  const market_intelligence = generateMarketIntelligence(
-    jobData,
-    userPreferences,
-  );
-
-  // Check for duplicates
+  // Check for duplicates first
   const duplicateCheck = await checkForDuplicateJob(supabase, userId, jobData);
   if (duplicateCheck.isDuplicate) {
     logger.info(`Skipping duplicate job: ${duplicateCheck.reason}`, {
@@ -1643,7 +1348,7 @@ async function createEnhancedOpportunityApplication(
     jobData.location || "",
   );
 
-  // Create enhanced application with intelligence
+  // Create application first (without scoring)
   const { data: application, error } = await supabase
     .from("applications")
     .insert({
@@ -1663,23 +1368,12 @@ async function createEnhancedOpportunityApplication(
       needs_user_review: !userPreferences.auto_save_discovered_jobs,
       job_fingerprint: fingerprint,
 
-      // Enhanced Bright Data fields
+      // Enhanced fields
       salary_json: jobData.salary_json,
       employment_type: jobData.employment_type,
       experience_level: jobData.experience_level,
       posted_at: jobData.posted_at,
       applicants: jobData.applicants,
-
-      // Intelligence scores
-      opportunity_score: opportunity_score.overall_score,
-      opportunity_reasoning: opportunity_score.reasoning,
-      market_intelligence: {
-        salary_percentile: market_intelligence.salary_percentile,
-        competition_level: market_intelligence.competition_level,
-        urgency_level: market_intelligence.urgency_level,
-        seniority_alignment: market_intelligence.seniority_alignment,
-        golden_opportunity: opportunity_score.golden_opportunity,
-      },
     })
     .select("id")
     .single();
@@ -1693,111 +1387,68 @@ async function createEnhancedOpportunityApplication(
     return null;
   }
 
-  // Send proactive intelligence alerts for Pro/Executive users
-  if (
-    (userPreferences.subscription_tier === "pro" ||
-      userPreferences.subscription_tier === "executive") &&
-    opportunity_score.golden_opportunity
-  ) {
-    await sendProactiveIntelligenceAlert(userId, {
-      applicationId: application.id,
-      jobTitle: jobData.title,
-      company: jobData.company,
-      opportunity_score,
-      market_intelligence,
-    });
-
-    // Generate personalized insights for golden opportunities
-    try {
-      const { generatePersonalizedInsights } = await import(
-        "./personalized-opportunity-insights"
-      );
-
-      await generatePersonalizedInsights.trigger({
-        applicationId: application.id,
-        userId,
-        jobData: {
-          title: jobData.title,
-          company: jobData.company,
-          description: jobData.description,
-          salary_json: jobData.salary_json,
-          applicants: jobData.applicants,
-          employment_type: jobData.employment_type,
-          experience_level: jobData.experience_level,
-          job_url: jobData.url,
-          posted_at: jobData.posted_at,
-        },
-      });
-
-      logger.info("🧠 Triggered personalized insights generation", {
-        applicationId: application.id,
-        userId,
-        jobTitle: jobData.title,
-        company: jobData.company,
-      });
-    } catch (insightsError) {
-      logger.error("Failed to trigger personalized insights", {
-        applicationId: application.id,
-        error:
-          insightsError instanceof Error
-            ? insightsError.message
-            : String(insightsError),
-      });
-      // Don't fail the entire application creation if insights fail
-    }
-  }
+  // Opportunity scoring has been removed
 
   logger.info("Created enhanced opportunity application", {
     applicationId: application.id,
     userId,
     title: jobData.title,
     company: jobData.company,
-    opportunity_score: opportunity_score.overall_score,
-    golden_opportunity: opportunity_score.golden_opportunity,
     auto_saved: userPreferences.auto_save_discovered_jobs,
     needs_user_review: !userPreferences.auto_save_discovered_jobs,
+    aiScoringAttempted: userPreferences.subscription_tier !== "free",
   });
+
+  // 🎯 AUTO-RESUME MATCHING: Match against user's resume if auto-save is enabled
+  if (userPreferences.auto_save_discovered_jobs) {
+    try {
+      const resume = await getUserResumeForMatching(supabase, userId);
+
+      if (resume) {
+        await matchJobToResume.trigger({
+          applicationId: application.id,
+          resumeId: resume.id,
+          jobDescription: jobData.description || "",
+          companyName: jobData.company,
+          jobTitle: jobData.title,
+          userId,
+          forceRefresh: false,
+        });
+
+        logger.info(
+          "✅ Triggered resume matching for auto-saved universal job",
+          {
+            applicationId: application.id,
+            resumeId: resume.id,
+            resumeName: resume.name,
+            company: jobData.company,
+            title: jobData.title,
+            source: jobData.source,
+          },
+        );
+      } else {
+        logger.info(
+          "⏭️ Skipping resume matching - no completed resumes found",
+          {
+            applicationId: application.id,
+            userId,
+          },
+        );
+      }
+    } catch (matchError) {
+      logger.error("Failed to trigger resume matching", {
+        applicationId: application.id,
+        error:
+          matchError instanceof Error ? matchError.message : String(matchError),
+      });
+      // Don't fail the application creation if matching fails
+    }
+  }
 
   return application.id;
 }
 
-/**
- * Send proactive intelligence alerts for high-value opportunities
- */
-async function sendProactiveIntelligenceAlert(
-  userId: string,
-  alertData: {
-    applicationId: string;
-    jobTitle: string;
-    company: string;
-    opportunity_score: OpportunityScore;
-    market_intelligence: EnhancedJobData["market_intelligence"];
-  },
-): Promise<void> {
-  try {
-    // This would integrate with your notification system
-    // For now, we'll log the high-value opportunity
-    logger.info("🚨 PROACTIVE INTELLIGENCE ALERT", {
-      userId,
-      type: "golden_opportunity",
-      title: `${alertData.jobTitle} at ${alertData.company}`,
-      score: alertData.opportunity_score.overall_score,
-      reasoning: alertData.opportunity_score.reasoning,
-      market_intelligence: alertData.market_intelligence,
-    });
-
-    // TODO: Implement actual notification system
-    // - Email alerts
-    // - Push notifications
-    // - In-app notifications
-    // - Slack/Discord webhooks
-  } catch (error) {
-    logger.error("Failed to send proactive intelligence alert", {
-      error,
-      userId,
-    });
-  }
-}
+// Proactive intelligence alert function has been removed
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Main Discovery Task
@@ -1908,8 +1559,14 @@ export const runJobDiscovery = task({
               jobTypes: preferences.job_types,
               experienceLevels: preferences.experience_levels,
               // Pass premium filters (only for Pro/Executive users)
-              excludedCompanies: (preferences.subscription_tier !== "free") ? preferences.excluded_companies : undefined,
-              excludedKeywords: (preferences.subscription_tier !== "free") ? preferences.excluded_keywords : undefined,
+              excludedCompanies:
+                preferences.subscription_tier !== "free"
+                  ? preferences.excluded_companies
+                  : undefined,
+              excludedKeywords:
+                preferences.subscription_tier !== "free"
+                  ? preferences.excluded_keywords
+                  : undefined,
             };
 
             logger.info("🔍 Triggering JSearch discovery", {
@@ -2185,7 +1842,7 @@ export const runJobDiscovery = task({
             if (success && jobId) {
               webJobs++;
 
-              // If auto-save is enabled, also create application
+              // If auto-save is enabled, create application with resume matching
               if (preferences.auto_save_discovered_jobs) {
                 const applicationId =
                   await createEnhancedOpportunityApplication(
@@ -2226,8 +1883,13 @@ export const runJobDiscovery = task({
                   });
                 }
               } else {
+                // Auto-save is FALSE: Run opportunity scoring for discovered-only jobs
+                totalOpportunities++;
+
+                // Opportunity scoring has been removed
+
                 logger.info(
-                  "Web job discovered and saved to universal jobs (auto-save disabled)",
+                  "Web job discovered and saved",
                   {
                     jobId,
                     title: processedJob.title,
@@ -2515,4 +2177,4 @@ async function triggerApplicationsRevalidation() {
 }
 
 // Export for use in other modules
-export { createOpportunityApplication };
+export { createEnhancedOpportunityApplication, createOpportunityApplication };

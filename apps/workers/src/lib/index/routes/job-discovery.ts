@@ -113,10 +113,12 @@ export async function getJobDiscoveryJobs(c: Context<Env>) {
 			status === 'discovered'
 				? await supabase
 						.from('applications')
-						.select(`
+						.select(
+							`
 							*,
 							opportunity_insights
-						`)
+						`,
+						)
 						.eq('user_id', user.id)
 						.eq('status', 'Opportunity')
 						.eq('needs_user_review', true)
@@ -168,10 +170,7 @@ export async function getJobDiscoveryJobs(c: Context<Env>) {
 			salary_max: item.jobs?.salary_max,
 			salary_currency: item.jobs?.salary_currency,
 			salary_period: item.jobs?.salary_period,
-			// Phase 2: Intelligence fields (not available for scraped jobs)
-			opportunity_score: null,
-			opportunity_reasoning: null,
-			market_intelligence: null,
+			// Opportunity scoring has been removed
 			opportunity_insights: null,
 		}));
 
@@ -203,11 +202,8 @@ export async function getJobDiscoveryJobs(c: Context<Env>) {
 			experience_level: app.experience_level,
 			discovery_source: app.discovery_source || 'serper',
 
-			// Phase 2: Bright Data Intelligence Fields (available for opportunity applications)
-			opportunity_score: app.opportunity_score,
-			opportunity_reasoning: app.opportunity_reasoning,
-			market_intelligence: app.market_intelligence,
-			
+			// Opportunity scoring has been removed
+
 			// Personalized insights (AI-powered analysis against user's resume)
 			opportunity_insights: app.opportunity_insights,
 		}));
@@ -618,12 +614,13 @@ export async function getJobDiscoveryStats(c: Context<Env>) {
 			)
 			.eq('user_id', user.id);
 
-		// Get stats from opportunity applications
+		// Get stats from opportunity applications (only those needing review)
 		const opportunityStats = await supabase
 			.from('applications')
 			.select('status, discovery_source')
 			.eq('user_id', user.id)
 			.eq('status', 'Opportunity')
+			.eq('needs_user_review', true)
 			.eq('auto_discovered', true);
 
 		if (universalStats.error) {
@@ -901,7 +898,6 @@ export async function updateJobDiscoveryPreferences(c: Context<Env>) {
 		);
 	}
 }
-
 
 // ═══════════════════════════════════════════════════════════════════════════
 // JSearch Quota Management
