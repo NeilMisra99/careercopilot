@@ -230,22 +230,7 @@ export function JobList({
     try {
       onStatusUpdate(jobId, status);
 
-      // Optimistic UI update
-      setJobs((prev) => {
-        // If user ignored the job we can remove it from the current view so it disappears immediately.
-        if (status === "ignored") {
-          return prev.filter((job) => job.jobId !== jobId);
-        }
-
-        // Otherwise just update its status locally.
-        return prev.map((job) =>
-          job.jobId === jobId
-            ? { ...job, status, statusUpdatedAt: new Date().toISOString() }
-            : job,
-        );
-      });
-
-      // Success toast handled by parent component to avoid duplicates
+      // Success handled by parent component
     } catch {
       toast.error("Failed to update job status");
     }
@@ -255,20 +240,7 @@ export function JobList({
     try {
       onSaveToApplications(jobId);
 
-      // Update local state optimistically
-      setJobs((prev) =>
-        prev.map((job) =>
-          job.jobId === jobId
-            ? {
-                ...job,
-                status: "saved",
-                statusUpdatedAt: new Date().toISOString(),
-              }
-            : job,
-        ),
-      );
-
-      // Success toast handled by parent component to avoid duplicates
+      // Success handled by parent component
     } catch {
       toast.error("Failed to save job");
     }

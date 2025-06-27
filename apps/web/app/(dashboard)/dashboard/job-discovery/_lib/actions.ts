@@ -547,6 +547,22 @@ export async function revalidateJobDiscoveryCacheAction() {
   }
 }
 
+export async function refreshJobDiscoveryDataAction(): Promise<JobDiscoveryResult> {
+  try {
+    // Revalidate all job discovery related cache tags
+    revalidateJobDiscoveryData();
+    return {
+      success: true,
+      message: "Job discovery data refreshed successfully",
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // Job Discovery Preferences Actions
 // ═══════════════════════════════════════════════════════════════════════════
@@ -658,4 +674,3 @@ export async function updateJobDiscoveryPreferencesAction(preferences: {
     };
   }
 }
-

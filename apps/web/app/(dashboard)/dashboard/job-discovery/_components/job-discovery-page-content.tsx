@@ -26,9 +26,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
-  getJobDiscoveryStatsAction,
-  getJobsAction,
   getManualSearchLimitsAction,
+  refreshJobDiscoveryDataAction,
   saveJobToApplicationsAction,
   updateJobStatusAction,
 } from "../_lib/actions";
@@ -83,21 +82,23 @@ export function JobDiscoveryPageContent({
   initialJobs,
   initialStats,
 }: JobDiscoveryPageContentProps) {
-  const [jobs, setJobs] = useState<DiscoveredJob[]>(initialJobs);
-  const [stats, setStats] = useState<JobDiscoveryStats>(initialStats);
   const [searchLimits, setSearchLimits] = useState<SearchLimits | null>(null);
-  const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [preferencesOpen, setPreferencesOpen] = useState(false);
 
-  // Sync state with props when they change (after router.refresh())
-  useEffect(() => {
-    setJobs(initialJobs);
-  }, [initialJobs]);
+  // Optimistic state for immediate UI updates
+  const [optimisticStats, setOptimisticStats] =
+    useState<JobDiscoveryStats>(initialStats);
+  const [optimisticJobs, setOptimisticJobs] =
+    useState<DiscoveredJob[]>(initialJobs);
 
+  // Sync optimistic state when props change (after router.refresh())
   useEffect(() => {
-    setStats(initialStats);
-  }, [initialStats]);
+    setOptimisticStats(initialStats);
+    setOptimisticJobs(initialJobs);
+  }, [initialStats, initialJobs]);
+
+  const router = useRouter();
 
   // Load search limits on component mount
   useEffect(() => {
@@ -115,42 +116,25 @@ export function JobDiscoveryPageContent({
     }
   };
 
-  const loadData = async () => {
-    setLoading(true);
-    try {
-      const [jobsResult, statsResult, limitsResult] = await Promise.all([
-        getJobsAction({
-          limit: 50,
-        }),
-        getJobDiscoveryStatsAction(),
-        getManualSearchLimitsAction(),
-      ]);
-
-      if (jobsResult.success && jobsResult.data) {
-        const jobsData = jobsResult.data as { jobs: DiscoveredJob[] };
-        setJobs(jobsData.jobs || []);
-      }
-
-      if (statsResult.success && statsResult.data) {
-        setStats(statsResult.data as JobDiscoveryStats);
-      }
-
-      if (limitsResult.success && limitsResult.data) {
-        setSearchLimits(limitsResult.data as SearchLimits);
-      }
-    } catch (error) {
-      console.error("Error loading job discovery data:", error);
-      toast.error("Failed to load job discovery data");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleRefresh = async () => {
     setRefreshing(true);
-    await loadData();
-    setRefreshing(false);
-    toast.success("Data refreshed successfully");
+    try {
+      const result = await refreshJobDiscoveryDataAction();
+      if (result.success) {
+        toast.success("Data refreshed successfully");
+        // Refresh the page to get updated data from cache
+        setTimeout(() => {
+          router.refresh();
+        }, 100);
+      } else {
+        toast.error(result.error || "Failed to refresh data");
+      }
+    } catch (error) {
+      toast.error("Failed to refresh data");
+      console.error("Error refreshing data:", error);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const handleJobAction = async (
@@ -158,6 +142,35 @@ export function JobDiscoveryPageContent({
     action: "save" | "ignore" | "interested",
   ) => {
     try {
+      // Optimistic updates for immediate feedback
+      if (action === "ignore") {
+        // Remove job from list and update stats
+        setOptimisticJobs((prev) => prev.filter((job) => job.jobId !== jobId));
+        setOptimisticStats((prev) => ({
+          ...prev,
+          discoveredJobs: Math.max(0, prev.discoveredJobs - 1),
+          ignoredJobs: prev.ignoredJobs + 1,
+        }));
+      } else if (action === "save") {
+        // Update job status and stats
+        setOptimisticJobs((prev) =>
+          prev.map((job) =>
+            job.jobId === jobId
+              ? {
+                  ...job,
+                  status: "saved",
+                  statusUpdatedAt: new Date().toISOString(),
+                }
+              : job,
+          ),
+        );
+        setOptimisticStats((prev) => ({
+          ...prev,
+          discoveredJobs: Math.max(0, prev.discoveredJobs - 1),
+          savedJobs: prev.savedJobs + 1,
+        }));
+      }
+
       if (action === "save") {
         const result = await saveJobToApplicationsAction(jobId);
         if (result.success) {
@@ -167,6 +180,9 @@ export function JobDiscoveryPageContent({
             router.refresh();
           }, 100);
         } else {
+          // Revert optimistic update on error
+          setOptimisticJobs(initialJobs);
+          setOptimisticStats(initialStats);
           toast.error(result.error || "Failed to save job");
         }
       } else {
@@ -179,10 +195,16 @@ export function JobDiscoveryPageContent({
             router.refresh();
           }, 100);
         } else {
+          // Revert optimistic update on error
+          setOptimisticJobs(initialJobs);
+          setOptimisticStats(initialStats);
           toast.error(result.error || `Failed to mark job as ${status}`);
         }
       }
     } catch (error) {
+      // Revert optimistic update on error
+      setOptimisticJobs(initialJobs);
+      setOptimisticStats(initialStats);
       toast.error("An error occurred");
       console.error("Error handling job action:", error);
     }
@@ -205,17 +227,6 @@ export function JobDiscoveryPageContent({
     }
     return null;
   };
-
-  // Next.js router for cache-aware refreshes
-  const router = useRouter();
-
-  if (loading && jobs.length === 0) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <RefreshCw className="h-8 w-8 animate-spin text-gray-400" />
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6 p-6">
@@ -326,7 +337,7 @@ export function JobDiscoveryPageContent({
                 Total Jobs
               </p>
               <p className="text-foreground mt-2 text-2xl leading-none font-semibold">
-                {stats.totalJobs}
+                {optimisticStats.totalJobs}
               </p>
             </div>
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-500 shadow-lg">
@@ -342,7 +353,7 @@ export function JobDiscoveryPageContent({
                 Discovered Jobs
               </p>
               <p className="text-foreground mt-2 text-2xl leading-none font-semibold">
-                {stats.discoveredJobs}
+                {optimisticStats.discoveredJobs}
               </p>
             </div>
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-500 shadow-lg">
@@ -358,7 +369,7 @@ export function JobDiscoveryPageContent({
                 Saved Jobs
               </p>
               <p className="text-foreground mt-2 text-2xl leading-none font-semibold">
-                {stats.savedJobs}
+                {optimisticStats.savedJobs}
               </p>
             </div>
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-500 shadow-lg">
@@ -374,7 +385,7 @@ export function JobDiscoveryPageContent({
                 Recent Jobs
               </p>
               <p className="text-foreground mt-2 text-2xl leading-none font-semibold">
-                {stats.recentJobs}
+                {optimisticStats.recentJobs}
               </p>
             </div>
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-500 shadow-lg">
@@ -388,14 +399,14 @@ export function JobDiscoveryPageContent({
 
       {/* Job List */}
       <JobList
-        initialJobs={jobs}
-        loading={loading}
+        initialJobs={optimisticJobs}
+        loading={false}
         onStatusUpdate={(jobId, status) =>
           handleJobAction(jobId, status === "ignored" ? "ignore" : "save")
         }
         onSaveToApplications={(jobId) => handleJobAction(jobId, "save")}
-        onRefresh={loadData}
-        totalJobs={stats.discoveredJobs}
+        onRefresh={handleRefresh}
+        totalJobs={optimisticStats.discoveredJobs}
       />
     </div>
   );
