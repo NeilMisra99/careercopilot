@@ -63,7 +63,7 @@ export function BoardPageWrapper({
           <div className="flex gap-3">
             <Button asChild variant="default" size="sm">
               <Link href="/dashboard/add-application">
-                <Plus className="mr-2 h-4 w-4" />
+                <Plus className="h-4 w-4" />
                 Add Application
               </Link>
             </Button>

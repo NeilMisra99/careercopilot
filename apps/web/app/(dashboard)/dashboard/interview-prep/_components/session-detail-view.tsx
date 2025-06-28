@@ -12,7 +12,6 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -427,28 +426,28 @@ export function SessionDetailView({
   const getStatusColor = (status: string) => {
     switch (status) {
       case "completed":
-        return "bg-green-100 text-green-800 border-green-200";
+        return "bg-green-50 text-green-700 border-green-200 dark:bg-green-950/30 dark:text-green-300 dark:border-green-800/30";
       case "in_progress":
-        return "bg-blue-100 text-blue-800 border-blue-200";
+        return "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/30 dark:text-blue-300 dark:border-blue-800/30";
       case "draft":
-        return "bg-gray-100 text-gray-800 border-gray-200";
+        return "bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-950/30 dark:text-gray-300 dark:border-gray-800/30";
       default:
-        return "bg-gray-100 text-gray-800 border-gray-200";
+        return "bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-950/30 dark:text-gray-300 dark:border-gray-800/30";
     }
   };
 
   const getTypeColor = (type: string) => {
     switch (type) {
       case "behavioral":
-        return "bg-purple-100 text-purple-800 border-purple-200";
+        return "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/30 dark:text-purple-300 dark:border-purple-800/30";
       case "technical":
-        return "bg-orange-100 text-orange-800 border-orange-200";
+        return "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/30 dark:text-orange-300 dark:border-orange-800/30";
       case "company_specific":
-        return "bg-indigo-100 text-indigo-800 border-indigo-200";
+        return "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/30 dark:text-indigo-300 dark:border-indigo-800/30";
       case "mixed":
-        return "bg-teal-100 text-teal-800 border-teal-200";
+        return "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/30 dark:text-teal-300 dark:border-teal-800/30";
       default:
-        return "bg-gray-100 text-gray-800 border-gray-200";
+        return "bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-950/30 dark:text-gray-300 dark:border-gray-800/30";
     }
   };
 
@@ -466,7 +465,9 @@ export function SessionDetailView({
           </Button>
 
           <div className="space-y-2">
-            <h1 className="text-2xl font-bold">{session.session_name}</h1>
+            <h1 className="text-foreground text-2xl font-medium">
+              {session.session_name}
+            </h1>
             <div className="text-muted-foreground flex items-center gap-4 text-sm">
               <div className="flex items-center gap-1">
                 <Building className="h-4 w-4" />
@@ -482,10 +483,16 @@ export function SessionDetailView({
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Badge className={getStatusColor(session.status)}>
+              <Badge
+                variant="outline"
+                className={getStatusColor(session.status)}
+              >
                 {session.status.replace("_", " ")}
               </Badge>
-              <Badge className={getTypeColor(session.session_type)}>
+              <Badge
+                variant="outline"
+                className={getTypeColor(session.session_type)}
+              >
                 {session.session_type.replace("_", " ")}
               </Badge>
             </div>
@@ -500,9 +507,9 @@ export function SessionDetailView({
             disabled={isLoading}
           >
             <RefreshCw
-              className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`}
+              className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`}
             />
-            Refresh
+            <span>Refresh</span>
           </Button>
 
           <DropdownMenu>
@@ -568,11 +575,11 @@ export function SessionDetailView({
         {/* Questions Tab */}
         <TabsContent value="questions" className="space-y-4">
           {isLoading ? (
-            <Card className="p-8">
+            <div className="bg-card border-border from-card to-card/95 dark:from-card dark:to-card/90 rounded-lg border bg-gradient-to-b p-8 shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.25)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.1)]">
               <div className="flex items-center justify-center">
                 <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
               </div>
-            </Card>
+            </div>
           ) : (
             <InterviewQuestionsSection
               questions={questions}
@@ -596,11 +603,11 @@ export function SessionDetailView({
         {/* Interview Brief Tab */}
         <TabsContent value="brief" className="space-y-4">
           {isLoading ? (
-            <Card className="p-8">
+            <div className="bg-card border-border from-card to-card/95 dark:from-card dark:to-card/90 rounded-lg border bg-gradient-to-b p-8 shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.25)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.1)]">
               <div className="flex items-center justify-center">
                 <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
               </div>
-            </Card>
+            </div>
           ) : (
             <InterviewBriefSection
               brief={brief}

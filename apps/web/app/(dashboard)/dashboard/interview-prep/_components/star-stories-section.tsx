@@ -2,13 +2,6 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -67,14 +60,16 @@ export function StarStoriesSection({
 
   if (starStories.length === 0) {
     return (
-      <Card className="p-8 text-center">
+      <div className="bg-card border-border from-card to-card/95 dark:from-card dark:to-card/90 rounded-lg border bg-gradient-to-b p-8 text-center shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.25)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.1)]">
         <Star className="text-muted-foreground mx-auto mb-4 h-12 w-12" />
-        <h3 className="mb-2 text-lg font-semibold">No STAR Stories Found</h3>
-        <p className="text-muted-foreground text-sm">
+        <h3 className="text-foreground mb-2 text-sm font-medium">
+          No STAR Stories Found
+        </h3>
+        <p className="text-muted-foreground text-xs">
           STAR stories will be extracted from your resume automatically when you
           upload one.
         </p>
-      </Card>
+      </div>
     );
   }
 
@@ -109,11 +104,11 @@ export function StarStoriesSection({
 
       {/* Stories Grid */}
       {filteredStories.length === 0 ? (
-        <Card className="p-8 text-center">
-          <p className="text-muted-foreground text-sm">
+        <div className="bg-card border-border from-card to-card/95 dark:from-card dark:to-card/90 rounded-lg border bg-gradient-to-b p-8 text-center shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.25)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.1)]">
+          <p className="text-muted-foreground text-xs">
             No STAR stories match your search criteria.
           </p>
-        </Card>
+        </div>
       ) : (
         <div className="grid gap-4">
           {filteredStories.map((story, index) => (
@@ -123,23 +118,27 @@ export function StarStoriesSection({
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1 }}
             >
-              <Card className="transition-shadow hover:shadow-md">
-                <CardHeader>
+              <div className="bg-card border-border from-card to-card/95 dark:from-card dark:to-card/90 rounded-lg border bg-gradient-to-b shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.25)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.1)]">
+                <div className="p-3">
                   <div className="flex items-start justify-between">
                     <div className="space-y-1">
-                      <CardTitle className="text-lg">{story.title}</CardTitle>
-                      <CardDescription className="flex items-center gap-2">
-                        <span>{story.story_category}</span>
-                        <span>•</span>
+                      <h3 className="text-foreground text-sm font-medium">
+                        {story.title}
+                      </h3>
+                      <div className="flex items-center gap-2">
+                        <span className="text-muted-foreground text-xs">
+                          {story.story_category}
+                        </span>
+                        <span className="text-muted-foreground text-xs">•</span>
                         <span
-                          className={getConfidenceColor(
+                          className={`text-xs ${getConfidenceColor(
                             story.confidence_score || 0,
-                          )}
+                          )}`}
                         >
                           {Math.round((story.confidence_score || 0) * 100)}%
                           confidence
                         </span>
-                      </CardDescription>
+                      </div>
                     </div>
 
                     {showActions && (
@@ -168,9 +167,9 @@ export function StarStoriesSection({
                       </div>
                     )}
                   </div>
-                </CardHeader>
+                </div>
 
-                <CardContent className="space-y-4">
+                <div className="space-y-4 px-3 pb-3">
                   {/* STAR Method Breakdown */}
                   <div className="grid gap-3">
                     <div>
@@ -178,9 +177,11 @@ export function StarStoriesSection({
                         <Badge variant="outline" className="text-xs">
                           S
                         </Badge>
-                        <p className="text-sm font-medium">Situation</p>
+                        <p className="text-foreground text-xs font-medium">
+                          Situation
+                        </p>
                       </div>
-                      <p className="text-muted-foreground pl-6 text-sm">
+                      <p className="text-muted-foreground pl-6 text-xs">
                         {story.situation}
                       </p>
                     </div>
@@ -190,9 +191,11 @@ export function StarStoriesSection({
                         <Badge variant="outline" className="text-xs">
                           T
                         </Badge>
-                        <p className="text-sm font-medium">Task</p>
+                        <p className="text-foreground text-xs font-medium">
+                          Task
+                        </p>
                       </div>
-                      <p className="text-muted-foreground pl-6 text-sm">
+                      <p className="text-muted-foreground pl-6 text-xs">
                         {story.task}
                       </p>
                     </div>
@@ -202,9 +205,11 @@ export function StarStoriesSection({
                         <Badge variant="outline" className="text-xs">
                           A
                         </Badge>
-                        <p className="text-sm font-medium">Action</p>
+                        <p className="text-foreground text-xs font-medium">
+                          Action
+                        </p>
                       </div>
-                      <p className="text-muted-foreground pl-6 text-sm">
+                      <p className="text-muted-foreground pl-6 text-xs">
                         {story.action}
                       </p>
                     </div>
@@ -214,9 +219,11 @@ export function StarStoriesSection({
                         <Badge variant="outline" className="text-xs">
                           R
                         </Badge>
-                        <p className="text-sm font-medium">Result</p>
+                        <p className="text-foreground text-xs font-medium">
+                          Result
+                        </p>
                       </div>
-                      <p className="text-muted-foreground pl-6 text-sm">
+                      <p className="text-muted-foreground pl-6 text-xs">
                         {story.result}
                       </p>
                     </div>
@@ -226,7 +233,7 @@ export function StarStoriesSection({
                   {story.skills_demonstrated &&
                     story.skills_demonstrated.length > 0 && (
                       <div>
-                        <p className="mb-2 text-sm font-medium">
+                        <p className="text-foreground mb-2 text-xs font-medium">
                           Skills Demonstrated:
                         </p>
                         <div className="flex flex-wrap gap-1">
@@ -250,8 +257,8 @@ export function StarStoriesSection({
                       {story.usage_count !== 1 ? "s" : ""}
                     </div>
                   )}
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             </motion.div>
           ))}
         </div>

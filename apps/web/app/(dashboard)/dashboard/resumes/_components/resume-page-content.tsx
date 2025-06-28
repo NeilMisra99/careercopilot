@@ -406,7 +406,7 @@ export function ResumePageContent({
           <div className="flex items-center gap-3">
             <ResumeUploadDialog onResumeUploaded={handleResumeUploaded}>
               <Button size="sm" variant="default">
-                <Plus className="mr-2 h-4 w-4" />
+                <Plus className="mr-1 h-4 w-4" />
                 Upload Resume
               </Button>
             </ResumeUploadDialog>

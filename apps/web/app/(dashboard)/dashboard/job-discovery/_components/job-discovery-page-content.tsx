@@ -249,7 +249,7 @@ export function JobDiscoveryPageContent({
                 Preferences
               </Button>
             </SheetTrigger>
-            <SheetContent className="w-full border-l-0 bg-background p-0 sm:max-w-xl lg:max-w-2xl">
+            <SheetContent className="bg-background w-full border-l-0 p-0 sm:max-w-xl lg:max-w-2xl">
               <SheetHeader className="sr-only">
                 <SheetTitle>Job Discovery Preferences</SheetTitle>
               </SheetHeader>

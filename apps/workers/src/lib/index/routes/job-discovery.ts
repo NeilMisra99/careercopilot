@@ -477,6 +477,41 @@ export async function saveJobToApplications(c: Context<Env>) {
 
 		const job = jobResult[0];
 
+		// Helper to parse relative date strings e.g., "2 days ago"
+		function parseRelativeDateString(raw: string): string | null {
+			if (!raw) return null;
+			const lower = raw.trim().toLowerCase();
+			// absolute iso?
+			const abs = new Date(lower);
+			if (!Number.isNaN(abs.getTime())) return abs.toISOString();
+
+			const now = new Date();
+			const numMatch = lower.match(/(\d+)/);
+			if (!numMatch) return null;
+			const amount = parseInt(numMatch[1], 10);
+			if (isNaN(amount)) return null;
+
+			let millis = 0;
+			if (lower.includes('hour')) {
+				millis = amount * 60 * 60 * 1000;
+			} else if (lower.includes('day')) {
+				millis = amount * 24 * 60 * 60 * 1000;
+			} else if (lower.includes('week')) {
+				millis = amount * 7 * 24 * 60 * 60 * 1000;
+			} else if (lower.includes('month')) {
+				millis = amount * 30 * 24 * 60 * 60 * 1000;
+			} else if (lower.includes('year')) {
+				millis = amount * 365 * 24 * 60 * 60 * 1000;
+			} else {
+				return null;
+			}
+
+			return new Date(now.getTime() - millis).toISOString();
+		}
+
+		// Normalize posted_at to ISO string or null
+		const normalizedPostedAt: string | null = parseRelativeDateString(job.posted_at);
+
 		// If the job was auto-saved earlier just return success
 		if (job.status === 'saved' || job.status === 'auto_saved') {
 			// Try to find the existing application to return its ID
@@ -522,7 +557,12 @@ export async function saveJobToApplications(c: Context<Env>) {
 				seniority_level,
 				job_function,
 				industries,
-				apply_link
+				apply_link,
+				job_description,
+				salary_json,
+				applicants,
+				salary_period,
+				posted_at
 			)
 			VALUES (
 				${user.id},
@@ -545,7 +585,12 @@ export async function saveJobToApplications(c: Context<Env>) {
 				${job.seniority_level},
 				${job.job_function},
 				${job.industries},
-				${job.apply_link}
+				${job.apply_link},
+				${job.description},
+				${job.salary_json},
+				${job.applicants},
+				${job.salary_period},
+				${normalizedPostedAt}
 			)
 			ON CONFLICT (user_id, job_fingerprint) DO NOTHING
 			RETURNING id

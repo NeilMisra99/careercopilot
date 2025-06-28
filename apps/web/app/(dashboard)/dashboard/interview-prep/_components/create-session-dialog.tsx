@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type {
   Application,
   CreateSessionData,
@@ -111,29 +111,6 @@ export function CreateSessionDialog({
     }
   };
 
-  // Auto-generate session name when application and type are selected
-  useEffect(() => {
-    if (
-      formData.applicationId &&
-      formData.sessionType &&
-      !formData.sessionName
-    ) {
-      const selectedApp = applications.find(
-        (app) => app.id === formData.applicationId,
-      );
-      if (selectedApp) {
-        const typeName = formData.sessionType.replace("_", " ");
-        const sessionName = `${typeName} interview - ${selectedApp.company_name}`;
-        setFormData((prev) => ({ ...prev, sessionName }));
-      }
-    }
-  }, [
-    formData.applicationId,
-    formData.sessionType,
-    applications,
-    formData.sessionName,
-  ]);
-
   const getSessionTypeDescription = (type: string) => {
     switch (type) {
       case "behavioral":
@@ -168,8 +145,10 @@ export function CreateSessionDialog({
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Create Interview Session</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="text-foreground text-lg font-medium">
+            Create Interview Session
+          </DialogTitle>
+          <DialogDescription className="text-muted-foreground text-sm">
             Set up a new AI-powered interview preparation session for a specific
             application.
           </DialogDescription>
@@ -189,6 +168,7 @@ export function CreateSessionDialog({
                 }))
               }
               placeholder="e.g., Technical interview - Google"
+              className="truncate"
               required
             />
           </div>
@@ -203,15 +183,41 @@ export function CreateSessionDialog({
               }
               required
             >
-              <SelectTrigger>
-                <SelectValue placeholder="Select an application" />
+              <SelectTrigger className="w-full">
+                <div className="flex w-full min-w-0 items-center">
+                  {formData.applicationId ? (
+                    <span className="block w-full truncate text-left">
+                      {(() => {
+                        const app = applications.find(
+                          (a) => a.id === formData.applicationId,
+                        );
+                        if (!app) return "Select an application";
+                        const displayText = `${app.company_name} - ${app.role}`;
+                        return displayText.length > 50
+                          ? `${displayText.substring(0, 50)}...`
+                          : displayText;
+                      })()}
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground">
+                      Select an application
+                    </span>
+                  )}
+                </div>
               </SelectTrigger>
               <SelectContent>
                 {applications.map((app) => (
-                  <SelectItem key={app.id} value={app.id}>
-                    <div className="flex flex-col">
-                      <span className="font-medium">{app.company_name}</span>
-                      <span className="text-muted-foreground text-sm">
+                  <SelectItem
+                    key={app.id}
+                    value={app.id}
+                    className="h-auto py-3"
+                    textValue={`${app.company_name} - ${app.role}`}
+                  >
+                    <div className="flex w-full min-w-0 flex-col items-start gap-1">
+                      <span className="block w-full truncate text-sm leading-tight font-medium">
+                        {app.company_name}
+                      </span>
+                      <span className="text-muted-foreground block w-full truncate text-xs leading-tight">
                         {app.role}
                       </span>
                     </div>
@@ -329,6 +335,7 @@ export function CreateSessionDialog({
             <Button
               type="button"
               variant="outline"
+              size="sm"
               onClick={handleClose}
               disabled={isLoading}
             >
@@ -336,17 +343,19 @@ export function CreateSessionDialog({
             </Button>
             <Button
               type="submit"
+              size="sm"
+              className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700"
               disabled={
                 isLoading || !formData.applicationId || !formData.resumeId
               }
             >
               {isLoading ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creating...
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Creating...</span>
                 </>
               ) : (
-                "Create Session"
+                <span>Create Session</span>
               )}
             </Button>
           </DialogFooter>

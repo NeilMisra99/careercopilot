@@ -232,10 +232,11 @@ export function MatchesPageContent({
               }
             }}
             disabled={isLoading || isGeneratingMatches}
-            className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700"
+            size="sm"
+            variant="default"
           >
             <Brain
-              className={`mr-2 h-4 w-4 ${isGeneratingMatches ? "animate-spin" : ""}`}
+              className={`mr-1 h-4 w-4 ${isGeneratingMatches ? "animate-spin" : ""}`}
             />
             {isGeneratingMatches ? "Generating..." : "Generate Matches"}
           </Button>
@@ -329,7 +330,7 @@ export function MatchesPageContent({
       </div>
 
       {/* Results count - moved outside for slimmer filter bar */}
-      <div className="flex items-center justify-between text-xs text-muted-foreground mb-4">
+      <div className="text-muted-foreground mb-4 flex items-center justify-between text-xs">
         <span>
           {filteredMatches.length} of {matches.length} matches
         </span>
@@ -342,7 +343,7 @@ export function MatchesPageContent({
               setScoreFilter("all");
               setStatusFilter("all");
             }}
-            className="h-6 text-xs px-2"
+            className="h-6 px-2 text-xs"
           >
             Clear filters
           </Button>

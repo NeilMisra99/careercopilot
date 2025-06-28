@@ -2,7 +2,6 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -13,15 +12,15 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { motion } from "framer-motion";
-import { 
-  ChevronDown, 
-  ChevronUp, 
-  Edit, 
-  Lightbulb, 
-  MessageSquare, 
+import {
+  ChevronDown,
+  ChevronUp,
+  Edit,
+  Lightbulb,
+  MessageSquare,
   Search,
   Sparkles,
-  Timer
+  Timer,
 } from "lucide-react";
 import { useState } from "react";
 import type { InterviewQuestion } from "../_lib/types";
@@ -46,27 +45,30 @@ export function InterviewQuestionsSection({
   const [searchQuery, setSearchQuery] = useState("");
   const [difficultyFilter, setDifficultyFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
-  const [expandedQuestions, setExpandedQuestions] = useState<Set<string>>(new Set());
+  const [expandedQuestions, setExpandedQuestions] = useState<Set<string>>(
+    new Set(),
+  );
   const [editingQuestion, setEditingQuestion] = useState<string | null>(null);
 
   // Get unique difficulties and categories
   const difficulties = Array.from(
-    new Set(questions.map(q => q.difficulty).filter(Boolean))
+    new Set(questions.map((q) => q.difficulty).filter(Boolean)),
   );
   const categories = Array.from(
-    new Set(questions.map(q => q.category).filter(Boolean))
+    new Set(questions.map((q) => q.category).filter(Boolean)),
   );
 
   // Filter questions
-  const filteredQuestions = questions.filter(question => {
-    const matchesSearch = 
+  const filteredQuestions = questions.filter((question) => {
+    const matchesSearch =
       question.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (question.context && question.context.toLowerCase().includes(searchQuery.toLowerCase()));
+      (question.context &&
+        question.context.toLowerCase().includes(searchQuery.toLowerCase()));
 
-    const matchesDifficulty = 
+    const matchesDifficulty =
       difficultyFilter === "all" || question.difficulty === difficultyFilter;
 
-    const matchesCategory = 
+    const matchesCategory =
       categoryFilter === "all" || question.category === categoryFilter;
 
     return matchesSearch && matchesDifficulty && matchesCategory;
@@ -85,55 +87,63 @@ export function InterviewQuestionsSection({
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty.toLowerCase()) {
       case "easy":
-        return "bg-green-100 text-green-800 border-green-200";
+        return "bg-green-50 text-green-700 border-green-200 dark:bg-green-950/30 dark:text-green-300 dark:border-green-800/30";
       case "medium":
-        return "bg-yellow-100 text-yellow-800 border-yellow-200";
+        return "bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-950/30 dark:text-yellow-300 dark:border-yellow-800/30";
       case "hard":
-        return "bg-red-100 text-red-800 border-red-200";
+        return "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/30 dark:text-red-300 dark:border-red-800/30";
       default:
-        return "bg-gray-100 text-gray-800 border-gray-200";
+        return "bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-950/30 dark:text-gray-300 dark:border-gray-800/30";
     }
   };
 
   const getCategoryColor = (category: string) => {
     switch (category.toLowerCase()) {
       case "behavioral":
-        return "bg-purple-100 text-purple-800 border-purple-200";
+        return "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/30 dark:text-purple-300 dark:border-purple-800/30";
       case "technical":
-        return "bg-blue-100 text-blue-800 border-blue-200";
+        return "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/30 dark:text-blue-300 dark:border-blue-800/30";
       case "situational":
-        return "bg-orange-100 text-orange-800 border-orange-200";
+        return "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/30 dark:text-orange-300 dark:border-orange-800/30";
       case "company":
-        return "bg-indigo-100 text-indigo-800 border-indigo-200";
+        return "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/30 dark:text-indigo-300 dark:border-indigo-800/30";
       default:
-        return "bg-gray-100 text-gray-800 border-gray-200";
+        return "bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-950/30 dark:text-gray-300 dark:border-gray-800/30";
     }
   };
 
   if (questions.length === 0) {
     return (
-      <Card className="p-8 text-center">
-        <MessageSquare className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-        <h3 className="text-lg font-semibold mb-2">No Interview Questions Generated</h3>
-        <p className="text-sm text-muted-foreground mb-4">
-          Generate AI-powered interview questions tailored to your resume and the job.
+      <div className="bg-card border-border from-card to-card/95 dark:from-card dark:to-card/90 rounded-lg border bg-gradient-to-b p-8 text-center shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.25)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.1)]">
+        <MessageSquare className="text-muted-foreground mx-auto mb-4 h-12 w-12" />
+        <h3 className="text-foreground mb-2 text-sm font-medium">
+          No Interview Questions Generated
+        </h3>
+        <p className="text-muted-foreground mb-4 text-xs">
+          Generate AI-powered interview questions tailored to your resume and
+          the job.
         </p>
         {onGenerate && (
-          <Button onClick={onGenerate} disabled={isGenerating}>
+          <Button
+            onClick={onGenerate}
+            disabled={isGenerating}
+            size="sm"
+            className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700"
+          >
             {isGenerating ? (
               <>
-                <Timer className="mr-2 h-4 w-4 animate-spin" />
-                Generating Questions...
+                <Timer className="h-4 w-4 animate-spin" />
+                <span>Generating Questions...</span>
               </>
             ) : (
               <>
-                <Sparkles className="mr-2 h-4 w-4" />
-                Generate Questions
+                <Sparkles className="h-4 w-4" />
+                <span>Generate Questions</span>
               </>
             )}
           </Button>
         )}
-      </Card>
+      </div>
     );
   }
 
@@ -142,12 +152,14 @@ export function InterviewQuestionsSection({
       {/* Header Actions */}
       <div className="flex items-center justify-between">
         <div className="space-y-1">
-          <h3 className="text-lg font-semibold">Interview Questions</h3>
-          <p className="text-sm text-muted-foreground">
+          <h3 className="text-foreground text-sm font-medium">
+            Interview Questions
+          </h3>
+          <p className="text-muted-foreground text-xs">
             {filteredQuestions.length} questions generated
           </p>
         </div>
-        
+
         {onGenerate && (
           <Button
             variant="outline"
@@ -157,13 +169,13 @@ export function InterviewQuestionsSection({
           >
             {isGenerating ? (
               <>
-                <Timer className="mr-2 h-4 w-4 animate-spin" />
-                Regenerating...
+                <Timer className="h-4 w-4 animate-spin" />
+                <span>Regenerating...</span>
               </>
             ) : (
               <>
-                <Sparkles className="mr-2 h-4 w-4" />
-                Regenerate All
+                <Sparkles className="h-4 w-4" />
+                <span>Regenerate All</span>
               </>
             )}
           </Button>
@@ -173,7 +185,7 @@ export function InterviewQuestionsSection({
       {/* Filters */}
       <div className="flex gap-4">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
           <Input
             placeholder="Search questions..."
             value={searchQuery}
@@ -181,14 +193,14 @@ export function InterviewQuestionsSection({
             className="pl-9"
           />
         </div>
-        
+
         <Select value={difficultyFilter} onValueChange={setDifficultyFilter}>
           <SelectTrigger className="w-32">
             <SelectValue placeholder="Difficulty" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Levels</SelectItem>
-            {difficulties.map(difficulty => (
+            {difficulties.map((difficulty) => (
               <SelectItem key={difficulty} value={difficulty}>
                 {difficulty}
               </SelectItem>
@@ -202,7 +214,7 @@ export function InterviewQuestionsSection({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Categories</SelectItem>
-            {categories.map(category => (
+            {categories.map((category) => (
               <SelectItem key={category} value={category}>
                 {category}
               </SelectItem>
@@ -213,17 +225,17 @@ export function InterviewQuestionsSection({
 
       {/* Questions List */}
       {filteredQuestions.length === 0 ? (
-        <Card className="p-8 text-center">
-          <p className="text-sm text-muted-foreground">
+        <div className="bg-card border-border from-card to-card/95 dark:from-card dark:to-card/90 rounded-lg border bg-gradient-to-b p-8 text-center shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.25)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.1)]">
+          <p className="text-muted-foreground text-xs">
             No questions match your search criteria.
           </p>
-        </Card>
+        </div>
       ) : (
         <div className="space-y-4">
           {filteredQuestions.map((question, index) => {
             const isExpanded = expandedQuestions.has(question.id);
             const isEditing = editingQuestion === question.id;
-            
+
             return (
               <motion.div
                 key={question.id}
@@ -231,45 +243,59 @@ export function InterviewQuestionsSection({
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.1 }}
               >
-                <Card className="hover:shadow-md transition-shadow">
-                  <CardHeader>
+                <div className="bg-card border-border from-card to-card/95 dark:from-card dark:to-card/90 rounded-lg border bg-gradient-to-b shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.25)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.1)]">
+                  <div className="p-3">
                     <div className="flex items-start justify-between">
-                      <div className="space-y-2 flex-1">
+                      <div className="flex-1 space-y-2">
                         <div className="flex items-center gap-2">
-                          <CardTitle className="text-base">Question {index + 1}</CardTitle>
-                          <Badge className={getDifficultyColor(question.difficulty)}>
+                          <h3 className="text-foreground text-sm font-medium">
+                            Question {index + 1}
+                          </h3>
+                          <Badge
+                            variant="outline"
+                            className={getDifficultyColor(question.difficulty)}
+                          >
                             {question.difficulty}
                           </Badge>
-                          <Badge className={getCategoryColor(question.category)}>
+                          <Badge
+                            variant="outline"
+                            className={getCategoryColor(question.category)}
+                          >
                             {question.category}
                           </Badge>
                         </div>
-                        
+
                         {isEditing ? (
                           <Textarea
                             value={question.question}
-                            onChange={(e) => onUpdate?.(question.id, { question: e.target.value })}
+                            onChange={(e) =>
+                              onUpdate?.(question.id, {
+                                question: e.target.value,
+                              })
+                            }
                             className="font-medium"
                             rows={3}
                           />
                         ) : (
-                          <CardDescription className="font-medium text-foreground">
+                          <p className="text-foreground text-xs font-medium">
                             {question.question}
-                          </CardDescription>
+                          </p>
                         )}
                       </div>
-                      
-                      <div className="flex gap-1 ml-4">
+
+                      <div className="ml-4 flex gap-1">
                         {showActions && onUpdate && (
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => setEditingQuestion(isEditing ? null : question.id)}
+                            onClick={() =>
+                              setEditingQuestion(isEditing ? null : question.id)
+                            }
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
                         )}
-                        
+
                         <Button
                           variant="ghost"
                           size="icon"
@@ -283,26 +309,32 @@ export function InterviewQuestionsSection({
                         </Button>
                       </div>
                     </div>
-                  </CardHeader>
-                  
+                  </div>
+
                   {isExpanded && (
-                    <CardContent className="space-y-4 pt-0">
+                    <div className="space-y-4 px-3 pb-3">
                       {/* Context */}
                       {question.context && (
                         <div>
-                          <div className="flex items-center gap-2 mb-2">
+                          <div className="mb-2 flex items-center gap-2">
                             <Lightbulb className="h-4 w-4 text-amber-500" />
-                            <p className="font-medium text-sm">Context</p>
+                            <p className="text-foreground text-xs font-medium">
+                              Context
+                            </p>
                           </div>
                           {isEditing ? (
                             <Textarea
                               value={question.context}
-                              onChange={(e) => onUpdate?.(question.id, { context: e.target.value })}
+                              onChange={(e) =>
+                                onUpdate?.(question.id, {
+                                  context: e.target.value,
+                                })
+                              }
                               placeholder="Add context for this question..."
                               rows={2}
                             />
                           ) : (
-                            <p className="text-sm text-muted-foreground pl-6">
+                            <p className="text-muted-foreground pl-6 text-xs">
                               {question.context}
                             </p>
                           )}
@@ -312,48 +344,64 @@ export function InterviewQuestionsSection({
                       {/* Expected Structure */}
                       {question.expected_structure && (
                         <div>
-                          <p className="font-medium text-sm mb-2">Expected Answer Structure:</p>
+                          <p className="text-foreground mb-2 text-xs font-medium">
+                            Expected Answer Structure:
+                          </p>
                           {isEditing ? (
                             <Textarea
                               value={question.expected_structure}
-                              onChange={(e) => onUpdate?.(question.id, { expected_structure: e.target.value })}
+                              onChange={(e) =>
+                                onUpdate?.(question.id, {
+                                  expected_structure: e.target.value,
+                                })
+                              }
                               placeholder="Describe the expected answer structure..."
                               rows={3}
                             />
                           ) : (
-                            <div className="bg-muted p-3 rounded-md">
-                              <p className="text-sm">{question.expected_structure}</p>
+                            <div className="bg-muted rounded-md p-3">
+                              <p className="text-muted-foreground text-xs">
+                                {question.expected_structure}
+                              </p>
                             </div>
                           )}
                         </div>
                       )}
 
                       {/* Follow-up Questions */}
-                      {question.follow_ups && question.follow_ups.length > 0 && (
-                        <div>
-                          <p className="font-medium text-sm mb-2">Potential Follow-ups:</p>
-                          <ul className="list-disc list-inside space-y-1">
-                            {question.follow_ups.map((followUp, idx) => (
-                              <li key={idx} className="text-sm text-muted-foreground">
-                                {followUp}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
+                      {question.follow_ups &&
+                        question.follow_ups.length > 0 && (
+                          <div>
+                            <p className="text-foreground mb-2 text-xs font-medium">
+                              Potential Follow-ups:
+                            </p>
+                            <ul className="list-inside list-disc space-y-1">
+                              {question.follow_ups.map((followUp, idx) => (
+                                <li
+                                  key={idx}
+                                  className="text-muted-foreground text-xs"
+                                >
+                                  {followUp}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
 
                       {/* Question Metadata */}
-                      <div className="flex items-center gap-4 pt-2 border-t text-xs text-muted-foreground">
+                      <div className="text-muted-foreground flex items-center gap-4 border-t pt-2 text-xs">
                         {question.estimated_time && (
                           <span>Est. {question.estimated_time} min</span>
                         )}
                         {question.skills_assessed && (
-                          <span>Assesses: {question.skills_assessed.join(", ")}</span>
+                          <span>
+                            Assesses: {question.skills_assessed.join(", ")}
+                          </span>
                         )}
                       </div>
-                    </CardContent>
+                    </div>
                   )}
-                </Card>
+                </div>
               </motion.div>
             );
           })}
@@ -362,7 +410,7 @@ export function InterviewQuestionsSection({
 
       {/* Summary */}
       {filteredQuestions.length > 0 && (
-        <div className="text-sm text-muted-foreground text-center pt-4 border-t">
+        <div className="text-muted-foreground border-t pt-4 text-center text-sm">
           Showing {filteredQuestions.length} of {questions.length} questions
         </div>
       )}
