@@ -1,5 +1,3 @@
-import { Card, CardContent } from "@/components/ui/card";
-
 export function InterviewPrepSkeleton() {
   return (
     <div className="space-y-8">
@@ -19,7 +17,7 @@ export function InterviewPrepSkeleton() {
         {Array.from({ length: 4 }).map((_, i) => (
           <div
             key={i}
-            className="rounded-lg border p-4 border-gray-200/80 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.5)] bg-gradient-to-b from-white to-gray-50/40 dark:border-white/10 dark:bg-transparent dark:from-white/3 dark:to-transparent dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.08)]"
+            className="rounded-lg border border-gray-200/80 bg-white bg-gradient-to-b from-white to-gray-50/40 p-4 shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.5)] dark:border-white/10 dark:bg-transparent dark:from-white/3 dark:to-transparent dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.08)]"
           >
             <div className="flex items-center justify-between">
               <div className="space-y-2">
@@ -35,7 +33,7 @@ export function InterviewPrepSkeleton() {
 
       {/* Filters Skeleton */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4 flex-1">
+        <div className="flex flex-1 items-center gap-4">
           <div className="h-9 w-64 animate-pulse rounded bg-slate-200 dark:bg-slate-700" />
           <div className="h-9 w-32 animate-pulse rounded bg-slate-200 dark:bg-slate-700" />
           <div className="h-9 w-36 animate-pulse rounded bg-slate-200 dark:bg-slate-700" />
@@ -48,7 +46,7 @@ export function InterviewPrepSkeleton() {
         {Array.from({ length: 6 }).map((_, i) => (
           <div
             key={i}
-            className="bg-card border-border rounded-lg border p-3 shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.25)] bg-gradient-to-b from-card to-card/95 dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.1)] dark:from-card dark:to-card/90 h-full"
+            className="bg-card border-border from-card to-card/95 dark:from-card dark:to-card/90 h-full rounded-lg border bg-gradient-to-b p-3 shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.25)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.1)]"
           >
             <div className="space-y-4">
               <div className="flex items-center justify-between">
