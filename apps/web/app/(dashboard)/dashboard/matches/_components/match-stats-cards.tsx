@@ -1,6 +1,5 @@
 "use client";
 
-import { Card, CardContent } from "@/components/ui/card";
 import { Activity, Brain, Star, Target } from "lucide-react";
 import { MatchStats } from "../_lib/types";
 
@@ -15,6 +14,7 @@ interface StatCard {
   textColor: string;
   showProgress: boolean;
   progressValue?: number;
+  progress?: string;
 }
 
 interface MatchStatsCardsProps {
@@ -49,11 +49,11 @@ export function MatchStatsCards({
       value: safeStats.totalMatches.toLocaleString(),
       subtitle: `Across ${safeStats.totalApplications} applications`,
       icon: Brain,
-      gradient: "from-blue-500 to-blue-600",
-      bgGradient:
-        "from-blue-50 to-blue-100/50 dark:from-blue-950/50 dark:to-blue-900/30",
-      iconBg: "bg-blue-100 dark:bg-blue-900/30",
+      gradient: "bg-blue-500",
+      bgGradient: "bg-blue-50 dark:bg-blue-950/30",
+      iconBg: "bg-blue-500",
       textColor: "text-blue-600 dark:text-blue-400",
+      progress: "bg-blue-500 dark:bg-blue-400",
       showProgress: false,
     },
     {
@@ -61,11 +61,11 @@ export function MatchStatsCards({
       value: `${Math.round(safeAverageScore)}%`,
       subtitle: "Overall compatibility",
       icon: Target,
-      gradient: "from-emerald-500 to-emerald-600",
-      bgGradient:
-        "from-emerald-50 to-emerald-100/50 dark:from-emerald-950/50 dark:to-emerald-900/30",
-      iconBg: "bg-emerald-100 dark:bg-emerald-900/30",
+      gradient: "bg-emerald-500",
+      bgGradient: "bg-emerald-50 dark:bg-emerald-950/30",
+      iconBg: "bg-emerald-500",
       textColor: "text-emerald-600 dark:text-emerald-400",
+      progress: "bg-emerald-500 dark:bg-emerald-400",
       showProgress: true,
       progressValue: safeAverageScore,
     },
@@ -74,11 +74,11 @@ export function MatchStatsCards({
       value: safeStats.excellentMatches.toLocaleString(),
       subtitle: `${excellentPercentage}% of total matches`,
       icon: Star,
-      gradient: "from-amber-500 to-amber-600",
-      bgGradient:
-        "from-amber-50 to-amber-100/50 dark:from-amber-950/50 dark:to-amber-900/30",
-      iconBg: "bg-amber-100 dark:bg-amber-900/30",
+      gradient: "bg-amber-500",
+      bgGradient: "bg-amber-50 dark:bg-amber-950/30",
+      iconBg: "bg-amber-500",
       textColor: "text-amber-600 dark:text-amber-400",
+      progress: "bg-amber-500 dark:bg-amber-400",
       showProgress: false,
     },
     {
@@ -86,11 +86,11 @@ export function MatchStatsCards({
       value: safeStats.recentMatches.toLocaleString(),
       subtitle: "Last 7 days",
       icon: Activity,
-      gradient: "from-purple-500 to-purple-600",
-      bgGradient:
-        "from-purple-50 to-purple-100/50 dark:from-purple-950/50 dark:to-purple-900/30",
-      iconBg: "bg-purple-100 dark:bg-purple-900/30",
+      gradient: "bg-purple-500",
+      bgGradient: "bg-purple-50 dark:bg-purple-950/30",
+      iconBg: "bg-purple-500",
       textColor: "text-purple-600 dark:text-purple-400",
+      progress: "bg-purple-500 dark:bg-purple-400",
       showProgress: false,
     },
   ];
@@ -99,18 +99,19 @@ export function MatchStatsCards({
     return (
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
-          <Card key={i} className="border-0 bg-slate-50/80 backdrop-blur-sm">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div className="space-y-2">
-                  <div className="h-4 w-24 animate-pulse rounded bg-slate-200" />
-                  <div className="h-8 w-16 animate-pulse rounded bg-slate-200" />
-                  <div className="h-3 w-32 animate-pulse rounded bg-slate-200" />
-                </div>
-                <div className="h-12 w-12 animate-pulse rounded-xl bg-slate-200" />
+          <div
+            key={i}
+            className="rounded-lg border border-gray-200/80 bg-white p-4 dark:border-white/10 dark:bg-transparent"
+          >
+            <div className="flex items-center justify-between">
+              <div className="space-y-2">
+                <div className="bg-muted h-4 w-24 animate-pulse rounded" />
+                <div className="bg-muted h-8 w-16 animate-pulse rounded" />
+                <div className="bg-muted h-3 w-32 animate-pulse rounded" />
               </div>
-            </CardContent>
-          </Card>
+              <div className="bg-muted h-10 w-10 animate-pulse rounded-lg" />
+            </div>
+          </div>
         ))}
       </div>
     );
@@ -119,51 +120,43 @@ export function MatchStatsCards({
   return (
     <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
       {statCards.map((card) => (
-        <div key={card.title} className="group">
-          <Card
-            className={`border-0 bg-gradient-to-br ${card.bgGradient} h-full shadow-lg backdrop-blur-sm transition-all duration-300 hover:shadow-xl`}
-          >
-            <CardContent className="flex h-full flex-col p-6">
-              <div className="flex items-start justify-between">
-                <div className="min-w-0 flex-1 space-y-2">
-                  <p className="truncate text-sm font-medium text-slate-600 dark:text-slate-400">
-                    {card.title}
-                  </p>
-                  <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-                    {card.value}
-                  </p>
-                  <p className="line-clamp-2 text-xs text-slate-500 dark:text-slate-500">
-                    {card.subtitle}
-                  </p>
-                </div>
-
-                <div
-                  className={`flex h-12 w-12 items-center justify-center rounded-xl ${card.iconBg} ml-3 flex-shrink-0 shadow-sm transition-all duration-300 group-hover:scale-110`}
-                >
-                  <card.icon className={`h-6 w-6 ${card.textColor}`} />
+        <div key={card.title}>
+          <div className="group cursor-pointer rounded-lg border border-gray-200/80 bg-white bg-gradient-to-b from-white to-gray-50/40 p-4 shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.5)] transition-all hover:shadow-[0_4px_8px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.6)] dark:border-white/10 dark:bg-transparent dark:from-white/3 dark:to-transparent dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.08)] dark:hover:shadow-[0_4px_8px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.12)]">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-muted-foreground text-sm font-medium">
+                  {card.title}
+                </p>
+                <p className="text-foreground mt-2 text-2xl leading-none font-semibold">
+                  {card.value}
+                </p>
+                <div className="mt-1 h-8 flex flex-col justify-start">
+                  {card.showProgress ? (
+                    <>
+                      <p className="text-muted-foreground text-xs mb-1">
+                        Overall compatibility
+                      </p>
+                      <div className="bg-muted h-1.5 w-32 overflow-hidden rounded-full">
+                        <div
+                          style={{ width: `${card.progressValue || 0}%` }}
+                          className={`h-full ${card.progress} transition-all duration-500`}
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <p className="text-muted-foreground text-xs">
+                      {card.subtitle}
+                    </p>
+                  )}
                 </div>
               </div>
-
-              {/* Progress bar for Average Fit Score */}
-              {card.showProgress && (
-                <div className="mt-4 border-t border-slate-200/50 pt-4 dark:border-slate-600/50">
-                  <div className="mb-2 flex items-center justify-between text-xs text-slate-500 dark:text-slate-500">
-                    <span>Progress</span>
-                    <span>{Math.round(card.progressValue || 0)}%</span>
-                  </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
-                    <div
-                      style={{ width: `${card.progressValue || 0}%` }}
-                      className={`h-full bg-gradient-to-r ${card.gradient} shadow-sm`}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Subtle gradient overlay */}
-              <div className="pointer-events-none absolute inset-0 rounded-lg bg-gradient-to-br from-white/5 to-transparent" />
-            </CardContent>
-          </Card>
+              <div
+                className={`h-10 w-10 rounded-lg ${card.gradient.replace("from-", "bg-").split(" ")[0]} flex items-center justify-center shadow-lg`}
+              >
+                <card.icon className="h-5 w-5 text-white" />
+              </div>
+            </div>
+          </div>
         </div>
       ))}
     </div>

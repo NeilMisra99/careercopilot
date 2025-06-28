@@ -162,14 +162,14 @@ export default async function MatchesPage() {
   const matchesData = await getMatchesData(cookieString);
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="p-6">
       <Suspense
         fallback={
           <div className="space-y-8">
             {/* Header Skeleton */}
-            <div className="space-y-4">
-              <div className="h-8 w-64 animate-pulse rounded bg-slate-200" />
-              <div className="h-4 w-96 animate-pulse rounded bg-slate-200" />
+            <div className="mb-6">
+              <div className="bg-muted mb-2 h-8 w-64 animate-pulse rounded" />
+              <div className="bg-muted h-4 w-96 animate-pulse rounded" />
             </div>
 
             {/* Stats Cards Skeleton */}
@@ -177,16 +177,18 @@ export default async function MatchesPage() {
               {Array.from({ length: 4 }).map((_, i) => (
                 <div
                   key={i}
-                  className="h-32 animate-pulse rounded-xl bg-slate-200"
+                  className="bg-muted h-32 animate-pulse rounded-lg"
                 />
               ))}
             </div>
 
             {/* Filters Skeleton */}
-            <div className="flex gap-4">
-              <div className="h-10 w-32 animate-pulse rounded bg-slate-200" />
-              <div className="h-10 w-40 animate-pulse rounded bg-slate-200" />
-              <div className="h-10 w-36 animate-pulse rounded bg-slate-200" />
+            <div className="bg-card animate-pulse rounded-lg border p-3">
+              <div className="flex gap-4">
+                <div className="bg-muted h-10 max-w-md flex-1 rounded" />
+                <div className="bg-muted h-10 w-32 rounded" />
+                <div className="bg-muted h-10 w-32 rounded" />
+              </div>
             </div>
 
             {/* Match Cards Skeleton */}
@@ -194,7 +196,7 @@ export default async function MatchesPage() {
               {Array.from({ length: 6 }).map((_, i) => (
                 <div
                   key={i}
-                  className="h-64 animate-pulse rounded-xl bg-slate-200"
+                  className="bg-muted h-64 animate-pulse rounded-lg"
                 />
               ))}
             </div>

@@ -188,118 +188,109 @@ export function MatchesPageContent({
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 p-3">
-              <Brain className="h-8 w-8 text-white" />
-            </div>
-            <div>
-              <h1 className="bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-3xl font-bold text-transparent dark:from-white dark:to-slate-300">
-                Job-Resume Matches
-              </h1>
-              <p className="text-slate-600 dark:text-slate-400">
-                AI-powered compatibility analysis and optimization
-                recommendations
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <Button
-              onClick={async () => {
-                setIsGeneratingMatches(true);
-                setError(undefined);
-                setSuccessMessage(undefined);
-
-                try {
-                  const result = await triggerBulkMatchingAction();
-                  if (result.success) {
-                    setSuccessMessage(
-                      result.message || "Matches are being generated...",
-                    );
-                    // Wait a moment then refresh data
-                    setTimeout(async () => {
-                      await loadData();
-                    }, 2000);
-                  } else {
-                    setError(result.error || "Failed to generate matches");
-                  }
-                } catch (error) {
-                  console.error("Error triggering bulk matching:", error);
-                  setError(
-                    error instanceof Error
-                      ? error.message
-                      : "Failed to generate matches",
-                  );
-                } finally {
-                  setIsGeneratingMatches(false);
-                }
-              }}
-              disabled={isLoading || isGeneratingMatches}
-              className="bg-blue-600 font-semibold text-white shadow-sm hover:bg-blue-700"
-            >
-              <Brain
-                className={`mr-2 h-4 w-4 ${isGeneratingMatches ? "animate-spin" : ""}`}
-              />
-              {isGeneratingMatches ? "Generating..." : "Generate Matches"}
-            </Button>
-
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={loadData}
-              disabled={isLoading}
-            >
-              <RefreshCw
-                className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`}
-              />
-            </Button>
-          </div>
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-foreground text-2xl font-medium">
+            Job-Resume Matches
+          </h1>
+          <p className="text-muted-foreground mt-1 text-sm">
+            AI-powered compatibility analysis and optimization recommendations
+          </p>
         </div>
 
-        {error && (
-          <div className="rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-950/50">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
-              <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
-            </div>
-          </div>
-        )}
+        <div className="flex items-center gap-3">
+          <Button
+            onClick={async () => {
+              setIsGeneratingMatches(true);
+              setError(undefined);
+              setSuccessMessage(undefined);
 
-        {successMessage && (
-          <div className="rounded-lg border border-green-200 bg-green-50 p-4 dark:border-green-800 dark:bg-green-950/50">
-            <div className="flex items-center gap-2">
-              <Brain className="h-5 w-5 text-green-600 dark:text-green-400" />
-              <p className="text-sm text-green-700 dark:text-green-300">
-                {successMessage}
-              </p>
-            </div>
-          </div>
-        )}
+              try {
+                const result = await triggerBulkMatchingAction();
+                if (result.success) {
+                  setSuccessMessage(
+                    result.message || "Matches are being generated...",
+                  );
+                  // Wait a moment then refresh data
+                  setTimeout(async () => {
+                    await loadData();
+                  }, 2000);
+                } else {
+                  setError(result.error || "Failed to generate matches");
+                }
+              } catch (error) {
+                console.error("Error triggering bulk matching:", error);
+                setError(
+                  error instanceof Error
+                    ? error.message
+                    : "Failed to generate matches",
+                );
+              } finally {
+                setIsGeneratingMatches(false);
+              }
+            }}
+            disabled={isLoading || isGeneratingMatches}
+            className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700"
+          >
+            <Brain
+              className={`mr-2 h-4 w-4 ${isGeneratingMatches ? "animate-spin" : ""}`}
+            />
+            {isGeneratingMatches ? "Generating..." : "Generate Matches"}
+          </Button>
+
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={loadData}
+            disabled={isLoading}
+          >
+            <RefreshCw
+              className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`}
+            />
+          </Button>
+        </div>
       </div>
+
+      {/* Messages */}
+      {error && (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-red-700 dark:border-red-800/30 dark:bg-red-950/30 dark:text-red-300">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="h-4 w-4" />
+            <p className="text-sm">{error}</p>
+          </div>
+        </div>
+      )}
+
+      {successMessage && (
+        <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-green-700 dark:border-green-800/30 dark:bg-green-950/30 dark:text-green-300">
+          <div className="flex items-center gap-2">
+            <Brain className="h-4 w-4" />
+            <p className="text-sm">{successMessage}</p>
+          </div>
+        </div>
+      )}
 
       {/* Stats Cards */}
       <MatchStatsCards stats={stats} isLoading={isLoading} />
 
       {/* Filters and Search */}
-      <div className="rounded-xl border border-slate-200/60 bg-white/80 p-6 shadow-sm backdrop-blur-xl dark:border-slate-700/60 dark:bg-slate-900/80">
+      <div className="bg-card border-border from-card to-card/95 dark:from-card dark:to-card/90 rounded-lg border bg-gradient-to-b p-3 shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.25)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.1)]">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-1 gap-4">
-            <div className="relative max-w-md flex-1">
-              <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <Input
-                placeholder="Search companies, roles, or resumes..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
+          <div className="relative max-w-md flex-1">
+            <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Input
+              placeholder="Search companies, roles, or resumes..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
 
+          <div className="flex gap-3">
             <Select value={scoreFilter} onValueChange={setScoreFilter}>
-              <SelectTrigger className="w-41">
+              <SelectTrigger className="w-36">
                 <SelectValue placeholder="Score" />
               </SelectTrigger>
               <SelectContent>
@@ -311,7 +302,7 @@ export function MatchesPageContent({
             </Select>
 
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-38">
+              <SelectTrigger className="w-32">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
@@ -322,9 +313,7 @@ export function MatchesPageContent({
                 <SelectItem value="rejected">Rejected</SelectItem>
               </SelectContent>
             </Select>
-          </div>
 
-          <div className="flex gap-2">
             <Select value={sortBy} onValueChange={setSortBy}>
               <SelectTrigger className="w-32">
                 <SelectValue />
@@ -337,38 +326,39 @@ export function MatchesPageContent({
             </Select>
           </div>
         </div>
+      </div>
 
-        {/* Results count */}
-        <div className="mt-4 flex items-center justify-between text-sm text-slate-600 dark:text-slate-400">
-          <span>
-            {filteredMatches.length} of {matches.length} matches
-          </span>
-          {(searchQuery || scoreFilter !== "all" || statusFilter !== "all") && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setSearchQuery("");
-                setScoreFilter("all");
-                setStatusFilter("all");
-              }}
-            >
-              Clear filters
-            </Button>
-          )}
-        </div>
+      {/* Results count - moved outside for slimmer filter bar */}
+      <div className="flex items-center justify-between text-xs text-muted-foreground mb-4">
+        <span>
+          {filteredMatches.length} of {matches.length} matches
+        </span>
+        {(searchQuery || scoreFilter !== "all" || statusFilter !== "all") && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setSearchQuery("");
+              setScoreFilter("all");
+              setStatusFilter("all");
+            }}
+            className="h-6 text-xs px-2"
+          >
+            Clear filters
+          </Button>
+        )}
       </div>
 
       {/* Matches Grid */}
       {filteredMatches.length === 0 ? (
         <div className="py-12 text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800">
-            <Brain className="h-8 w-8 text-slate-400" />
+          <div className="bg-muted mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-lg">
+            <Brain className="text-muted-foreground h-8 w-8" />
           </div>
-          <h3 className="mb-2 text-lg font-medium text-slate-900 dark:text-white">
+          <h3 className="text-foreground mb-2 text-lg font-medium">
             No matches found
           </h3>
-          <p className="mx-auto max-w-md text-slate-600 dark:text-slate-400">
+          <p className="text-muted-foreground mx-auto max-w-md text-sm">
             {matches.length === 0
               ? "Upload resumes and add applications to start seeing AI-powered matches."
               : "Try adjusting your filters or search terms."}

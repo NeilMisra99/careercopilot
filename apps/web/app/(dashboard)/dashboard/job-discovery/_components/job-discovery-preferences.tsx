@@ -2,13 +2,6 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -210,7 +203,7 @@ export function JobDiscoveryPreferences({
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+        <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
       </div>
     );
   }
@@ -247,24 +240,26 @@ export function JobDiscoveryPreferences({
               </p>
             </div>
           </div>
-          <Button
-            size="sm"
-            onClick={handleSave}
-            disabled={saving}
-            className="gap-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700"
-          >
-            {saving ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              <>
-                <Save className="h-4 w-4" />
-                Save Changes
-              </>
-            )}
-          </Button>
+          <div className="mr-4">
+            <Button
+              size="sm"
+              onClick={handleSave}
+              disabled={saving}
+              variant="default"
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4" />
+                  Save Changes
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -273,17 +268,17 @@ export function JobDiscoveryPreferences({
         <ScrollArea className="h-full px-6 py-6">
           <div className="space-y-6">
             {/* Discovery Status */}
-            <Card className="bg-card border-border from-card to-card/95 dark:from-card dark:to-card/90 rounded-lg border bg-gradient-to-b shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.25)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.1)]">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg font-medium">
+            <div className="bg-card border-border from-card to-card/95 dark:from-card dark:to-card/90 rounded-lg border bg-gradient-to-b p-3 shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.25)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.1)]">
+              <div className="mb-4">
+                <h3 className="text-foreground flex items-center gap-2 text-lg font-medium">
                   <Zap className="h-5 w-5 text-emerald-600" />
                   Discovery Status
-                </CardTitle>
-                <CardDescription>
+                </h3>
+                <p className="text-muted-foreground mt-1 text-sm">
                   Control your automated job discovery settings
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
+                </p>
+              </div>
+              <div className="space-y-6">
                 <div className="border-border bg-muted/50 flex items-center justify-between rounded-lg border p-4">
                   <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500 shadow-lg">
@@ -358,85 +353,11 @@ export function JobDiscoveryPreferences({
                   )}
                 </div>
 
-                {/* Fantastic Discovery - Executive Only */}
-                <div
-                  className={`rounded-lg border border-slate-200/60 p-4 dark:border-slate-700/60 ${
-                    preferences.subscription_tier !== "executive"
-                      ? "bg-slate-100/50 dark:bg-slate-800/30"
-                      : "bg-slate-50 dark:bg-slate-800/50"
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`flex h-10 w-10 items-center justify-center rounded-lg ${
-                          preferences.subscription_tier !== "executive"
-                            ? "bg-slate-200 dark:bg-slate-700"
-                            : "bg-purple-100 dark:bg-purple-900/50"
-                        }`}
-                      >
-                        {preferences.subscription_tier !== "executive" ? (
-                          <Lock className="h-5 w-5 text-slate-500" />
-                        ) : (
-                          <Sparkles className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                        )}
-                      </div>
-                      <div>
-                        <Label
-                          className={`text-base font-medium ${
-                            preferences.subscription_tier !== "executive"
-                              ? "text-slate-500"
-                              : ""
-                          }`}
-                        >
-                          Fantastic API Discovery
-                        </Label>
-                        <p
-                          className={`text-sm ${
-                            preferences.subscription_tier !== "executive"
-                              ? "text-slate-400"
-                              : "text-slate-600 dark:text-slate-400"
-                          }`}
-                        >
-                          Premium job data with detailed insights (Executive
-                          only)
-                        </p>
-                      </div>
-                    </div>
-                    <Switch
-                      checked={false} // TODO: Add fantastic discovery preference when implemented
-                      onCheckedChange={() => {}} // TODO: Implement fantastic toggle handler
-                      disabled={preferences.subscription_tier !== "executive"}
-                    />
-                  </div>
-                  {preferences.subscription_tier !== "executive" && (
-                    <div className="mt-3">
-                      <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-800/50 dark:bg-amber-950/30">
-                        <div className="flex items-center gap-2">
-                          <Crown className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                          <span className="text-sm font-medium text-amber-800 dark:text-amber-200">
-                            Fantastic API access is exclusive to Executive plan
-                          </span>
-                        </div>
-                        <div className="mt-2 text-xs text-amber-700 dark:text-amber-300">
-                          • 25 jobs per manual search • Advanced job insights •
-                          Golden opportunity detection
-                        </div>
-                        <Link href="/pricing" className="mt-2 inline-block">
-                          <Button size="sm" variant="outline" className="gap-2">
-                            Upgrade to Executive
-                          </Button>
-                        </Link>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
                 {preferences.last_discovery_at && (
-                  <div className="rounded-lg bg-slate-100 p-3 dark:bg-slate-800">
+                  <div className="bg-muted/50 rounded-lg p-3">
                     <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-slate-500" />
-                      <span className="text-sm text-slate-600 dark:text-slate-400">
+                      <Calendar className="text-muted-foreground h-4 w-4" />
+                      <span className="text-foreground text-sm">
                         Last discovery:{" "}
                         {new Date(
                           preferences.last_discovery_at,
@@ -445,25 +366,25 @@ export function JobDiscoveryPreferences({
                     </div>
                   </div>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </div>
 
             {/* Target Roles - Available for all tiers */}
-            <Card className="bg-card border-border from-card to-card/95 dark:from-card dark:to-card/90 rounded-lg border bg-gradient-to-b shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.25)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.1)]">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg font-medium">
+            <div className="bg-card border-border from-card to-card/95 dark:from-card dark:to-card/90 rounded-lg border bg-gradient-to-b p-3 shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.25)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.1)]">
+              <div className="mb-4">
+                <h3 className="text-foreground flex items-center gap-2 text-lg font-medium">
                   <Users className="h-5 w-5 text-purple-600" />
                   Target Roles
                   <Badge variant="outline" className="text-xs">
                     Required
                   </Badge>
-                </CardTitle>
-                <CardDescription>
+                </h3>
+                <p className="text-muted-foreground mt-1 text-sm">
                   Job titles and roles you&apos;re interested in (essential for
                   discovery)
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
+                </p>
+              </div>
+              <div className="space-y-4">
                 <div className="flex gap-2">
                   <Input
                     placeholder="e.g., Senior Frontend Engineer, Product Manager"
@@ -512,20 +433,22 @@ export function JobDiscoveryPreferences({
                     </div>
                   </div>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </div>
 
             {/* Work Preference & Target Locations */}
             <div className="grid gap-6 lg:grid-cols-2">
-              <Card className="bg-card border-border from-card to-card/95 dark:from-card dark:to-card/90 rounded-lg border bg-gradient-to-b shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.25)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.1)]">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-lg font-medium">
+              <div className="bg-card border-border from-card to-card/95 dark:from-card dark:to-card/90 rounded-lg border bg-gradient-to-b p-3 shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.25)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.1)]">
+                <div className="mb-4">
+                  <h3 className="text-foreground flex items-center gap-2 text-lg font-medium">
                     <MapPin className="h-5 w-5 text-blue-600" />
                     Work Preference
-                  </CardTitle>
-                  <CardDescription>Remote work preferences</CardDescription>
-                </CardHeader>
-                <CardContent>
+                  </h3>
+                  <p className="text-muted-foreground mt-1 text-sm">
+                    Remote work preferences
+                  </p>
+                </div>
+                <div>
                   <Select
                     value={preferences.remote_preference}
                     onValueChange={(
@@ -549,18 +472,20 @@ export function JobDiscoveryPreferences({
                       <SelectItem value="on_site">On-site Only</SelectItem>
                     </SelectContent>
                   </Select>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
 
-              <Card className="bg-card border-border from-card to-card/95 dark:from-card dark:to-card/90 rounded-lg border bg-gradient-to-b shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.25)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.1)]">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-lg font-medium">
+              <div className="bg-card border-border from-card to-card/95 dark:from-card dark:to-card/90 rounded-lg border bg-gradient-to-b p-3 shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.25)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.1)]">
+                <div className="mb-4">
+                  <h3 className="text-foreground flex items-center gap-2 text-lg font-medium">
                     <MapPin className="h-5 w-5 text-green-600" />
                     Target Locations
-                  </CardTitle>
-                  <CardDescription>Preferred job locations</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
+                  </h3>
+                  <p className="text-muted-foreground mt-1 text-sm">
+                    Preferred job locations
+                  </p>
+                </div>
+                <div className="space-y-4">
                   <div className="flex gap-2">
                     <Input
                       placeholder="e.g., San Francisco, Remote"
@@ -608,8 +533,8 @@ export function JobDiscoveryPreferences({
                       </Badge>
                     ))}
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             </div>
 
             {/* Premium Features Section */}
@@ -617,18 +542,18 @@ export function JobDiscoveryPreferences({
               <>
                 {/* Salary Range & Target Companies - Premium Only */}
                 <div className="grid gap-6 lg:grid-cols-2">
-                  <Card className="bg-card border-border from-card to-card/95 dark:from-card dark:to-card/90 rounded-lg border bg-gradient-to-b shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.25)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.1)]">
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2 text-lg font-medium">
+                  <div className="bg-card border-border from-card to-card/95 dark:from-card dark:to-card/90 rounded-lg border bg-gradient-to-b p-3 shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.25)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.1)]">
+                    <div className="mb-4">
+                      <h3 className="text-foreground flex items-center gap-2 text-lg font-medium">
                         <DollarSign className="h-5 w-5 text-green-600" />
                         Salary Range
                         <Crown className="h-4 w-4 text-amber-500" />
-                      </CardTitle>
-                      <CardDescription>
+                      </h3>
+                      <p className="text-muted-foreground mt-1 text-sm">
                         Expected salary range (optional)
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
+                      </p>
+                    </div>
+                    <div>
                       <div className="grid gap-4 md:grid-cols-2">
                         <div className="space-y-2">
                           <Label className="text-sm font-medium">Minimum</Label>
@@ -663,21 +588,21 @@ export function JobDiscoveryPreferences({
                           />
                         </div>
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
 
-                  <Card className="bg-card border-border from-card to-card/95 dark:from-card dark:to-card/90 rounded-lg border bg-gradient-to-b shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.25)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.1)]">
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2 text-lg font-medium">
+                  <div className="bg-card border-border from-card to-card/95 dark:from-card dark:to-card/90 rounded-lg border bg-gradient-to-b p-3 shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.25)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.1)]">
+                    <div className="mb-4">
+                      <h3 className="text-foreground flex items-center gap-2 text-lg font-medium">
                         <Building2 className="h-5 w-5 text-blue-600" />
                         Target Companies
                         <Crown className="h-4 w-4 text-amber-500" />
-                      </CardTitle>
-                      <CardDescription>
+                      </h3>
+                      <p className="text-muted-foreground mt-1 text-sm">
                         Companies you&apos;d like to work for (watchlist)
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
+                      </p>
+                    </div>
+                    <div className="space-y-4">
                       <div className="flex gap-2">
                         <Input
                           placeholder="e.g., Google, Microsoft"
@@ -725,23 +650,23 @@ export function JobDiscoveryPreferences({
                           </Badge>
                         ))}
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Job Types & Experience Levels - Premium Only */}
                 <div className="grid gap-6 lg:grid-cols-2">
-                  <Card className="bg-card border-border from-card to-card/95 dark:from-card dark:to-card/90 rounded-lg border bg-gradient-to-b shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.25)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.1)]">
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2 text-lg font-medium">
+                  <div className="bg-card border-border from-card to-card/95 dark:from-card dark:to-card/90 rounded-lg border bg-gradient-to-b p-3 shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.25)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.1)]">
+                    <div className="mb-4">
+                      <h3 className="text-foreground flex items-center gap-2 text-lg font-medium">
                         Job Types
                         <Crown className="h-4 w-4 text-amber-500" />
-                      </CardTitle>
-                      <CardDescription>
+                      </h3>
+                      <p className="text-muted-foreground mt-1 text-sm">
                         Types of employment you&apos;re interested in
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
+                      </p>
+                    </div>
+                    <div className="space-y-3">
                       {[
                         "Full-time",
                         "Part-time",
@@ -765,24 +690,24 @@ export function JobDiscoveryPreferences({
                             id={`job-type-${type}`}
                             checked={preferences.job_types.includes(type)}
                             onChange={() => toggleArrayItem("job_types", type)}
-                            className="h-4 w-4 rounded border-slate-300 text-purple-600 focus:ring-purple-500"
+                            className="border-border h-4 w-4 rounded text-purple-600 focus:ring-purple-500"
                           />
                         </div>
                       ))}
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
 
-                  <Card className="bg-card border-border from-card to-card/95 dark:from-card dark:to-card/90 rounded-lg border bg-gradient-to-b shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.25)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.1)]">
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2 text-lg font-medium">
+                  <div className="bg-card border-border from-card to-card/95 dark:from-card dark:to-card/90 rounded-lg border bg-gradient-to-b p-3 shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.25)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.1)]">
+                    <div className="mb-4">
+                      <h3 className="text-foreground flex items-center gap-2 text-lg font-medium">
                         Experience Levels
                         <Crown className="h-4 w-4 text-amber-500" />
-                      </CardTitle>
-                      <CardDescription>
+                      </h3>
+                      <p className="text-muted-foreground mt-1 text-sm">
                         Experience levels you&apos;re targeting
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
+                      </p>
+                    </div>
+                    <div className="space-y-3">
                       {[
                         "Internship",
                         "Entry level",
@@ -810,28 +735,28 @@ export function JobDiscoveryPreferences({
                             onChange={() =>
                               toggleArrayItem("experience_levels", level)
                             }
-                            className="h-4 w-4 rounded border-slate-300 text-purple-600 focus:ring-purple-500"
+                            className="border-border h-4 w-4 rounded text-purple-600 focus:ring-purple-500"
                           />
                         </div>
                       ))}
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Exclusions - Premium Only */}
                 <div className="grid gap-6 lg:grid-cols-2">
-                  <Card className="bg-card border-border from-card to-card/95 dark:from-card dark:to-card/90 rounded-lg border bg-gradient-to-b shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.25)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.1)]">
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2 text-lg font-medium">
+                  <div className="bg-card border-border from-card to-card/95 dark:from-card dark:to-card/90 rounded-lg border bg-gradient-to-b p-3 shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.25)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.1)]">
+                    <div className="mb-4">
+                      <h3 className="text-foreground flex items-center gap-2 text-lg font-medium">
                         <AlertCircle className="h-5 w-5 text-red-600" />
                         Excluded Companies
                         <Crown className="h-4 w-4 text-amber-500" />
-                      </CardTitle>
-                      <CardDescription>
+                      </h3>
+                      <p className="text-muted-foreground mt-1 text-sm">
                         Companies to avoid in discovery
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
+                      </p>
+                    </div>
+                    <div className="space-y-4">
                       <div className="flex gap-2">
                         <Input
                           placeholder="e.g., Company Name"
@@ -881,21 +806,21 @@ export function JobDiscoveryPreferences({
                           </Badge>
                         ))}
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
 
-                  <Card className="bg-card border-border from-card to-card/95 dark:from-card dark:to-card/90 rounded-lg border bg-gradient-to-b shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.25)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.1)]">
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2 text-lg font-medium">
+                  <div className="bg-card border-border from-card to-card/95 dark:from-card dark:to-card/90 rounded-lg border bg-gradient-to-b p-3 shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.25)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.1)]">
+                    <div className="mb-4">
+                      <h3 className="text-foreground flex items-center gap-2 text-lg font-medium">
                         <AlertCircle className="h-5 w-5 text-red-600" />
                         Excluded Keywords
                         <Crown className="h-4 w-4 text-amber-500" />
-                      </CardTitle>
-                      <CardDescription>
+                      </h3>
+                      <p className="text-muted-foreground mt-1 text-sm">
                         Keywords to avoid in job descriptions
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
+                      </p>
+                    </div>
+                    <div className="space-y-4">
                       <div className="flex gap-2">
                         <Input
                           placeholder="e.g., sales, marketing"
@@ -945,26 +870,26 @@ export function JobDiscoveryPreferences({
                           </Badge>
                         ))}
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
                 </div>
               </>
             )}
 
             {/* Free Tier Upgrade Prompt */}
             {isFree && (
-              <Card className="rounded-lg border border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.25)] dark:border-amber-800/50 dark:from-amber-950/30 dark:to-orange-950/30 dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.1)]">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-lg font-medium text-amber-800 dark:text-amber-200">
+              <div className="rounded-lg border border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 p-3 shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.25)] dark:border-amber-800/50 dark:from-amber-950/30 dark:to-orange-950/30 dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.1)]">
+                <div className="mb-4">
+                  <h3 className="flex items-center gap-2 text-lg font-medium text-amber-800 dark:text-amber-200">
                     <Crown className="h-5 w-5" />
                     Unlock Premium Features
-                  </CardTitle>
-                  <CardDescription className="text-amber-700 dark:text-amber-300">
+                  </h3>
+                  <p className="mt-1 text-sm text-amber-700 dark:text-amber-300">
                     Upgrade to Pro or Executive for advanced job discovery
                     features
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
+                  </p>
+                </div>
+                <div className="space-y-4">
                   <div className="grid gap-3 md:grid-cols-2">
                     <div className="flex items-center gap-2">
                       <CheckCircle className="h-4 w-4 text-green-600" />
@@ -1002,8 +927,8 @@ export function JobDiscoveryPreferences({
                       Upgrade to Pro - $24/month
                     </Button>
                   </Link>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             )}
           </div>
         </ScrollArea>
