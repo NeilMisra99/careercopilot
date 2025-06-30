@@ -97,7 +97,7 @@ export async function triggerJobScrapingAction(params: {
         error: `Daily search limit reached (${limitCheck.searches_used}/${limitCheck.daily_limit})`,
         message: `You've reached your daily limit of ${limitCheck.daily_limit} manual searches. ${
           limitCheck.subscription_tier === "free"
-            ? "Upgrade to Pro (50/day) or Executive (200/day) for more searches."
+            ? "Upgrade to Pro (20/day) or Executive (40/day) for more searches."
             : "Limit resets tomorrow."
         }`,
       };
@@ -107,9 +107,10 @@ export async function triggerJobScrapingAction(params: {
     const getPageLimit = (tier: string) => {
       switch (tier) {
         case "executive":
-          return 10;
+          return 4; // Reduced from 10 to 4 pages
         case "pro":
-          return 5;
+        case "premium": // Added premium tier support
+          return 2; // Reduced from 5 to 2 pages
         default:
           return 1;
       }

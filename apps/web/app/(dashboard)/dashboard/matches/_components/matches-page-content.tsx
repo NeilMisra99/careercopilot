@@ -10,7 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { AlertCircle, Brain, RefreshCw, Search } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   getMatchesAction,
   getMatchStatsAction,
@@ -56,6 +56,19 @@ export function MatchesPageContent({
   const [isReanalyzing, setIsReanalyzing] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | undefined>(initialError);
   const [successMessage, setSuccessMessage] = useState<string | undefined>();
+
+  // Pagination state (simplified like job-discovery)
+  const [currentPage, setCurrentPage] = useState(1);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [totalMatches, setTotalMatches] = useState(initialStats.totalMatches);
+  const [hasMore, setHasMore] = useState(
+    matchesArray.length < initialStats.totalMatches,
+  );
+
+  // Intersection Observer ref for infinite scroll
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+
+  const MATCHES_PER_PAGE = 20;
 
   useEffect(() => {
     let filtered = [...matches];
@@ -139,12 +152,21 @@ export function MatchesPageContent({
           : (matchesData as { matches?: JobResumeMatch[] })?.matches || [];
 
         setMatches(Array.isArray(matchesArray) ? matchesArray : []);
+        // Reset pagination state
+        setCurrentPage(1);
       } else if (matchesResult.error) {
         setError(matchesResult.error);
       }
 
       if (statsResult.success && statsResult.data) {
         setStats(statsResult.data as MatchStats);
+        // Ensure totalMatches stays in sync with the latest stats
+        if ((statsResult.data as MatchStats).totalMatches !== undefined) {
+          setTotalMatches((statsResult.data as MatchStats).totalMatches);
+          setHasMore(
+            matchesArray.length < (statsResult.data as MatchStats).totalMatches,
+          );
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load data");
@@ -186,6 +208,87 @@ export function MatchesPageContent({
       });
     }
   };
+
+  const loadMoreMatches = useCallback(async () => {
+    if (loadingMore || !hasMore) return;
+
+    setLoadingMore(true);
+    try {
+      const nextPage = currentPage + 1;
+      const result = await getMatchesAction({
+        page: nextPage,
+        limit: MATCHES_PER_PAGE,
+      });
+
+      if (result.success && result.data) {
+        const { matches: newMatches, pagination } = result.data as {
+          matches: JobResumeMatch[];
+          pagination: {
+            total: number;
+            hasMore: boolean;
+          };
+        };
+
+        // Deduplicate matches by id to prevent React key conflicts
+        setMatches((prev) => {
+          const existingMatchIds = new Set(prev.map((match) => match.id));
+          const uniqueNewMatches = newMatches.filter(
+            (match) => !existingMatchIds.has(match.id),
+          );
+
+          const updatedMatches = [...prev, ...uniqueNewMatches];
+
+          // Update total from server pagination
+          if (pagination?.total !== undefined) {
+            setTotalMatches(pagination.total);
+          }
+
+          // Update hasMore based on pagination flag
+          setHasMore(
+            pagination?.hasMore !== undefined
+              ? pagination.hasMore
+              : updatedMatches.length < totalMatches,
+          );
+
+          return updatedMatches;
+        });
+
+        setCurrentPage(nextPage);
+      }
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to load more matches",
+      );
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [currentPage, loadingMore, hasMore, totalMatches, MATCHES_PER_PAGE]);
+
+  // Intersection Observer for infinite scroll
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const target = entries[0];
+        if (target.isIntersecting && hasMore && !loadingMore) {
+          loadMoreMatches();
+        }
+      },
+      {
+        threshold: 0.1,
+        rootMargin: "100px", // Start loading 100px before the element is visible
+      },
+    );
+
+    if (loadMoreRef.current) {
+      observer.observe(loadMoreRef.current);
+    }
+
+    return () => {
+      if (loadMoreRef.current) {
+        observer.unobserve(loadMoreRef.current);
+      }
+    };
+  }, [hasMore, loadingMore, loadMoreMatches]);
 
   return (
     <div className="space-y-6">
@@ -329,25 +432,34 @@ export function MatchesPageContent({
         </div>
       </div>
 
-      {/* Results count - moved outside for slimmer filter bar */}
-      <div className="text-muted-foreground mb-4 flex items-center justify-between text-xs">
+      {/* Results count & pagination info (mirrors Job Discovery) */}
+      <div className="mb-4 flex items-center justify-between text-sm text-gray-600 dark:text-gray-400">
         <span>
-          {filteredMatches.length} of {matches.length} matches
+          Showing {filteredMatches.length} of {totalMatches} matches
         </span>
-        {(searchQuery || scoreFilter !== "all" || statusFilter !== "all") && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              setSearchQuery("");
-              setScoreFilter("all");
-              setStatusFilter("all");
-            }}
-            className="h-6 px-2 text-xs"
-          >
-            Clear filters
-          </Button>
-        )}
+
+        <div className="flex items-center gap-3">
+          {hasMore && (
+            <span>
+              {Math.ceil(totalMatches / MATCHES_PER_PAGE)} pages total
+            </span>
+          )}
+
+          {(searchQuery || scoreFilter !== "all" || statusFilter !== "all") && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setSearchQuery("");
+                setScoreFilter("all");
+                setStatusFilter("all");
+              }}
+              className="h-6 px-2 text-xs"
+            >
+              Clear filters
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Matches Grid */}
@@ -376,6 +488,30 @@ export function MatchesPageContent({
               />
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Infinite scroll trigger element */}
+      {hasMore && (
+        <div ref={loadMoreRef} className="flex justify-center py-8">
+          {loadingMore ? (
+            <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+              <RefreshCw className="h-4 w-4 animate-spin" />
+              <span>Loading more matches...</span>
+            </div>
+          ) : (
+            <div className="text-sm text-gray-500 dark:text-gray-500">
+              Scroll to load more matches ({filteredMatches.length} of{" "}
+              {totalMatches})
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* End of results indicator */}
+      {!hasMore && filteredMatches.length > 0 && (
+        <div className="py-6 text-center text-sm text-gray-500 dark:text-gray-500">
+          You&apos;ve reached the end of your matches
         </div>
       )}
 

@@ -35,6 +35,48 @@ const JobResumeMatchingPayloadSchema = z.object({
   forceRefresh: z.boolean().default(false),
 });
 
+// JSearch API response schema for job matching
+export const JSearchJobSchema = z.object({
+  job_id: z.string(),
+  employer_name: z.string(),
+  job_title: z.string(),
+  job_apply_link: z.string(),
+  apply_options: z
+    .array(
+      z.object({
+        publisher: z.string(),
+        apply_link: z.string(),
+        is_direct: z.boolean(),
+      }),
+    )
+    .optional(),
+  job_description: z.string().optional(),
+  job_highlights: z
+    .object({
+      Qualifications: z.array(z.string()).optional(),
+      Responsibilities: z.array(z.string()).optional(),
+      Benefits: z.array(z.string()).optional(),
+    })
+    .optional(),
+  job_benefits: z.array(z.string()).nullable().optional(),
+  job_required_experience: z
+    .object({
+      no_experience_required: z.boolean().optional(),
+      required_experience_in_months: z.number().nullable().optional(),
+      experience_mentioned: z.boolean().optional(),
+      experience_preferred: z.boolean().optional(),
+    })
+    .optional(),
+  employer_logo: z.string().nullable().optional(),
+  employer_website: z.string().nullable().optional(),
+  employer_linkedin: z.string().nullable().optional(),
+  job_employment_type: z.string().nullable().optional(),
+  job_min_salary: z.number().nullable().optional(),
+  job_max_salary: z.number().nullable().optional(),
+  job_salary_currency: z.string().nullable().optional(),
+  job_salary_period: z.string().nullable().optional(),
+});
+
 // Core match analysis schema with comprehensive detail structure
 const MatchAnalysisSchema = z.object({
   scores: z.object({
@@ -160,6 +202,39 @@ interface EnhancedJobInfo {
     title: string;
     imageData: string; // base64 image data
   }>;
+  // JSearch enhanced data
+  jsearchData?: {
+    jobId: string;
+    applyOptions?: Array<{
+      publisher: string;
+      apply_link: string;
+      is_direct: boolean;
+    }>;
+    linkedinJobId?: string; // Extracted from LinkedIn apply link if available
+    fullDescription?: string;
+    highlights?: {
+      qualifications?: string[];
+      responsibilities?: string[];
+      benefits?: string[];
+    };
+    requiredExperience?: {
+      no_experience_required?: boolean;
+      required_experience_in_months?: number | null;
+      experience_mentioned?: boolean;
+      experience_preferred?: boolean;
+    };
+    salary?: {
+      min?: number | null;
+      max?: number | null;
+      currency?: string | null;
+      period?: string | null;
+    };
+    employerWebsite?: string | null;
+    employerLinkedin?: string | null;
+    employmentType?: string | null;
+  };
+  jsearchRawData?: z.infer<typeof JSearchJobSchema>; // Raw JSearch data for job table update
+  enhancementSource: "jsearch" | "serper_screenshots" | "none";
 }
 
 // === Main Task ===
@@ -192,12 +267,20 @@ export const matchJobToResume = task({
 
       // Check for existing match if not forcing refresh
       if (!validatedPayload.forceRefresh) {
-        const { data: existingMatch } = await supabase
+        const { data: existingMatch, error: matchCheckError } = await supabase
           .from("application_resume_matches")
           .select("*")
           .eq("application_id", validatedPayload.applicationId)
           .eq("resume_id", validatedPayload.resumeId)
-          .single();
+          .maybeSingle();
+
+        if (matchCheckError) {
+          logger.error("Error checking for existing match", {
+            error: matchCheckError.message,
+            applicationId: validatedPayload.applicationId,
+            resumeId: validatedPayload.resumeId,
+          });
+        }
 
         if (existingMatch) {
           logger.info("✅ Found existing match, skipping analysis", {
@@ -224,17 +307,65 @@ export const matchJobToResume = task({
         educationCount: resumeData.education.length,
       });
 
-      // Enhance job info with screenshots
-      const enhancedJobInfo = await enhanceJobWithScreenshots(
-        validatedPayload.companyName,
-        validatedPayload.jobTitle,
-        validatedPayload.jobDescription,
-      );
+      // Get location, job_url, and discovery_source from application data (if available)
+      let location: string | undefined;
+      let jobUrl: string | undefined;
+      let discoverySource: string | undefined;
+      try {
+        const { data: application } = await supabase
+          .from("applications")
+          .select("location, job_url, discovery_source")
+          .eq("id", validatedPayload.applicationId)
+          .single();
 
-      logger.info("🔍 Screenshot capture completed", {
+        location = application?.location;
+        jobUrl = application?.job_url;
+        discoverySource = application?.discovery_source;
+      } catch (error) {
+        logger.warn("Could not fetch application data", { error });
+      }
+
+      // Only enhance job info for jobs from linkedin-scraper
+      let enhancedJobInfo: EnhancedJobInfo;
+      if (discoverySource === "linkedin") {
+        enhancedJobInfo = await enhanceJobWithJSearchOrScreenshots(
+          validatedPayload.companyName,
+          validatedPayload.jobTitle,
+          validatedPayload.jobDescription,
+          location,
+        );
+      } else {
+        // For non-LinkedIn jobs, create minimal enhanced job info structure
+        enhancedJobInfo = {
+          originalJobDescription: validatedPayload.jobDescription,
+          screenshots: [],
+          enhancementSource: "none" as const,
+        };
+      }
+
+      logger.info("🔍 Job enhancement completed", {
+        discoverySource,
+        enhancementPerformed: discoverySource === "linkedin",
         originalLength: validatedPayload.jobDescription.length,
         screenshotsCount: enhancedJobInfo.screenshots.length,
+        enhancementSource: enhancedJobInfo.enhancementSource,
+        hasJSearchData: !!enhancedJobInfo.jsearchData,
+        linkedinJobId: enhancedJobInfo.jsearchData?.linkedinJobId,
       });
+
+      // Update the jobs table with enhanced data if we have JSearch results and a job URL
+      if (
+        enhancedJobInfo.jsearchRawData &&
+        enhancedJobInfo.enhancementSource === "jsearch" &&
+        jobUrl
+      ) {
+        await updateJobWithEnhancedData(
+          supabase,
+          jobUrl,
+          enhancedJobInfo.jsearchRawData,
+          enhancedJobInfo.jsearchData?.linkedinJobId,
+        );
+      }
 
       // Generate comprehensive match analysis
       const matchResult = await generateMatchAnalysis(
@@ -245,7 +376,12 @@ export const matchJobToResume = task({
       );
 
       // Save results
-      await saveMatchResult(supabase, validatedPayload, matchResult);
+      await saveMatchResult(
+        supabase,
+        validatedPayload,
+        matchResult,
+        enhancedJobInfo,
+      );
 
       const processingTime = Date.now() - startTime;
       logger.info("🎉 Job-resume matching completed", {
@@ -253,6 +389,8 @@ export const matchJobToResume = task({
         resumeId: validatedPayload.resumeId,
         overallScore: matchResult.overall_fit_score,
         processingTimeMs: processingTime,
+        enhancementSource: enhancedJobInfo.enhancementSource,
+        hadJSearchData: !!enhancedJobInfo.jsearchData,
       });
 
       return {
@@ -264,6 +402,9 @@ export const matchJobToResume = task({
           education: matchResult.education_match_score,
         },
         processingTimeMs: processingTime,
+        enhancementSource: enhancedJobInfo.enhancementSource,
+        jsearchJobId: enhancedJobInfo.jsearchData?.jobId,
+        linkedinJobId: enhancedJobInfo.jsearchData?.linkedinJobId,
       };
     } catch (error) {
       const processingTime = Date.now() - startTime;
@@ -290,9 +431,214 @@ interface SerperResponse {
   organic?: SerperSearchResult[];
 }
 
+// JSearch API interface
+interface JSearchResponse {
+  status: string;
+  request_id?: string;
+  parameters?: {
+    query: string;
+    page: number;
+    num_pages: number;
+    country?: string;
+  };
+  data: z.infer<typeof JSearchJobSchema>[];
+}
+
+async function searchJobsWithJSearch(
+  companyName: string,
+  jobTitle: string,
+  location?: string,
+): Promise<z.infer<typeof JSearchJobSchema>[]> {
+  if (!process.env.RAPIDAPI_JSEARCH_KEY) {
+    logger.warn("JSearch API not configured, skipping JSearch job search");
+    return [];
+  }
+
+  try {
+    // Build query: "company jobTitle jobs location"
+    const query = `${companyName} ${jobTitle} jobs${location ? ` ${location}` : ""}`;
+
+    logger.info("🔍 Searching JSearch for job enhancements", {
+      query,
+      company: companyName,
+      jobTitle,
+      location,
+    });
+
+    const response = await fetch(
+      `https://jsearch.p.rapidapi.com/search?${new URLSearchParams({
+        query,
+        page: "1",
+        num_pages: "1",
+        date_posted: "month", // Recent jobs only
+      }).toString()}`,
+      {
+        method: "GET",
+        headers: {
+          "X-RapidAPI-Key": process.env.RAPIDAPI_JSEARCH_KEY,
+          "X-RapidAPI-Host": "jsearch.p.rapidapi.com",
+        },
+      },
+    );
+
+    if (!response.ok) {
+      logger.warn("JSearch API request failed", {
+        status: response.status,
+        statusText: response.statusText,
+      });
+      return [];
+    }
+
+    const data: JSearchResponse = await response.json();
+
+    if (data.status !== "OK" || !data.data || data.data.length === 0) {
+      logger.info("No jobs found in JSearch results", {
+        status: data.status,
+        company: companyName,
+        jobTitle,
+      });
+      return [];
+    }
+
+    logger.info("✅ JSearch returned job results", {
+      count: data.data.length,
+      company: companyName,
+      jobTitle,
+    });
+
+    return data.data;
+  } catch (error) {
+    logger.error("Error searching jobs with JSearch", {
+      error: error instanceof Error ? error.message : String(error),
+      company: companyName,
+      jobTitle,
+    });
+    return [];
+  }
+}
+
+// Calculate similarity between company names and job titles
+function calculateJobSimilarity(
+  target: { company: string; title: string },
+  candidate: { company: string; title: string },
+): number {
+  // Normalize strings for comparison
+  const normalizeString = (str: string) =>
+    str
+      .toLowerCase()
+      .replace(/[^\w\s]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+
+  const targetCompany = normalizeString(target.company);
+  const candidateCompany = normalizeString(candidate.company);
+  const targetTitle = normalizeString(target.title);
+  const candidateTitle = normalizeString(candidate.title);
+
+  // Calculate similarity scores
+  const companySimilarity = calculateStringSimilarity(
+    targetCompany,
+    candidateCompany,
+  );
+  const titleSimilarity = calculateStringSimilarity(
+    targetTitle,
+    candidateTitle,
+  );
+
+  // Weight company match higher than title
+  return companySimilarity * 0.6 + titleSimilarity * 0.4;
+}
+
+// Simple string similarity calculation
+function calculateStringSimilarity(str1: string, str2: string): number {
+  const words1 = str1.split(" ");
+  const words2 = str2.split(" ");
+
+  let matches = 0;
+  for (const word1 of words1) {
+    if (
+      words2.some(
+        (word2) =>
+          word2 === word1 || word2.includes(word1) || word1.includes(word2),
+      )
+    ) {
+      matches++;
+    }
+  }
+
+  return matches / Math.max(words1.length, words2.length);
+}
+
+// Find best matching job from JSearch results
+function findBestJobMatch(
+  targetCompany: string,
+  targetTitle: string,
+  jsearchJobs: z.infer<typeof JSearchJobSchema>[],
+): z.infer<typeof JSearchJobSchema> | null {
+  if (jsearchJobs.length === 0) return null;
+
+  const jobsWithScores = jsearchJobs.map((job) => ({
+    job,
+    score: calculateJobSimilarity(
+      { company: targetCompany, title: targetTitle },
+      { company: job.employer_name, title: job.job_title },
+    ),
+  }));
+
+  // Sort by score descending
+  jobsWithScores.sort((a, b) => b.score - a.score);
+
+  // Return best match if score is above threshold
+  const bestMatch = jobsWithScores[0];
+  if (bestMatch.score >= 0.5) {
+    logger.info("Found best job match", {
+      targetCompany,
+      targetTitle,
+      matchedCompany: bestMatch.job.employer_name,
+      matchedTitle: bestMatch.job.job_title,
+      score: bestMatch.score,
+    });
+    return bestMatch.job;
+  }
+
+  logger.info("No suitable job match found", {
+    targetCompany,
+    targetTitle,
+    bestScore: bestMatch.score,
+  });
+  return null;
+}
+
+// Helper to derive 2-letter country code for Serper based on free-text location
+function getCountryCodeFromLocation(location?: string): string {
+  if (!location) return "us"; // default
+
+  const countryMap: Record<string, string> = {
+    canada: "ca",
+    "united states": "us",
+    usa: "us",
+    us: "us",
+    "united kingdom": "gb",
+    uk: "gb",
+    germany: "de",
+    france: "fr",
+    australia: "au",
+    india: "in",
+  };
+
+  const lower = location.toLowerCase();
+
+  for (const [key, code] of Object.entries(countryMap)) {
+    if (lower.includes(key)) return code;
+  }
+
+  return "us"; // fallback
+}
+
 async function searchJobPostings(
   companyName: string,
   jobTitle: string,
+  location?: string,
 ): Promise<string[]> {
   if (!process.env.SERPER_API_KEY) {
     logger.warn("Serper API not configured, skipping job search");
@@ -300,8 +646,11 @@ async function searchJobPostings(
   }
 
   try {
-    // Create targeted search query for job postings
-    const query = `"${companyName}" "${jobTitle}" jobs (site:careers OR site:jobs OR site:linkedin.com/jobs OR site:indeed.com OR site:glassdoor.com)`;
+    // Create targeted search query for job postings (append location if provided)
+    const query = `"${companyName}" "${jobTitle}" jobs${location ? ` ${location}` : ""}`;
+
+    // Geo-location parameter (2-letter country code)
+    const gl = getCountryCodeFromLocation(location);
 
     const response = await fetch("https://google.serper.dev/search", {
       method: "POST",
@@ -312,7 +661,7 @@ async function searchJobPostings(
       body: JSON.stringify({
         q: query,
         num: 3, // Get top 3 results
-        tbs: "qdr:m", // Past month - fresh job postings only
+        gl: gl,
       }),
     });
 
@@ -458,24 +807,276 @@ async function captureJobScreenshots(urls: string[]): Promise<
   }
 }
 
-async function enhanceJobWithScreenshots(
+// Extract LinkedIn job ID from apply options
+function extractLinkedInJobId(
+  applyOptions?: Array<{ publisher: string; apply_link: string }>,
+): string | undefined {
+  if (!applyOptions) return undefined;
+
+  const linkedInOption = applyOptions.find(
+    (opt) =>
+      opt.publisher === "LinkedIn" ||
+      opt.apply_link.includes("linkedin.com/jobs/view/"),
+  );
+
+  if (!linkedInOption) return undefined;
+
+  // Extract job ID from LinkedIn URL
+  // LinkedIn URLs have format: /jobs/view/[job-title-slug]-[numeric-job-id]
+  // We need to extract just the numeric ID at the end
+  const match = linkedInOption.apply_link.match(
+    /linkedin\.com\/jobs\/view\/[^/]+-(\d+)/,
+  );
+  return match ? match[1] : undefined;
+}
+
+// Update jobs table with enhanced data from JSearch
+async function updateJobWithEnhancedData(
+  supabase: ReturnType<typeof createClient>,
+  jobUrl: string,
+  jsearchData: z.infer<typeof JSearchJobSchema>,
+  linkedinJobId?: string,
+): Promise<void> {
+  try {
+    // First, find the job by URL
+    const { data: existingJob, error: fetchError } = await supabase
+      .from("jobs")
+      .select("*")
+      .eq("job_url", jobUrl)
+      .single();
+
+    if (fetchError || !existingJob) {
+      logger.warn("Could not find job to update", {
+        jobUrl,
+        error: fetchError,
+      });
+      return;
+    }
+
+    // Build update object with only null/empty fields
+    const updates: Record<string, unknown> = {};
+    let hasUpdates = false;
+
+    // Update salary fields if missing
+    if (!existingJob.salary_min && jsearchData.job_min_salary !== null) {
+      updates.salary_min = jsearchData.job_min_salary;
+      hasUpdates = true;
+    }
+    if (!existingJob.salary_max && jsearchData.job_max_salary !== null) {
+      updates.salary_max = jsearchData.job_max_salary;
+      hasUpdates = true;
+    }
+    if (!existingJob.salary_currency && jsearchData.job_salary_currency) {
+      updates.salary_currency = jsearchData.job_salary_currency;
+      hasUpdates = true;
+    }
+    if (!existingJob.salary_period && jsearchData.job_salary_period) {
+      updates.salary_period = jsearchData.job_salary_period;
+      hasUpdates = true;
+    }
+
+    // Update salary_json if missing
+    if (
+      !existingJob.salary_json &&
+      (jsearchData.job_min_salary !== null ||
+        jsearchData.job_max_salary !== null)
+    ) {
+      updates.salary_json = {
+        min: jsearchData.job_min_salary,
+        max: jsearchData.job_max_salary,
+        currency: jsearchData.job_salary_currency || "USD",
+        period: jsearchData.job_salary_period || "yearly",
+      };
+      hasUpdates = true;
+    }
+
+    // Update employment type if missing
+    if (!existingJob.employment_type && jsearchData.job_employment_type) {
+      updates.employment_type = jsearchData.job_employment_type;
+      hasUpdates = true;
+    }
+
+    // Update company fields if missing
+    if (!existingJob.company_url && jsearchData.employer_website) {
+      updates.company_url = jsearchData.employer_website;
+      hasUpdates = true;
+    }
+    if (!existingJob.company_logo && jsearchData.employer_logo) {
+      updates.company_logo = jsearchData.employer_logo;
+      hasUpdates = true;
+    }
+
+    // Update apply link if missing
+    if (!existingJob.apply_link && jsearchData.job_apply_link) {
+      updates.apply_link = jsearchData.job_apply_link;
+      hasUpdates = true;
+    }
+
+    // Update description if missing or very short
+    if (
+      (!existingJob.description || existingJob.description.length < 100) &&
+      jsearchData.job_description
+    ) {
+      updates.description = jsearchData.job_description;
+      hasUpdates = true;
+    }
+
+    // Update extra_data with JSearch enhancement info
+    const enhancedExtraData = {
+      ...(existingJob.extra_data || {}),
+      jsearch_enhancement: {
+        job_id: jsearchData.job_id,
+        enhanced_at: new Date().toISOString(),
+        linkedin_job_id: linkedinJobId,
+        apply_options: jsearchData.apply_options,
+        job_highlights: jsearchData.job_highlights,
+        job_benefits: jsearchData.job_benefits,
+        required_experience: jsearchData.job_required_experience,
+        employer_linkedin: jsearchData.employer_linkedin,
+      },
+    };
+    updates.extra_data = enhancedExtraData;
+    hasUpdates = true;
+
+    // Update the timestamp
+    updates.updated_at = new Date().toISOString();
+
+    if (hasUpdates) {
+      const { error: updateError } = await supabase
+        .from("jobs")
+        .update(updates)
+        .eq("id", existingJob.id);
+
+      if (updateError) {
+        logger.error("Failed to update job with enhanced data", {
+          jobId: existingJob.id,
+          error: updateError,
+        });
+      } else {
+        logger.info("✅ Updated job with JSearch enhanced data", {
+          jobId: existingJob.id,
+          jobUrl,
+          updatedFields: Object.keys(updates).filter(
+            (k) => k !== "updated_at" && k !== "extra_data",
+          ),
+          hadSalary: !!updates.salary_min || !!updates.salary_max,
+          hadEmploymentType: !!updates.employment_type,
+          hadCompanyUrl: !!updates.company_url,
+          hadApplyLink: !!updates.apply_link,
+          linkedinJobId,
+        });
+      }
+    } else {
+      logger.info("No updates needed - job already has complete data", {
+        jobId: existingJob.id,
+        jobUrl,
+      });
+    }
+  } catch (error) {
+    logger.error("Error updating job with enhanced data", {
+      jobUrl,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+async function enhanceJobWithJSearchOrScreenshots(
   companyName: string,
   jobTitle: string,
   originalJobDescription: string,
+  location?: string,
 ): Promise<EnhancedJobInfo> {
-  logger.info("🔍 Searching for job posting screenshots", {
+  logger.info("🔍 Starting job enhancement", {
     companyName,
     jobTitle,
+    location,
+    method: process.env.RAPIDAPI_JSEARCH_KEY
+      ? "jsearch_primary"
+      : "serper_only",
   });
 
   try {
-    // Step 1: Search for job posting URLs (optional - requires Serper API)
-    const jobUrls = await searchJobPostings(companyName, jobTitle);
+    // Step 1: Try JSearch first if API key is available
+    if (process.env.RAPIDAPI_JSEARCH_KEY) {
+      const jsearchJobs = await searchJobsWithJSearch(
+        companyName,
+        jobTitle,
+        location,
+      );
 
-    // Step 2: Capture screenshots of found URLs (no proxy needed)
+      if (jsearchJobs.length > 0) {
+        // Find best matching job
+        const bestMatch = findBestJobMatch(companyName, jobTitle, jsearchJobs);
+
+        if (bestMatch) {
+          // Extract LinkedIn job ID from apply options
+          const linkedinJobId = extractLinkedInJobId(bestMatch.apply_options);
+
+          logger.info("✅ JSearch enhancement successful", {
+            companyName,
+            jobTitle,
+            matchedCompany: bestMatch.employer_name,
+            matchedTitle: bestMatch.job_title,
+            hasLinkedInId: !!linkedinJobId,
+            linkedinJobId,
+            applyOptionsCount: bestMatch.apply_options?.length || 0,
+          });
+
+          return {
+            originalJobDescription,
+            screenshots: [],
+            jsearchData: {
+              jobId: bestMatch.job_id,
+              applyOptions: bestMatch.apply_options,
+              linkedinJobId,
+              fullDescription: bestMatch.job_description,
+              highlights: bestMatch.job_highlights
+                ? {
+                    qualifications: bestMatch.job_highlights.Qualifications,
+                    responsibilities: bestMatch.job_highlights.Responsibilities,
+                    benefits: bestMatch.job_highlights.Benefits,
+                  }
+                : undefined,
+              requiredExperience: bestMatch.job_required_experience,
+              salary: {
+                min: bestMatch.job_min_salary,
+                max: bestMatch.job_max_salary,
+                currency: bestMatch.job_salary_currency,
+                period: bestMatch.job_salary_period,
+              },
+              employerWebsite: bestMatch.employer_website,
+              employerLinkedin: bestMatch.employer_linkedin,
+              employmentType: bestMatch.job_employment_type,
+            },
+            jsearchRawData: bestMatch, // Include raw data for job table update
+            enhancementSource: "jsearch",
+          };
+        }
+      }
+
+      logger.info(
+        "⚠️ JSearch did not find suitable matches, falling back to screenshots",
+        {
+          companyName,
+          jobTitle,
+          jsearchResultsCount: jsearchJobs.length,
+        },
+      );
+    }
+
+    // Step 2: Fall back to Serper screenshots if JSearch fails or is not available
+    logger.info("📸 Using Serper screenshot approach", {
+      companyName,
+      jobTitle,
+    });
+
+    // Search for job posting URLs (requires Serper API)
+    const jobUrls = await searchJobPostings(companyName, jobTitle, location);
+
+    // Capture screenshots of found URLs
     const screenshots = await captureJobScreenshots(jobUrls);
 
-    logger.info("🎯 Job enhancement completed", {
+    logger.info("🎯 Screenshot enhancement completed", {
       originalDescriptionLength: originalJobDescription.length,
       urlsFound: jobUrls.length,
       screenshotsCaptured: screenshots.length,
@@ -484,15 +1085,19 @@ async function enhanceJobWithScreenshots(
     return {
       originalJobDescription,
       screenshots,
+      enhancementSource: screenshots.length > 0 ? "serper_screenshots" : "none",
     };
   } catch (error) {
-    logger.error("❌ Failed to enhance job with screenshots", {
+    logger.error("❌ Failed to enhance job", {
       error: error instanceof Error ? error.message : String(error),
+      companyName,
+      jobTitle,
     });
 
     return {
       originalJobDescription,
       screenshots: [],
+      enhancementSource: "none",
     };
   }
 }
@@ -511,6 +1116,8 @@ async function generateMatchAnalysis(
     companyName,
     resumeLength: resumeText.length,
     screenshotsCount: enhancedJobInfo.screenshots.length,
+    enhancementSource: enhancedJobInfo.enhancementSource,
+    hasJSearchData: !!enhancedJobInfo.jsearchData,
   });
 
   // Prepare content parts including text and images
@@ -527,6 +1134,57 @@ POSITION: ${jobTitle}
 
 JOB DESCRIPTION:
 ${enhancedJobInfo.originalJobDescription}
+
+${
+  enhancedJobInfo.jsearchData
+    ? `ENHANCED JOB DATA FROM JSEARCH:
+- Full Job Description: ${enhancedJobInfo.jsearchData.fullDescription || "Not available"}
+- LinkedIn Job ID: ${enhancedJobInfo.jsearchData.linkedinJobId || "Not found"}
+- Employment Type: ${enhancedJobInfo.jsearchData.employmentType || "Not specified"}
+- Salary Range: ${
+        enhancedJobInfo.jsearchData.salary?.min ||
+        enhancedJobInfo.jsearchData.salary?.max
+          ? `${enhancedJobInfo.jsearchData.salary.currency || "USD"} ${
+              enhancedJobInfo.jsearchData.salary.min || "?"
+            }-${enhancedJobInfo.jsearchData.salary.max || "?"} ${
+              enhancedJobInfo.jsearchData.salary.period || "yearly"
+            }`
+          : "Not specified"
+      }
+- Required Experience: ${
+        enhancedJobInfo.jsearchData.requiredExperience?.no_experience_required
+          ? "No experience required"
+          : enhancedJobInfo.jsearchData.requiredExperience
+                ?.required_experience_in_months
+            ? `${enhancedJobInfo.jsearchData.requiredExperience.required_experience_in_months} months`
+            : "Not specified"
+      }
+${
+  enhancedJobInfo.jsearchData.highlights?.qualifications?.length
+    ? `- Key Qualifications: ${enhancedJobInfo.jsearchData.highlights.qualifications.join("; ")}`
+    : ""
+}
+${
+  enhancedJobInfo.jsearchData.highlights?.responsibilities?.length
+    ? `- Key Responsibilities: ${enhancedJobInfo.jsearchData.highlights.responsibilities.join("; ")}`
+    : ""
+}
+${
+  enhancedJobInfo.jsearchData.highlights?.benefits?.length
+    ? `- Benefits: ${enhancedJobInfo.jsearchData.highlights.benefits.join("; ")}`
+    : ""
+}
+- Employer Website: ${enhancedJobInfo.jsearchData.employerWebsite || "Not available"}
+- Employer LinkedIn: ${enhancedJobInfo.jsearchData.employerLinkedin || "Not available"}
+
+Apply Options:
+${
+  enhancedJobInfo.jsearchData.applyOptions
+    ?.map((opt) => `- ${opt.publisher}: ${opt.apply_link}`)
+    .join("\n") || "Not available"
+}`
+    : ""
+}
 </job_context>
 
 <candidate_profile>
@@ -949,45 +1607,81 @@ async function saveMatchResult(
   supabase: ReturnType<typeof createClient>,
   payload: z.infer<typeof JobResumeMatchingPayloadSchema>,
   matchResult: JobResumeMatchResult,
+  enhancedJobInfo: EnhancedJobInfo,
 ): Promise<void> {
   try {
-    const { error } = await supabase.from("application_resume_matches").upsert({
-      application_id: payload.applicationId,
-      resume_id: payload.resumeId,
-      user_id: payload.userId,
+    // Store JSearch enhancement info in the job_analysis field as part of the JSON
+    const enhancedJobAnalysis = {
+      ...JSON.parse(matchResult.job_analysis || "{}"),
+      enhancement_source: enhancedJobInfo.enhancementSource,
+      jsearch_job_id: enhancedJobInfo.jsearchData?.jobId,
+      linkedin_job_id: enhancedJobInfo.jsearchData?.linkedinJobId,
+      apply_options: enhancedJobInfo.jsearchData?.applyOptions,
+      employer_website: enhancedJobInfo.jsearchData?.employerWebsite,
+      employer_linkedin: enhancedJobInfo.jsearchData?.employerLinkedin,
+      jsearch_salary: enhancedJobInfo.jsearchData?.salary,
+      jsearch_employment_type: enhancedJobInfo.jsearchData?.employmentType,
+      jsearch_required_experience:
+        enhancedJobInfo.jsearchData?.requiredExperience,
+      screenshots_count: enhancedJobInfo.screenshots.length,
+    };
 
-      // Core scores
-      overall_fit_score: matchResult.overall_fit_score,
-      skills_match_score: matchResult.skills_match_score,
-      experience_match_score: matchResult.experience_match_score,
-      education_match_score: matchResult.education_match_score,
+    const { error } = await supabase.from("application_resume_matches").upsert(
+      {
+        application_id: payload.applicationId,
+        resume_id: payload.resumeId,
+        user_id: payload.userId,
 
-      // Enhanced detailed analysis fields
-      matched_skills: matchResult.matched_skills,
-      missing_skills: matchResult.missing_skills,
-      relevant_experiences: matchResult.relevant_experiences,
+        // Core scores
+        overall_fit_score: matchResult.overall_fit_score,
+        skills_match_score: matchResult.skills_match_score,
+        experience_match_score: matchResult.experience_match_score,
+        education_match_score: matchResult.education_match_score,
 
-      // Job requirements breakdown
-      job_requirements_extracted: matchResult.job_requirements_extracted,
-      job_required_skills: matchResult.job_required_skills,
-      job_preferred_skills: matchResult.job_preferred_skills,
-      job_experience_level: matchResult.job_experience_level,
-      job_education_requirements: matchResult.job_education_requirements,
+        // Enhanced detailed analysis fields
+        matched_skills: matchResult.matched_skills,
+        missing_skills: matchResult.missing_skills,
+        relevant_experiences: matchResult.relevant_experiences,
 
-      // AI analysis metadata
-      match_analysis_confidence: matchResult.match_analysis_confidence,
-      suggestions_for_improvement: matchResult.suggestions_for_improvement,
+        // Job requirements breakdown
+        job_requirements_extracted: matchResult.job_requirements_extracted,
+        job_required_skills: matchResult.job_required_skills,
+        job_preferred_skills: matchResult.job_preferred_skills,
+        job_experience_level: matchResult.job_experience_level,
+        job_education_requirements: matchResult.job_education_requirements,
 
-      // Existing fields (for backward compatibility)
-      job_analysis: matchResult.job_analysis,
-      strengths: matchResult.strengths,
-      weaknesses: matchResult.weaknesses,
-      recommendations: matchResult.recommendations,
-      match_reasoning: matchResult.match_reasoning,
-      calculated_at: matchResult.calculated_at,
-    });
+        // AI analysis metadata
+        match_analysis_confidence: matchResult.match_analysis_confidence,
+        suggestions_for_improvement: matchResult.suggestions_for_improvement,
+
+        // Existing fields (for backward compatibility)
+        job_analysis: JSON.stringify(enhancedJobAnalysis),
+        strengths: matchResult.strengths,
+        weaknesses: matchResult.weaknesses,
+        recommendations: matchResult.recommendations,
+        match_reasoning: matchResult.match_reasoning,
+        calculated_at: matchResult.calculated_at,
+      },
+      {
+        onConflict: "application_id,resume_id",
+        ignoreDuplicates: false,
+      },
+    );
 
     if (error) {
+      // Check if it's a duplicate key error
+      if (error.code === "23505" || error.message.includes("duplicate key")) {
+        logger.warn(
+          "Match already exists, likely due to concurrent execution",
+          {
+            applicationId: payload.applicationId,
+            resumeId: payload.resumeId,
+            error: error.message,
+          },
+        );
+        // Don't throw error for duplicates since the match already exists
+        return;
+      }
       throw new Error(`Database save failed: ${error.message}`);
     }
 
@@ -998,6 +1692,9 @@ async function saveMatchResult(
       confidenceScore: matchResult.match_analysis_confidence,
       matchedSkillsCount: matchResult.matched_skills.length,
       missingSkillsCount: matchResult.missing_skills.length,
+      enhancementSource: enhancedJobInfo.enhancementSource,
+      hadJSearchData: !!enhancedJobInfo.jsearchData,
+      linkedinJobId: enhancedJobInfo.jsearchData?.linkedinJobId,
     });
   } catch (error) {
     logger.error("❌ Failed to save match result", {

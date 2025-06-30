@@ -1359,7 +1359,7 @@ async function createEnhancedOpportunityApplication(
       application_date: new Date().toISOString().split("T")[0],
       job_url: jobData.url,
       location: jobData.location,
-      notes: jobData.description || jobData.job_summary,
+      job_description: jobData.description || jobData.job_summary,
       source_type: "job_discovery",
       discovery_source: jobData.source,
       opportunity_source: jobData.source,
@@ -1537,9 +1537,9 @@ export const runJobDiscovery = task({
             const getMaxPages = (tier: string) => {
               switch (tier) {
                 case "executive":
-                  return 5; // Executive: 5 pages (50 results per search)
+                  return 4; // Executive: 4 pages (40 results per search)
                 case "pro":
-                  return 3; // Pro: 3 pages (30 results per search)
+                  return 2; // Pro: 2 pages (20 results per search)
                 default:
                   return 1; // Free: 1 page (10 results per search)
               }
@@ -1658,9 +1658,9 @@ export const runJobDiscovery = task({
           const getPageLimit = (tier: string) => {
             switch (tier) {
               case "executive":
-                return 10;
+                return 4;
               case "pro":
-                return 5;
+                return 2;
               default:
                 return 1;
             }
@@ -1888,21 +1888,18 @@ export const runJobDiscovery = task({
 
                 // Opportunity scoring has been removed
 
-                logger.info(
-                  "Web job discovered and saved",
-                  {
-                    jobId,
-                    title: processedJob.title,
-                    company: processedJob.company,
-                    url: processedJob.url,
-                    userId,
-                    confidence: processedJob.analysis_confidence,
-                    hasAIEnhancement: !!processedJob.analysis_confidence,
-                    skillsExtracted:
-                      (processedJob.skills_required?.length || 0) +
-                      (processedJob.skills_preferred?.length || 0),
-                  },
-                );
+                logger.info("Web job discovered and saved", {
+                  jobId,
+                  title: processedJob.title,
+                  company: processedJob.company,
+                  url: processedJob.url,
+                  userId,
+                  confidence: processedJob.analysis_confidence,
+                  hasAIEnhancement: !!processedJob.analysis_confidence,
+                  skillsExtracted:
+                    (processedJob.skills_required?.length || 0) +
+                    (processedJob.skills_preferred?.length || 0),
+                });
               }
             } else {
               logger.warn("Failed to save Serper job to universal jobs", {

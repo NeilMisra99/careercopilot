@@ -44,7 +44,7 @@ const getCachedMatchesData = unstable_cache(
 
       // Fetch matches and stats in parallel
       const [matchesResponse, statsResponse] = await Promise.all([
-        fetch(`${workerUrl}/api/matches`, {
+        fetch(`${workerUrl}/api/matches?limit=20&page=1`, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",

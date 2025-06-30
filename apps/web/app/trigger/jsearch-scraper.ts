@@ -1066,14 +1066,11 @@ export const jsearchScraper = task({
             } else {
               // Opportunity scoring has been removed
 
-              logger.info(
-                "✅ JSearch job discovered and saved",
-                {
-                  jobId,
-                  title: job.job_title,
-                  company: job.employer_name,
-                },
-              );
+              logger.info("✅ JSearch job discovered and saved", {
+                jobId,
+                title: job.job_title,
+                company: job.employer_name,
+              });
             }
           } else {
             logger.warn("⚠️ Failed to save job", {
