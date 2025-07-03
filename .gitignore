@@ -18,4 +18,9 @@
 resume-schedules.ts
 pause-schedules.ts
 
+*.log
+
+*.json
+
+
 
