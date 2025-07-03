@@ -1,4 +1,5 @@
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { SupabaseClient } from "@supabase/supabase-js";
 import { logger, task } from "@trigger.dev/sdk/v3";
 import { generateText } from "ai";
 import { z } from "zod";
@@ -43,7 +44,9 @@ const InterviewQuestionSchema = z.object({
   followUps: z.array(z.string()).optional(),
   skillsAssessed: z.array(z.string()).optional(),
   estimatedTime: z.number().optional(),
-  interviewFlowPosition: z.enum(["opening", "early", "middle", "late", "closing"]).optional(),
+  interviewFlowPosition: z
+    .enum(["opening", "early", "middle", "late", "closing"])
+    .optional(),
   personalizationNotes: z.string().optional(),
   qualityScore: z.number().min(0).max(1).optional(),
   complexityLevel: z.number().int().min(1).max(5).optional(),
@@ -60,44 +63,50 @@ const InterviewQuestionsResponseSchema = z.object({
 
 // Helper function to check if all AI generation is complete and auto-transition session
 async function checkAndAutoTransitionSession(
-  supabase: any,
+  supabase: SupabaseClient,
   sessionId: string,
   userId: string,
-  logger: any
 ) {
   try {
     const { data: sessionCheck } = await supabase
       .from("interview_sessions")
-      .select("id, status, question_generation_status, brief_generation_status, star_generation_status, generation_metadata")
+      .select(
+        "id, status, question_generation_status, brief_generation_status, star_generation_status, generation_metadata",
+      )
       .eq("id", sessionId)
       .eq("user_id", userId)
       .single();
 
-    if (sessionCheck && 
-        sessionCheck.status === "preparing" &&
-        sessionCheck.question_generation_status === "completed" &&
-        sessionCheck.brief_generation_status === "completed" &&
-        sessionCheck.star_generation_status === "completed") {
-      
+    if (
+      sessionCheck &&
+      sessionCheck.status === "preparing" &&
+      sessionCheck.question_generation_status === "completed" &&
+      sessionCheck.brief_generation_status === "completed" &&
+      sessionCheck.star_generation_status === "completed"
+    ) {
       await supabase
         .from("interview_sessions")
-        .update({ 
+        .update({
           status: "ready",
           generation_metadata: {
             ...sessionCheck.generation_metadata,
             auto_transitioned_at: new Date().toISOString(),
-            auto_transition_reason: "all_ai_generation_completed"
-          }
+            auto_transition_reason: "all_ai_generation_completed",
+          },
         })
         .eq("id", sessionId)
         .eq("user_id", userId);
-        
+
       logger.info("Auto-transitioned session to ready", { sessionId, userId });
       return true;
     }
     return false;
   } catch (error) {
-    logger.error("Error in auto-transition check", { sessionId, userId, error });
+    logger.error("Error in auto-transition check", {
+      sessionId,
+      userId,
+      error,
+    });
     return false;
   }
 }
@@ -149,7 +158,9 @@ export const generateInterviewQuestions = task({
           .update(updateData)
           .eq("id", sessionId)
           .eq("user_id", userId)
-          .select("id, question_generation_status, generation_progress, generation_metadata")
+          .select(
+            "id, question_generation_status, generation_progress, generation_metadata",
+          )
           .single();
 
         if (error) {
@@ -179,7 +190,11 @@ export const generateInterviewQuestions = task({
 
     try {
       // Update session status to processing with initial progress
-      await updateProgress("initializing", "Starting question generation...", 5);
+      await updateProgress(
+        "initializing",
+        "Starting question generation...",
+        5,
+      );
       // Check if questions already exist for this session (unless force refresh)
       if (!forceRefresh) {
         const { data: existingQuestions } = await supabase
@@ -218,7 +233,11 @@ export const generateInterviewQuestions = task({
       }
 
       // Update progress: gathering data
-      await updateProgress("gathering_data", "Fetching application and resume data...", 20);
+      await updateProgress(
+        "gathering_data",
+        "Fetching application and resume data...",
+        20,
+      );
 
       // Get application data
       const { data: applicationData, error: appError } = await supabase
@@ -312,23 +331,30 @@ export const generateInterviewQuestions = task({
       logger.info("Gathered data for question generation", {
         sessionId,
         hasJobDescription: !!applicationData?.job_description,
-        hasCompanyEnrichment: !!applicationData?.company_enrichment,
+        hasCompanyEnrichment:
+          !!applicationData?.company_enrichment &&
+          Array.isArray(applicationData.company_enrichment) &&
+          applicationData.company_enrichment.length > 0,
         starStoriesCount: starStories?.length || 0,
       });
 
       // Update progress: generating with AI
       await updateProgress(
-        "ai_generation", 
-        "Generating questions with AI...", 
+        "ai_generation",
+        "Generating questions with AI...",
         50,
-        { session_type: sessionType }
+        { session_type: sessionType },
       );
 
       // Generate questions using AI
       logger.info("Generating questions with AI", { sessionId, sessionType });
 
       // Add intermediate progress updates for smoother UX
-      await updateProgress("ai_generation", "AI is analyzing the job requirements...", 60);
+      await updateProgress(
+        "ai_generation",
+        "AI is analyzing the job requirements...",
+        60,
+      );
 
       const response = await generateText({
         model,
@@ -360,36 +386,48 @@ Your expertise includes:
 ${applicationData?.job_description || applicationData?.notes || "Not provided"}
 
 **Company Intelligence:**
-${applicationData?.company_enrichment ? `
-- Company: ${applicationData.company_enrichment.company_name}
-- Industry: ${applicationData.company_enrichment.industry}
-- Size: ${applicationData.company_enrichment.company_size}
-- Description: ${applicationData.company_enrichment.description}
-- Recent News: ${applicationData.company_enrichment.news_data ? JSON.stringify(applicationData.company_enrichment.news_data) : "None"}
-- Funding: ${applicationData.company_enrichment.funding_info ? JSON.stringify(applicationData.company_enrichment.funding_info) : "None"}
-` : "Limited company data available"}
+${
+  applicationData?.company_enrichment &&
+  Array.isArray(applicationData.company_enrichment) &&
+  applicationData.company_enrichment.length > 0
+    ? `
+- Company: ${applicationData.company_enrichment[0].company_name}
+- Industry: ${applicationData.company_enrichment[0].industry}
+- Size: ${applicationData.company_enrichment[0].company_size}
+- Description: ${applicationData.company_enrichment[0].description}
+- Recent News: ${applicationData.company_enrichment[0].news_data ? JSON.stringify(applicationData.company_enrichment[0].news_data) : "None"}
+- Funding: ${applicationData.company_enrichment[0].funding_info ? JSON.stringify(applicationData.company_enrichment[0].funding_info) : "None"}
+`
+    : "Limited company data available"
+}
 
 **Candidate Profile:**
 **Experience Level:** ${resumeData?.resume_experiences?.length > 5 ? "Senior" : resumeData?.resume_experiences?.length > 2 ? "Mid-level" : "Junior"}
 
 **Professional Experience:**
-${resumeData?.resume_experiences?.map(exp => `
+${
+  resumeData?.resume_experiences
+    ?.map(
+      (exp) => `
 - ${exp.job_title} at ${exp.company_name} (${exp.start_date} - ${exp.end_date || "Present"})
   Achievements: ${exp.achievements?.join(", ") || "Not specified"}
   Skills Used: ${exp.skills_used?.join(", ") || "Not specified"}
-`).join("") || "No experience data"}
+`,
+    )
+    .join("") || "No experience data"
+}
 
 **Technical Skills:**
-${resumeData?.resume_skills?.map(skill => `- ${skill.skill_name} (${skill.proficiency_level}, ${skill.years_experience} years)`).join("\n") || "No skills data"}
+${resumeData?.resume_skills?.map((skill) => `- ${skill.skill_name} (${skill.proficiency_level}, ${skill.years_experience} years)`).join("\n") || "No skills data"}
 
 **Education:**
-${resumeData?.resume_education?.map(edu => `- ${edu.degree} in ${edu.field_of_study} from ${edu.institution}`).join("\n") || "No education data"}
+${resumeData?.resume_education?.map((edu) => `- ${edu.degree} in ${edu.field_of_study} from ${edu.institution}`).join("\n") || "No education data"}
 
 **Notable Projects:**
-${resumeData?.resume_projects?.map(proj => `- ${proj.project_name}: ${proj.description} (${proj.technologies_used?.join(", ")})`).join("\n") || "No projects data"}
+${resumeData?.resume_projects?.map((proj) => `- ${proj.project_name}: ${proj.description} (${proj.technologies_used?.join(", ")})`).join("\n") || "No projects data"}
 
 **Available STAR Stories:** ${starStories?.length || 0} stories available
-${starStories?.map(story => `- "${story.title}" (${story.story_category}): Demonstrates ${story.skills_demonstrated?.join(", ")}`).join("\n") || "None available"}
+${starStories?.map((story) => `- "${story.title}" (${story.story_category}): Demonstrates ${story.skills_demonstrated?.join(", ")}`).join("\n") || "None available"}
 
 ## STRATEGIC QUESTION DESIGN
 
@@ -479,7 +517,7 @@ For each question, provide comprehensive details:
         "saving_questions",
         "Saving generated questions...",
         80,
-        { questions_count: questions.length }
+        { questions_count: questions.length },
       );
 
       // Save questions to database
@@ -542,7 +580,7 @@ For each question, provide comprehensive details:
         .eq("user_id", userId);
 
       // Check if all AI generation is complete and auto-transition to in_progress
-      await checkAndAutoTransitionSession(supabase, sessionId, userId, logger);
+      await checkAndAutoTransitionSession(supabase, sessionId, userId);
 
       return {
         success: true,
