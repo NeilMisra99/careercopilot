@@ -162,7 +162,7 @@ export default async function MatchesPage() {
   const matchesData = await getMatchesData(cookieString);
 
   return (
-    <div className="p-6">
+    <div className="mx-auto max-w-7xl p-6">
       <Suspense
         fallback={
           <div className="space-y-8">

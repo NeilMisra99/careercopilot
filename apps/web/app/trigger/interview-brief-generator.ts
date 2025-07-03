@@ -1,4 +1,5 @@
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { SupabaseClient } from "@supabase/supabase-js";
 import { logger, task } from "@trigger.dev/sdk/v3";
 import { generateText } from "ai";
 import { z } from "zod";
@@ -54,6 +55,56 @@ const InterviewBriefResponseSchema = z.object({
   brief: InterviewBriefSchema,
 });
 
+// Helper function to check if all AI generation is complete and auto-transition session
+async function checkAndAutoTransitionSession(
+  supabase: SupabaseClient,
+  sessionId: string,
+  userId: string,
+) {
+  try {
+    const { data: sessionCheck } = await supabase
+      .from("interview_sessions")
+      .select(
+        "id, status, question_generation_status, brief_generation_status, star_generation_status, generation_metadata",
+      )
+      .eq("id", sessionId)
+      .eq("user_id", userId)
+      .single();
+
+    if (
+      sessionCheck &&
+      sessionCheck.status === "preparing" &&
+      sessionCheck.question_generation_status === "completed" &&
+      sessionCheck.brief_generation_status === "completed" &&
+      sessionCheck.star_generation_status === "completed"
+    ) {
+      await supabase
+        .from("interview_sessions")
+        .update({
+          status: "ready",
+          generation_metadata: {
+            ...sessionCheck.generation_metadata,
+            auto_transitioned_at: new Date().toISOString(),
+            auto_transition_reason: "all_ai_generation_completed",
+          },
+        })
+        .eq("id", sessionId)
+        .eq("user_id", userId);
+
+      logger.info("Auto-transitioned session to ready", { sessionId, userId });
+      return true;
+    }
+    return false;
+  } catch (error) {
+    logger.error("Error in auto-transition check", {
+      sessionId,
+      userId,
+      error,
+    });
+    return false;
+  }
+}
+
 export const generateInterviewBrief = task({
   id: "generate-interview-brief",
   run: async (payload: z.infer<typeof BriefGenerationPayloadSchema>) => {
@@ -73,20 +124,65 @@ export const generateInterviewBrief = task({
 
     const supabase = createClient();
 
-    try {
-      // Update session status to processing
-      await supabase
-        .from("interview_sessions")
-        .update({
+    // Helper function to update progress (similar to resume parser)
+    const updateProgress = async (
+      step: string,
+      message: string,
+      progress: number,
+      additionalData?: Record<string, unknown>,
+    ) => {
+      try {
+        const updateData = {
           brief_generation_status: "processing",
-          generation_progress: 0,
+          generation_progress: progress,
           generation_metadata: {
-            step: "initializing",
+            step,
+            message,
             started_at: new Date().toISOString(),
+            trigger_type: "manual",
+            force_refresh: forceRefresh,
+            ...additionalData,
           },
-        })
-        .eq("id", sessionId)
-        .eq("user_id", userId);
+        };
+
+        const { data, error } = await supabase
+          .from("interview_sessions")
+          .update(updateData)
+          .eq("id", sessionId)
+          .eq("user_id", userId)
+          .select(
+            "id, brief_generation_status, generation_progress, generation_metadata",
+          )
+          .single();
+
+        if (error) {
+          logger.error("Failed to update generation progress", {
+            sessionId,
+            error: error.message,
+          });
+          throw error;
+        }
+
+        logger.info("Progress updated", {
+          sessionId,
+          step,
+          progress,
+          message,
+        });
+
+        return data;
+      } catch (error) {
+        logger.error("Error updating progress", {
+          sessionId,
+          error: error instanceof Error ? error.message : "Unknown error",
+        });
+        throw error;
+      }
+    };
+
+    try {
+      // Update session status to processing with initial progress
+      await updateProgress("initializing", "Starting brief generation...", 5);
 
       // Check if brief already exists for this session (unless force refresh)
       if (!forceRefresh) {
@@ -126,17 +222,11 @@ export const generateInterviewBrief = task({
       }
 
       // Update progress: gathering data
-      await supabase
-        .from("interview_sessions")
-        .update({
-          generation_progress: 25,
-          generation_metadata: {
-            step: "gathering_data",
-            message: "Fetching application and resume data",
-          },
-        })
-        .eq("id", sessionId)
-        .eq("user_id", userId);
+      await updateProgress(
+        "gathering_data",
+        "Fetching application and resume data...",
+        25,
+      );
 
       // Get application data with company enrichment
       const { data: applicationData, error: appError } = await supabase
@@ -153,8 +243,9 @@ export const generateInterviewBrief = task({
             description,
             industry,
             company_size,
-            website_url,
-            extra_data
+            website,
+            funding_info,
+            news_data
           )
         `,
         )
@@ -166,17 +257,49 @@ export const generateInterviewBrief = task({
         throw new Error(`Failed to fetch application: ${appError.message}`);
       }
 
-      // Get resume data
+      // Get resume data with related tables
       const { data: resumeData, error: resumeError } = await supabase
         .from("resumes")
         .select(
           `
           parsed_data,
-          experience,
-          education,
-          projects,
-          skills,
-          achievements
+          full_name,
+          email,
+          phone,
+          location,
+          summary,
+          resume_experiences(
+            company_name,
+            job_title,
+            start_date,
+            end_date,
+            is_current,
+            description,
+            achievements,
+            skills_used
+          ),
+          resume_education(
+            institution,
+            degree,
+            field_of_study,
+            start_date,
+            end_date,
+            description,
+            relevant_coursework
+          ),
+          resume_projects(
+            project_name,
+            description,
+            technologies_used,
+            project_url,
+            github_url
+          ),
+          resume_skills(
+            skill_name,
+            skill_category,
+            proficiency_level,
+            years_experience
+          )
         `,
         )
         .eq("id", resumeId)
@@ -193,16 +316,20 @@ export const generateInterviewBrief = task({
         .select(
           `
           overall_fit_score,
-          skills_analysis,
-          candidate_strengths,
-          candidate_gaps,
-          recommendations
+          skills_match_score,
+          experience_match_score,
+          matched_skills,
+          missing_skills,
+          strengths,
+          weaknesses,
+          recommendations,
+          match_reasoning
         `,
         )
         .eq("application_id", applicationId)
         .eq("resume_id", resumeId)
         .eq("user_id", userId)
-        .order("created_at", { ascending: false })
+        .order("calculated_at", { ascending: false })
         .limit(1);
 
       // Get STAR stories for talking points
@@ -224,20 +351,21 @@ export const generateInterviewBrief = task({
       });
 
       // Update progress: generating with AI
-      await supabase
-        .from("interview_sessions")
-        .update({
-          generation_progress: 60,
-          generation_metadata: {
-            step: "ai_generation",
-            message: "Generating interview brief with AI",
-          },
-        })
-        .eq("id", sessionId)
-        .eq("user_id", userId);
+      await updateProgress(
+        "ai_generation",
+        "Generating interview brief with AI...",
+        60,
+      );
 
       // Generate interview brief using AI
       logger.info("Generating interview brief with AI", { sessionId });
+
+      // Add intermediate progress updates for smoother UX
+      await updateProgress(
+        "ai_generation",
+        "AI is analyzing company data...",
+        70,
+      );
 
       const response = await generateText({
         model,
@@ -257,10 +385,10 @@ ${applicationData?.job_description || applicationData?.notes || "Not provided"}
 ${applicationData?.company_enrichment ? JSON.stringify(applicationData.company_enrichment) : "Not available"}
 
 **Candidate Profile:**
-- Experience: ${JSON.stringify(resumeData?.experience || [])}
-- Skills: ${JSON.stringify(resumeData?.skills || [])}
-- Education: ${JSON.stringify(resumeData?.education || [])}
-- Projects: ${JSON.stringify(resumeData?.projects || [])}
+- Experience: ${JSON.stringify(resumeData?.resume_experiences || [])}
+- Skills: ${JSON.stringify(resumeData?.resume_skills || [])}
+- Education: ${JSON.stringify(resumeData?.resume_education || [])}
+- Projects: ${JSON.stringify(resumeData?.resume_projects || [])}
 
 **Match Analysis (if available):**
 ${matchData && matchData.length > 0 ? JSON.stringify(matchData[0]) : "Not available"}
@@ -341,6 +469,9 @@ Provide a comprehensive interview brief following this exact JSON structure.`,
         throw new Error("Empty AI response received");
       }
 
+      // Update progress after AI generation
+      await updateProgress("ai_generation", "Processing AI response...", 80);
+
       // Extract JSON from response (handles both ```json and <json> formats)
       let jsonMatch = response.text.match(/```json\s*([\s\S]*?)\s*```/);
       if (!jsonMatch) {
@@ -362,17 +493,7 @@ Provide a comprehensive interview brief following this exact JSON structure.`,
       logger.info("Interview brief generated by AI", { sessionId });
 
       // Update progress: saving brief
-      await supabase
-        .from("interview_sessions")
-        .update({
-          generation_progress: 90,
-          generation_metadata: {
-            step: "saving_brief",
-            message: "Saving generated brief",
-          },
-        })
-        .eq("id", sessionId)
-        .eq("user_id", userId);
+      await updateProgress("saving_brief", "Saving generated brief...", 90);
 
       // Save brief to database
       const { data: insertedBrief, error: insertError } = await supabase
@@ -418,6 +539,9 @@ Provide a comprehensive interview brief following this exact JSON structure.`,
         })
         .eq("id", sessionId)
         .eq("user_id", userId);
+
+      // Check if all AI generation is complete and auto-transition to in_progress
+      await checkAndAutoTransitionSession(supabase, sessionId, userId);
 
       return {
         success: true,

@@ -179,7 +179,7 @@ export async function updateInterviewSessionAction(
   sessionId: string,
   updates: {
     sessionName?: string;
-    status?: "draft" | "in_progress" | "completed";
+    status?: "preparing" | "ready" | "completed";
   },
 ): Promise<InterviewPrepResult> {
   try {
@@ -581,8 +581,9 @@ export async function deleteStarStoryAction(
 
 // Actions to trigger background AI tasks
 export async function triggerStarStoryExtractionAction(
+  sessionId: string, // Now required - STAR stories are session-specific
+  applicationId: string, // Required for job context
   resumeId: string,
-  resumeContent: string,
   forceRefresh = false,
 ): Promise<InterviewPrepResult> {
   try {
@@ -606,13 +607,17 @@ export async function triggerStarStoryExtractionAction(
       };
     }
 
-    // Trigger STAR story extraction
+    // Trigger STAR story extraction with session and application context
     const handle = await extractStarStories.trigger({
-      resumeId,
+      sessionId,
       userId: user.id,
-      resumeContent,
+      applicationId,
+      resumeId,
       forceRefresh,
     });
+
+    // Revalidate interview prep cache to ensure fresh data after extraction
+    revalidateInterviewPrepData();
 
     return {
       success: true,
@@ -651,13 +656,14 @@ export async function triggerInterviewQuestionGenerationAction(
     } = await supabase.auth.getUser();
 
     if (authError || !user) {
+      console.error("Authentication failed:", authError);
       return {
         success: false,
         error: "Authentication required",
       };
     }
 
-    // Trigger question generation
+    // Trigger the task (database updates now handled in trigger function)
     const handle = await generateInterviewQuestions.trigger({
       sessionId,
       userId: user.id,
@@ -677,6 +683,7 @@ export async function triggerInterviewQuestionGenerationAction(
     };
   } catch (error) {
     console.error("Error triggering question generation:", error);
+
     return {
       success: false,
       error:
@@ -706,13 +713,14 @@ export async function triggerInterviewBriefGenerationAction(
     } = await supabase.auth.getUser();
 
     if (authError || !user) {
+      console.error("Authentication failed for brief generation:", authError);
       return {
         success: false,
         error: "Authentication required",
       };
     }
 
-    // Trigger brief generation
+    // Trigger brief generation (database updates now handled in trigger function)
     const handle = await generateInterviewBrief.trigger({
       sessionId,
       userId: user.id,
@@ -731,6 +739,7 @@ export async function triggerInterviewBriefGenerationAction(
     };
   } catch (error) {
     console.error("Error triggering brief generation:", error);
+
     return {
       success: false,
       error:

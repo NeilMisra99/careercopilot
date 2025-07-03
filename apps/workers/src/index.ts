@@ -39,7 +39,7 @@ import { storeCompanyEnrichment, getCompanyEnrichment, deleteCompanyEnrichment }
 
 import { healthCheck, getCurrentUser, sayHello } from './lib/index/routes/debug';
 
-import { getResumes, getResumeDetails, setPrimaryResume, deleteResume } from './lib/index/routes/resumes';
+import { getResumes, getResumeDetails, setPrimaryResume, deleteResume, getResumeContent } from './lib/index/routes/resumes';
 
 import {
 	getMatches,
@@ -54,13 +54,15 @@ import {
 	getInterviewSessions,
 	createInterviewSession,
 	getInterviewSessionDetails,
+	getCompleteSessionData,
 	updateInterviewSession,
 	deleteInterviewSession,
 	getInterviewQuestions,
 	getInterviewBrief,
-	getStarStories,
-	updateStarStory,
-	deleteStarStory,
+	getInterviewStarStories,
+	getAllStarStories,
+	updateInterviewStarStory,
+	deleteInterviewStarStory,
 } from './lib/index/routes/interview-prep';
 
 /**
@@ -101,6 +103,7 @@ app.delete('/api/company-enrichment/:id', deleteCompanyEnrichment);
 // === Resume Management Routes ===
 app.get('/api/resumes', getResumes);
 app.get('/api/resumes/:id', getResumeDetails);
+app.get('/api/resumes/:id/content', getResumeContent);
 app.post('/api/resumes/:id/set-primary', setPrimaryResume);
 app.delete('/api/resumes/:id', deleteResume);
 
@@ -133,13 +136,15 @@ app.get('/api/job-discovery/jsearch/usage-limits', checkJSearchUsageLimits);
 app.get('/api/interview-prep/sessions', getInterviewSessions);
 app.post('/api/interview-prep/sessions', createInterviewSession);
 app.get('/api/interview-prep/sessions/:sessionId', getInterviewSessionDetails);
+app.get('/api/interview-prep/sessions/:sessionId/complete', getCompleteSessionData);
 app.put('/api/interview-prep/sessions/:sessionId', updateInterviewSession);
 app.delete('/api/interview-prep/sessions/:sessionId', deleteInterviewSession);
 app.get('/api/interview-prep/sessions/:sessionId/questions', getInterviewQuestions);
 app.get('/api/interview-prep/sessions/:sessionId/brief', getInterviewBrief);
-app.get('/api/interview-prep/star-stories', getStarStories);
-app.put('/api/interview-prep/star-stories/:storyId', updateStarStory);
-app.delete('/api/interview-prep/star-stories/:storyId', deleteStarStory);
+app.get('/api/interview-prep/sessions/:sessionId/star-stories', getInterviewStarStories);
+app.get('/api/interview-prep/star-stories', getAllStarStories);
+app.put('/api/interview-prep/star-stories/:storyId', updateInterviewStarStory);
+app.delete('/api/interview-prep/star-stories/:storyId', deleteInterviewStarStory);
 
 // === Debug/Development Routes ===
 app.get('/api/me', getCurrentUser);

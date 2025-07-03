@@ -48,7 +48,7 @@ export function BoardPageWrapper({
 
   return (
     <div className="bg-background relative h-full overflow-hidden">
-      <div className="relative z-10 mx-auto flex h-full max-w-[1920px] flex-col p-6">
+      <div className="relative z-10 mx-auto flex h-full max-w-7xl flex-col p-6">
         {/* Header Section - flex-shrink-0 */}
         <div className="mb-6 flex flex-shrink-0 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>

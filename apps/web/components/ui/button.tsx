@@ -16,7 +16,7 @@ const buttonVariants = cva(
         submit:
           "border border-blue-400 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:text-blue-800 shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.25)] bg-gradient-to-b from-blue-50 to-blue-100/60 dark:border-transparent dark:bg-blue-950/20 dark:text-blue-400 dark:hover:bg-blue-950/40 dark:hover:text-blue-300 dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.1)] dark:bg-gradient-to-b dark:from-blue-950/20 dark:to-blue-950/40",
         outline:
-          "border border-gray-200/80 bg-white text-foreground hover:bg-gray-50 shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,1)] bg-gradient-to-b from-white to-gray-100/60 dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.1)] dark:border-white/10 dark:bg-transparent dark:from-white/5 dark:to-transparent dark:hover:bg-white/5",
+          "border border-gray-200/80 bg-white text-foreground hover:bg-gray-100 shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,1)] bg-gradient-to-b from-white to-gray-100/60 dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.1)] dark:border-white/10 dark:bg-transparent dark:from-white/5 dark:to-transparent dark:hover:bg-white/5",
         secondary:
           "bg-secondary text-secondary-foreground hover:bg-secondary/80 shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.25)] border border-gray-200/80 bg-gradient-to-b from-secondary to-secondary/90 dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.1)] dark:border-white/10 dark:bg-gradient-to-b dark:from-secondary dark:to-secondary/80",
         ghost:

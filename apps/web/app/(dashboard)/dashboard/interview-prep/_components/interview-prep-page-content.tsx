@@ -11,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useFormattedDate } from "@/hooks/use-formatted-date";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertCircle,
@@ -24,20 +25,19 @@ import {
   Target,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
   Application,
   InterviewPrepStats,
   InterviewSession,
   Resume,
-  StarStory,
+  InterviewStarStory,
 } from "../_lib/types";
 import { CreateSessionDialog } from "./create-session-dialog";
-import { SessionDetailView } from "./session-detail-view";
 
 interface InterviewPrepPageContentProps {
   initialSessions: InterviewSession[];
-  initialStarStories: StarStory[];
+  initialStarStories: InterviewStarStory[];
   initialApplications: Application[];
   initialResumes: Resume[];
   initialStats: InterviewPrepStats;
@@ -46,20 +46,14 @@ interface InterviewPrepPageContentProps {
 
 export function InterviewPrepPageContent({
   initialSessions,
-  initialStarStories,
   initialApplications,
   initialResumes,
   initialStats,
   error: initialError,
 }: InterviewPrepPageContentProps) {
   const router = useRouter();
-  const [sessions, setSessions] = useState<InterviewSession[]>(initialSessions);
   const [filteredSessions, setFilteredSessions] =
     useState<InterviewSession[]>(initialSessions);
-  const [selectedSession, setSelectedSession] =
-    useState<InterviewSession | null>(null);
-  const [starStories] = useState<StarStory[]>(initialStarStories);
-  const [stats, setStats] = useState<InterviewPrepStats>(initialStats);
 
   // Filter and search state
   const [searchQuery, setSearchQuery] = useState("");
@@ -71,84 +65,40 @@ export function InterviewPrepPageContent({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(initialError);
 
-  // Function to calculate stats from current data
-  const calculateStats = (
-    sessionsData: InterviewSession[],
-    storiesData: StarStory[],
-  ): InterviewPrepStats => {
-    const totalSessions = sessionsData.length;
-    const completedSessions = sessionsData.filter(
-      (s) => s.status === "completed",
-    ).length;
-    const draftSessions = sessionsData.filter(
-      (s) => s.status === "draft",
-    ).length;
-    const inProgressSessions = sessionsData.filter(
-      (s) => s.status === "in_progress",
-    ).length;
-
-    // Calculate recent activity (sessions created in last 7 days)
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    const recentActivity = sessionsData.filter(
-      (s) => new Date(s.created_at) > sevenDaysAgo,
-    ).length;
-
-    // Calculate STAR stories stats
-    const totalStarStories = storiesData.length;
-    let averageConfidenceScore = 0;
-    if (storiesData.length > 0) {
-      const totalConfidence = storiesData.reduce(
-        (sum, story) => sum + (story.confidence_score || 0),
-        0,
-      );
-      averageConfidenceScore =
-        Math.round((totalConfidence / storiesData.length) * 100) / 100;
-    }
-
-    return {
-      totalSessions,
-      completedSessions,
-      draftSessions,
-      inProgressSessions,
-      totalQuestions: 0, // This would need to be calculated from questions data
-      totalStarStories,
-      averageConfidenceScore,
-      recentActivity,
-    };
-  };
-
-  // Create stat cards with skeuomorphic styling
-  const statCards = [
-    {
-      title: "Total Sessions",
-      value: stats.totalSessions.toString(),
-      subtitle: `${stats.draftSessions} draft, ${stats.inProgressSessions} active`,
-      icon: FileText,
-      iconColor: "bg-blue-500",
-    },
-    {
-      title: "Completed Sessions",
-      value: stats.completedSessions.toString(),
-      subtitle: `${Math.round((stats.completedSessions / Math.max(stats.totalSessions, 1)) * 100)}% completion rate`,
-      icon: CalendarCheck,
-      iconColor: "bg-green-500",
-    },
-    {
-      title: "STAR Stories",
-      value: stats.totalStarStories.toString(),
-      subtitle: `${stats.averageConfidenceScore}% avg confidence`,
-      icon: Star,
-      iconColor: "bg-amber-500",
-    },
-    {
-      title: "Recent Activity",
-      value: stats.recentActivity.toString(),
-      subtitle: "Sessions this week",
-      icon: Target,
-      iconColor: "bg-purple-500",
-    },
-  ];
+  // Memoize stat cards to prevent unnecessary recalculations
+  const statCards = useMemo(
+    () => [
+      {
+        title: "Total Sessions",
+        value: initialStats.totalSessions.toString(),
+        subtitle: `${initialStats.preparingSessions} preparing, ${initialStats.readySessions} ready`,
+        icon: FileText,
+        iconColor: "bg-blue-500",
+      },
+      {
+        title: "Completed Sessions",
+        value: initialStats.completedSessions.toString(),
+        subtitle: `${Math.round((initialStats.completedSessions / Math.max(initialStats.totalSessions, 1)) * 100)}% completion rate`,
+        icon: CalendarCheck,
+        iconColor: "bg-green-500",
+      },
+      {
+        title: "STAR Stories",
+        value: initialStats.totalStarStories.toString(),
+        subtitle: `${initialStats.averageConfidenceScore}% avg confidence`,
+        icon: Star,
+        iconColor: "bg-amber-500",
+      },
+      {
+        title: "Recent Activity",
+        value: initialStats.recentActivity.toString(),
+        subtitle: "Sessions this week",
+        icon: Target,
+        iconColor: "bg-purple-500",
+      },
+    ],
+    [initialStats],
+  );
 
   // Simplified refresh data function
   const refreshData = async () => {
@@ -172,7 +122,7 @@ export function InterviewPrepPageContent({
 
   // Filter sessions based on search and filters
   useEffect(() => {
-    let filtered = sessions;
+    let filtered = initialSessions;
 
     // Apply search filter
     if (searchQuery) {
@@ -203,22 +153,22 @@ export function InterviewPrepPageContent({
     }
 
     setFilteredSessions(filtered);
-  }, [sessions, searchQuery, statusFilter, typeFilter]);
+  }, [initialSessions, searchQuery, statusFilter, typeFilter]);
 
-  const getStatusBadgeColor = (status: string) => {
+  const getStatusBadgeColor = useCallback((status: string) => {
     switch (status) {
       case "completed":
         return "bg-green-50 text-green-700 border-green-200 dark:bg-green-950/30 dark:text-green-300 dark:border-green-800/30";
-      case "in_progress":
+      case "ready":
         return "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/30 dark:text-blue-300 dark:border-blue-800/30";
-      case "draft":
+      case "preparing":
         return "bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-950/30 dark:text-gray-300 dark:border-gray-800/30";
       default:
         return "bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-950/30 dark:text-gray-300 dark:border-gray-800/30";
     }
-  };
+  }, []);
 
-  const getTypeBadgeColor = (type: string) => {
+  const getTypeBadgeColor = useCallback((type: string) => {
     switch (type) {
       case "behavioral":
         return "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/30 dark:text-purple-300 dark:border-purple-800/30";
@@ -231,25 +181,7 @@ export function InterviewPrepPageContent({
       default:
         return "bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-950/30 dark:text-gray-300 dark:border-gray-800/30";
     }
-  };
-
-  if (selectedSession) {
-    return (
-      <SessionDetailView
-        session={selectedSession}
-        starStories={starStories}
-        onBack={() => setSelectedSession(null)}
-        onUpdate={(updatedSession) => {
-          setSessions(
-            sessions.map((s) =>
-              s.id === updatedSession.id ? updatedSession : s,
-            ),
-          );
-          setSelectedSession(updatedSession);
-        }}
-      />
-    );
-  }
+  }, []);
 
   return (
     <div className="space-y-8">
@@ -358,8 +290,8 @@ export function InterviewPrepPageContent({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="draft">Draft</SelectItem>
-                  <SelectItem value="in_progress">In Progress</SelectItem>
+                  <SelectItem value="preparing">Preparing</SelectItem>
+                  <SelectItem value="ready">Ready</SelectItem>
                   <SelectItem value="completed">Completed</SelectItem>
                 </SelectContent>
               </Select>
@@ -396,11 +328,11 @@ export function InterviewPrepPageContent({
               No interview sessions found
             </h3>
             <p className="text-muted-foreground mb-4 text-xs">
-              {sessions.length === 0
+              {initialSessions.length === 0
                 ? "Create your first interview prep session to get started."
                 : "Try adjusting your search or filters."}
             </p>
-            {sessions.length === 0 && (
+            {initialSessions.length === 0 && (
               <Button
                 onClick={() => setIsCreateDialogOpen(true)}
                 size="sm"
@@ -421,8 +353,7 @@ export function InterviewPrepPageContent({
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -20 }}
                   transition={{ delay: sessionIndex * 0.1 }}
-                  onClick={() => setSelectedSession(session)}
-                  className="cursor-pointer"
+                  className="cursor-default"
                 >
                   <div className="bg-card border-border from-card to-card/95 dark:from-card dark:to-card/90 h-full rounded-lg border bg-gradient-to-b p-3 shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.25)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.1)]">
                     <div className="space-y-4">
@@ -467,8 +398,7 @@ export function InterviewPrepPageContent({
 
                       {/* Timestamps */}
                       <div className="text-muted-foreground text-xs">
-                        Created{" "}
-                        {new Date(session.created_at).toLocaleDateString()}
+                        <SessionTimestamp createdAt={session.created_at} />
                       </div>
 
                       {/* Action Buttons */}
@@ -479,7 +409,9 @@ export function InterviewPrepPageContent({
                           className="flex-1"
                           onClick={(e) => {
                             e.stopPropagation();
-                            setSelectedSession(session);
+                            router.push(
+                              `/dashboard/interview-prep/${session.id}`,
+                            );
                           }}
                         >
                           View Details
@@ -500,16 +432,18 @@ export function InterviewPrepPageContent({
         resumes={initialResumes}
         isOpen={isCreateDialogOpen}
         onClose={() => setIsCreateDialogOpen(false)}
-        onSuccess={(newSession) => {
-          const updatedSessions = [newSession, ...sessions];
-          setSessions(updatedSessions);
+        onSuccess={() => {
           setIsCreateDialogOpen(false);
-
-          // Recalculate stats with new session
-          const newStats = calculateStats(updatedSessions, starStories);
-          setStats(newStats);
+          // Just refresh the data instead of managing state
+          refreshData();
         }}
       />
     </div>
   );
+}
+
+// Separate component to handle date formatting to prevent hydration issues
+function SessionTimestamp({ createdAt }: { createdAt: string }) {
+  const formattedDate = useFormattedDate(createdAt);
+  return <>Created {formattedDate}</>;
 }

@@ -2,9 +2,6 @@
 
 import {
   deleteInterviewSessionAction,
-  getInterviewBriefAction,
-  getInterviewQuestionsAction,
-  getInterviewSessionDetailsAction,
   triggerInterviewBriefGenerationAction,
   triggerInterviewQuestionGenerationAction,
   updateInterviewSessionAction,
@@ -19,6 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useFormattedDate } from "@/hooks/use-formatted-date";
 import { createClient } from "@/lib/supabase/client";
 import { motion } from "framer-motion";
 import {
@@ -26,35 +24,38 @@ import {
   ArrowLeft,
   Building,
   Calendar,
-  ChevronRight,
+  CheckCircle,
   Clock,
   FileText,
-  Loader2,
   MessageSquare,
   MoreVertical,
   RefreshCw,
   Star,
   Target,
+  Trash,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { revalidateInterviewPrepCacheAction } from "../_lib/actions/cache-actions";
+import { revalidateInterviewSessionCacheAction } from "../_lib/actions/cache-actions";
 import type {
   InterviewBrief,
   InterviewQuestion,
   InterviewSession,
-  StarStory,
+  InterviewStarStory,
 } from "../_lib/types";
 import { InterviewBriefSection } from "./interview-brief-section";
 import { InterviewQuestionsSection } from "./interview-questions-section";
+import { RealtimeProgressDisplay } from "./realtime-progress-display";
 import { StarStoriesSection } from "./star-stories-section";
 
 interface SessionDetailViewProps {
   session: InterviewSession;
-  starStories: StarStory[];
-  onBack: () => void;
-  onUpdate: (updatedSession: InterviewSession) => void;
+  questions: InterviewQuestion[];
+  brief: InterviewBrief | null;
+  starStories: InterviewStarStory[];
+  onBack?: () => void;
+  onUpdate?: (updatedSession: InterviewSession) => void;
 }
 
 // Real-time progress interface
@@ -62,22 +63,21 @@ interface SessionProgress {
   id: string;
   question_generation_status: string | null;
   brief_generation_status: string | null;
+  star_generation_status: string | null;
+  status: string | null;
   generation_progress: number | null;
   generation_metadata: Record<string, unknown> | null;
   updated_at: string;
 }
 
 export function SessionDetailView({
-  session: initialSession,
+  session,
+  questions,
+  brief,
   starStories,
   onBack,
-  onUpdate,
 }: SessionDetailViewProps) {
-  const [session, setSession] = useState<InterviewSession>(initialSession);
-  const [questions, setQuestions] = useState<InterviewQuestion[]>([]);
-  const [brief, setBrief] = useState<InterviewBrief | null>(null);
   const [activeTab, setActiveTab] = useState("questions");
-  const [isLoading, setIsLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
@@ -85,53 +85,33 @@ export function SessionDetailView({
   // Track completed generations to prevent duplicate completion toasts
   const completedGenerationsRef = useRef<Set<string>>(new Set());
 
-  // Filter STAR stories for this resume
-  const relevantStarStories = starStories.filter(
-    (story) => story.resume_id === session.resume_id,
-  );
+  // Track real-time generation status for progress display
+  const [realtimeStatus, setRealtimeStatus] = useState({
+    question_generation_status: session.question_generation_status,
+    brief_generation_status: session.brief_generation_status,
+    star_generation_status: session.star_generation_status,
+    generation_progress: session.generation_progress,
+    generation_metadata: session.generation_metadata,
+  });
 
-  const loadSessionDetails = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-
+  const refreshData = useCallback(async () => {
     try {
-      // Load full session details
-      const sessionResult = await getInterviewSessionDetailsAction(session.id);
-      if (sessionResult.success && sessionResult.data) {
-        const updatedSession = sessionResult.data as InterviewSession;
-        setSession(updatedSession);
-        onUpdate(updatedSession);
-      }
-
-      // Load questions and brief in parallel
-      const [questionsResult, briefResult] = await Promise.all([
-        getInterviewQuestionsAction(session.id),
-        getInterviewBriefAction(session.id),
-      ]);
-
-      if (questionsResult.success && questionsResult.data) {
-        setQuestions(questionsResult.data as InterviewQuestion[]);
-      }
-
-      if (briefResult.success && briefResult.data) {
-        setBrief(briefResult.data as InterviewBrief);
-      }
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to load session details",
-      );
-    } finally {
-      setIsLoading(false);
+      await revalidateInterviewSessionCacheAction(session.id);
+      // Add delay to let cache invalidation propagate
+      setTimeout(() => {
+        router.refresh();
+      }, 100);
+    } catch (error) {
+      console.error("Cache revalidation failed:", error);
     }
-  }, [session.id, onUpdate]);
+  }, [router, session.id]);
 
-  // Load session details initially
+  // Real-time subscription for generation progress (matches resumes pattern)
   useEffect(() => {
-    loadSessionDetails();
-  }, [loadSessionDetails]);
+    if (!session.id) {
+      return;
+    }
 
-  // Real-time subscription for generation progress
-  useEffect(() => {
     const supabase = createClient();
 
     // Track which generations are already completed to prevent duplicate toasts
@@ -154,7 +134,7 @@ export function SessionDetailView({
       const { data: currentSession, error } = await supabase
         .from("interview_sessions")
         .select(
-          "id, question_generation_status, brief_generation_status, generation_progress, generation_metadata, updated_at",
+          "id, question_generation_status, brief_generation_status, star_generation_status, generation_progress, generation_metadata, updated_at",
         )
         .eq("id", session.id)
         .single();
@@ -164,21 +144,22 @@ export function SessionDetailView({
       }
 
       if (currentSession) {
-        // Update session state with latest generation status
-        setSession((prevSession) => ({
-          ...prevSession,
+        // Update realtime status with latest generation status
+        setRealtimeStatus({
           question_generation_status: currentSession.question_generation_status,
           brief_generation_status: currentSession.brief_generation_status,
+          star_generation_status: currentSession.star_generation_status,
           generation_progress: currentSession.generation_progress,
           generation_metadata: currentSession.generation_metadata,
-          updated_at: currentSession.updated_at,
-        }));
+        });
 
         // Update completion tracking with any newly completed generations
+        const newlyCompleted = [];
         if (
           currentSession.question_generation_status === "completed" &&
           !completedGenerationsRef.current.has(`${session.id}-questions`)
         ) {
+          newlyCompleted.push("questions");
           completedGenerationsRef.current.add(`${session.id}-questions`);
         }
 
@@ -186,6 +167,7 @@ export function SessionDetailView({
           currentSession.brief_generation_status === "completed" &&
           !completedGenerationsRef.current.has(`${session.id}-brief`)
         ) {
+          newlyCompleted.push("brief");
           completedGenerationsRef.current.add(`${session.id}-brief`);
         }
       }
@@ -222,21 +204,22 @@ export function SessionDetailView({
               sessionUpdate.question_generation_status &&
             oldSession.brief_generation_status ===
               sessionUpdate.brief_generation_status &&
+            oldSession.star_generation_status ===
+              sessionUpdate.star_generation_status &&
             oldSession.generation_progress === sessionUpdate.generation_progress
           ) {
             return;
           }
 
-          // Update session status
-          setSession((prev) => ({
-            ...prev,
+          // Update realtime status
+          setRealtimeStatus({
             question_generation_status:
               sessionUpdate.question_generation_status,
             brief_generation_status: sessionUpdate.brief_generation_status,
+            star_generation_status: sessionUpdate.star_generation_status,
             generation_progress: sessionUpdate.generation_progress,
             generation_metadata: sessionUpdate.generation_metadata,
-            updated_at: sessionUpdate.updated_at,
-          }));
+          });
 
           // Handle question generation completion
           const wasQuestionCompleted =
@@ -259,11 +242,6 @@ export function SessionDetailView({
             });
 
             handleCacheRevalidation();
-
-            // Reload questions data
-            setTimeout(() => {
-              loadSessionDetails();
-            }, 500);
           } else if (isQuestionNowCompleted && !questionAlreadyHandled) {
             // Mark as handled even if it was already completed to prevent future duplicates
             completedGenerationsRef.current.add(`${session.id}-questions`);
@@ -291,29 +269,68 @@ export function SessionDetailView({
             });
 
             handleCacheRevalidation();
-
-            // Reload brief data
-            setTimeout(() => {
-              loadSessionDetails();
-            }, 500);
           } else if (isBriefNowCompleted && !briefAlreadyHandled) {
             // Mark as handled even if it was already completed to prevent future duplicates
             completedGenerationsRef.current.add(`${session.id}-brief`);
+          }
+
+          // Handle star story generation completion
+          const wasStarCompleted =
+            oldSession?.star_generation_status === "completed";
+          const isStarNowCompleted =
+            sessionUpdate.star_generation_status === "completed";
+          const starAlreadyHandled = completedGenerationsRef.current.has(
+            `${session.id}-star`,
+          );
+
+          if (isStarNowCompleted && !starAlreadyHandled && !wasStarCompleted) {
+            completedGenerationsRef.current.add(`${session.id}-star`);
+
+            toast.success("STAR stories generated!", {
+              description:
+                "Your personalized STAR stories are ready for review.",
+            });
+
+            handleCacheRevalidation();
+          } else if (isStarNowCompleted && !starAlreadyHandled) {
+            // Mark as handled even if it was already completed to prevent future duplicates
+            completedGenerationsRef.current.add(`${session.id}-star`);
+          }
+
+          // Handle auto-transition to ready
+          const wasStatusPreparing = oldSession?.status === "preparing";
+          const isStatusNowReady = sessionUpdate.status === "ready";
+          const hasAutoTransitionReason =
+            sessionUpdate.generation_metadata?.auto_transition_reason ===
+            "all_ai_generation_completed";
+
+          if (
+            wasStatusPreparing &&
+            isStatusNowReady &&
+            hasAutoTransitionReason
+          ) {
+            toast.success("Session ready!", {
+              description:
+                "All AI content generated. Your interview prep session is ready to use!",
+              duration: 5000,
+            });
+            handleCacheRevalidation();
           }
         },
       )
       .subscribe();
 
     return () => {
+      completedGenerationsRef.current.clear();
       supabase.removeChannel(channel);
     };
-  }, [session.id, loadSessionDetails]);
+  }, [session.id]);
 
   // Handle cache revalidation
   const handleCacheRevalidation = async () => {
     try {
-      await revalidateInterviewPrepCacheAction();
-      // Add delay to let cache invalidation propagate
+      await revalidateInterviewSessionCacheAction(session.id);
+      // Add longer delay to let cache invalidation propagate fully
       setTimeout(() => {
         router.refresh();
       }, 100);
@@ -323,32 +340,16 @@ export function SessionDetailView({
   };
 
   const handleStatusChange = async (newStatus: InterviewSession["status"]) => {
-    // Optimistic update
-    const previousStatus = session.status;
-    const optimisticSession = { ...session, status: newStatus };
-    setSession(optimisticSession);
-    onUpdate(optimisticSession);
-
     try {
       const result = await updateInterviewSessionAction(session.id, {
         status: newStatus,
       });
       if (result.success && result.data) {
-        const updatedSession = result.data as InterviewSession;
-        setSession(updatedSession);
-        onUpdate(updatedSession);
+        refreshData();
       } else {
-        // Revert on failure
-        const revertedSession = { ...session, status: previousStatus };
-        setSession(revertedSession);
-        onUpdate(revertedSession);
         setError(result.error || "Failed to update status");
       }
     } catch (err) {
-      // Revert on error
-      const revertedSession = { ...session, status: previousStatus };
-      setSession(revertedSession);
-      onUpdate(revertedSession);
       setError(err instanceof Error ? err.message : "Failed to update status");
     }
   };
@@ -414,7 +415,12 @@ export function SessionDetailView({
     try {
       const result = await deleteInterviewSessionAction(session.id);
       if (result.success) {
-        onBack();
+        if (onBack) {
+          onBack();
+        } else {
+          // Navigate back to interview prep page
+          router.push("/dashboard/interview-prep");
+        }
       } else {
         setError(result.error || "Failed to delete session");
       }
@@ -427,9 +433,9 @@ export function SessionDetailView({
     switch (status) {
       case "completed":
         return "bg-green-50 text-green-700 border-green-200 dark:bg-green-950/30 dark:text-green-300 dark:border-green-800/30";
-      case "in_progress":
+      case "ready":
         return "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/30 dark:text-blue-300 dark:border-blue-800/30";
-      case "draft":
+      case "preparing":
         return "bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-950/30 dark:text-gray-300 dark:border-gray-800/30";
       default:
         return "bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-950/30 dark:text-gray-300 dark:border-gray-800/30";
@@ -460,9 +466,26 @@ export function SessionDetailView({
         className="flex items-start justify-between gap-4"
       >
         <div className="flex items-start gap-4">
-          <Button variant="ghost" size="icon" onClick={onBack} className="mt-1">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
+          {onBack && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onBack}
+              className="mt-1"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          )}
+          {!onBack && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => router.push("/dashboard/interview-prep")}
+              className="mt-1"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          )}
 
           <div className="space-y-2">
             <h1 className="text-foreground text-2xl font-medium">
@@ -479,7 +502,7 @@ export function SessionDetailView({
               </div>
               <div className="flex items-center gap-1">
                 <Calendar className="h-4 w-4" />
-                <span>{new Date(session.created_at).toLocaleDateString()}</span>
+                <span>{useFormattedDate(session.created_at)}</span>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -500,15 +523,8 @@ export function SessionDetailView({
         </div>
 
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={loadSessionDetails}
-            disabled={isLoading}
-          >
-            <RefreshCw
-              className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`}
-            />
+          <Button variant="outline" size="sm" onClick={refreshData}>
+            <RefreshCw className="h-4 w-4" />
             <span>Refresh</span>
           </Button>
 
@@ -520,23 +536,24 @@ export function SessionDetailView({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem
-                onClick={() => handleStatusChange("in_progress")}
-                disabled={session.status === "in_progress"}
+                onClick={() => handleStatusChange("ready")}
+                disabled={session.status === "ready"}
               >
                 <Clock className="mr-2 h-4 w-4" />
-                Mark In Progress
+                Mark Ready
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => handleStatusChange("completed")}
                 disabled={session.status === "completed"}
               >
-                <ChevronRight className="mr-2 h-4 w-4" />
+                <CheckCircle className="mr-2 h-4 w-4" />
                 Mark Completed
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={handleDeleteSession}
                 className="text-red-600"
               >
+                <Trash className="text-red mr-2 h-4 w-4" />
                 Delete Session
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -574,48 +591,87 @@ export function SessionDetailView({
 
         {/* Questions Tab */}
         <TabsContent value="questions" className="space-y-4">
-          {isLoading ? (
-            <div className="bg-card border-border from-card to-card/95 dark:from-card dark:to-card/90 rounded-lg border bg-gradient-to-b p-8 shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.25)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.1)]">
-              <div className="flex items-center justify-center">
-                <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
-              </div>
-            </div>
-          ) : (
-            <InterviewQuestionsSection
-              questions={questions}
-              onGenerate={handleGenerateQuestions}
-              isGenerating={isGenerating}
-              showActions={false}
-              maxHeight="calc(100vh - 300px)"
+          {/* Real-time Progress Display for Questions */}
+          {realtimeStatus.question_generation_status === "processing" && (
+            <RealtimeProgressDisplay
+              progress={{
+                id: session.id,
+                question_generation_status:
+                  realtimeStatus.question_generation_status || "idle",
+                brief_generation_status:
+                  realtimeStatus.brief_generation_status || "idle",
+                star_generation_status:
+                  realtimeStatus.star_generation_status || "idle",
+                generation_progress: realtimeStatus.generation_progress || 0,
+                generation_metadata: realtimeStatus.generation_metadata || {},
+                updated_at: new Date().toISOString(),
+              }}
+              type="questions"
+              forceShow={true}
             />
           )}
+
+          <InterviewQuestionsSection
+            questions={questions}
+            onGenerate={handleGenerateQuestions}
+            isGenerating={isGenerating}
+            showActions={false}
+            generationStatus={realtimeStatus.question_generation_status}
+          />
         </TabsContent>
 
         {/* STAR Stories Tab */}
         <TabsContent value="star-stories" className="space-y-4">
-          <StarStoriesSection
-            starStories={relevantStarStories}
-            showActions={false}
-            maxHeight="calc(100vh - 300px)"
-          />
+          {/* Real-time Progress Display for Star Stories */}
+          {realtimeStatus.star_generation_status === "processing" && (
+            <RealtimeProgressDisplay
+              progress={{
+                id: session.id,
+                question_generation_status:
+                  realtimeStatus.question_generation_status || "idle",
+                brief_generation_status:
+                  realtimeStatus.brief_generation_status || "idle",
+                star_generation_status:
+                  realtimeStatus.star_generation_status || "idle",
+                generation_progress: realtimeStatus.generation_progress || 0,
+                generation_metadata: realtimeStatus.generation_metadata || {},
+                updated_at: new Date().toISOString(),
+              }}
+              type="star"
+              forceShow={true}
+            />
+          )}
+          <StarStoriesSection starStories={starStories} showActions={false} />
         </TabsContent>
 
         {/* Interview Brief Tab */}
         <TabsContent value="brief" className="space-y-4">
-          {isLoading ? (
-            <div className="bg-card border-border from-card to-card/95 dark:from-card dark:to-card/90 rounded-lg border bg-gradient-to-b p-8 shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.25)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.1)]">
-              <div className="flex items-center justify-center">
-                <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
-              </div>
-            </div>
-          ) : (
-            <InterviewBriefSection
-              brief={brief}
-              onGenerate={handleGenerateBrief}
-              isGenerating={isGenerating}
-              maxHeight="calc(100vh - 300px)"
+          {/* Real-time Progress Display for Brief */}
+          {realtimeStatus.brief_generation_status === "processing" && (
+            <RealtimeProgressDisplay
+              progress={{
+                id: session.id,
+                question_generation_status:
+                  realtimeStatus.question_generation_status || "idle",
+                brief_generation_status:
+                  realtimeStatus.brief_generation_status || "idle",
+                star_generation_status:
+                  realtimeStatus.star_generation_status || "idle",
+                generation_progress: realtimeStatus.generation_progress || 0,
+                generation_metadata: realtimeStatus.generation_metadata || {},
+                updated_at: new Date().toISOString(),
+              }}
+              type="brief"
+              forceShow={true}
             />
           )}
+
+          <InterviewBriefSection
+            brief={brief}
+            onGenerate={handleGenerateBrief}
+            isGenerating={isGenerating}
+            generationStatus={realtimeStatus.brief_generation_status}
+          />
         </TabsContent>
       </Tabs>
     </div>

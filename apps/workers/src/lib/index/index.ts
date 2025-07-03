@@ -59,6 +59,7 @@ export {
 	getInterviewSessions,
 	createInterviewSession,
 	getInterviewSessionDetails,
+	getCompleteSessionData,
 	updateInterviewSession,
 	deleteInterviewSession,
 	getInterviewQuestions,

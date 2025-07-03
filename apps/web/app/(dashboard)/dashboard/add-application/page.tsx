@@ -1,6 +1,6 @@
-import { Suspense } from "react"
-import { ApplicationForm } from "./_components/application-form"
-import { ApplicationFormSkeleton } from "./_components/application-form-skeleton"
+import { Suspense } from "react";
+import { ApplicationForm } from "./_components/application-form";
+import { ApplicationFormSkeleton } from "./_components/application-form-skeleton";
 
 export default function AddApplicationPage() {
   return (
@@ -13,7 +13,8 @@ export default function AddApplicationPage() {
               Add New Application
             </h1>
             <p className="text-muted-foreground mt-1 text-sm">
-              Track a new job application manually or import from a job posting URL.
+              Track a new job application manually or import from a job posting
+              URL.
             </p>
           </div>
         </div>
@@ -26,5 +27,5 @@ export default function AddApplicationPage() {
         </div>
       </div>
     </div>
-  )
+  );
 }

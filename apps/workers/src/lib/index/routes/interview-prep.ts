@@ -92,7 +92,7 @@ export async function createInterviewSession(c: Context<Env>) {
 			INSERT INTO public.interview_sessions (
 				user_id, session_name, session_type, application_id, resume_id, status
 			) VALUES (
-				${user.id}, ${sessionName}, ${sessionType}, ${applicationId}, ${resumeId}, 'draft'
+				${user.id}, ${sessionName}, ${sessionType}, ${applicationId}, ${resumeId}, 'preparing'
 			)
 			RETURNING id, session_name, session_type, status, created_at
 		`;
@@ -176,6 +176,104 @@ export async function getInterviewSessionDetails(c: Context<Env>) {
 		});
 	} catch (error: any) {
 		console.error('Unexpected error in getInterviewSessionDetails:', error);
+		return c.json({ success: false, error: 'Internal server error', details: error.message }, 500);
+	}
+}
+
+/**
+ * Get complete session data (session + questions + brief + star stories) for detail page
+ */
+export async function getCompleteSessionData(c: Context<Env>) {
+	const supabase = getSupabase(c);
+	const {
+		data: { user },
+		error: authError,
+	} = await supabase.auth.getUser();
+	const db = c.var.db;
+
+	if (authError || !user) return c.json({ error: 'Not authenticated', details: authError?.message }, 401);
+	if (!db) return c.json({ error: 'Database not available' }, 500);
+
+	try {
+		const sessionId = c.req.param('sessionId');
+
+		// Fetch session details, questions, brief, and star stories in parallel
+		const [sessionResult, questionsResult, briefResult, starStoriesResult] = await Promise.all([
+			// Session details
+			db`
+				SELECT 
+					is_.*,
+					a.id as application_id,
+					a.company_name,
+					a.role,
+					a.job_description,
+					r.id as resume_id,
+					r.name as resume_name
+				FROM public.interview_sessions is_
+				JOIN public.applications a ON a.id = is_.application_id
+				JOIN public.resumes r ON r.id = is_.resume_id
+				WHERE is_.id = ${sessionId} AND is_.user_id = ${user.id}
+			`,
+			// Questions
+			db`
+				SELECT * FROM public.interview_questions 
+				WHERE session_id = ${sessionId}
+				ORDER BY order_index ASC
+			`,
+			// Brief
+			db`
+				SELECT * FROM public.interview_briefs 
+				WHERE session_id = ${sessionId}
+			`,
+			// Interview STAR stories for this session
+			db`
+				SELECT * FROM public.interview_star_stories 
+				WHERE session_id = ${sessionId}
+				ORDER BY relevance_score DESC, confidence_score DESC
+			`
+		]);
+
+		if (!sessionResult || sessionResult.length === 0) {
+			return c.json({ success: false, error: 'Session not found' }, 404);
+		}
+
+		// Transform session data
+		const session = {
+			id: sessionResult[0].id,
+			session_name: sessionResult[0].session_name,
+			session_type: sessionResult[0].session_type,
+			status: sessionResult[0].status,
+			created_at: sessionResult[0].created_at,
+			updated_at: sessionResult[0].updated_at,
+			application_id: sessionResult[0].application_id,
+			resume_id: sessionResult[0].resume_id,
+			question_generation_status: sessionResult[0].question_generation_status,
+			brief_generation_status: sessionResult[0].brief_generation_status,
+			generation_progress: sessionResult[0].generation_progress,
+			generation_metadata: sessionResult[0].generation_metadata,
+			applications: {
+				id: sessionResult[0].application_id,
+				company_name: sessionResult[0].company_name,
+				role: sessionResult[0].role,
+				job_description: sessionResult[0].job_description
+			},
+			resumes: {
+				id: sessionResult[0].resume_id,
+				name: sessionResult[0].resume_name
+			}
+		};
+
+		return c.json({
+			success: true,
+			data: {
+				session,
+				questions: questionsResult || [],
+				brief: briefResult && briefResult.length > 0 ? briefResult[0] : null,
+				starStories: starStoriesResult || []
+			},
+		});
+	} catch (error: any) {
+		console.error('Unexpected error in getCompleteSessionData:', error);
 		return c.json({ success: false, error: 'Internal server error', details: error.message }, 500);
 	}
 }
@@ -357,9 +455,9 @@ export async function getInterviewBrief(c: Context<Env>) {
 }
 
 /**
- * Get user's STAR stories
+ * Get interview STAR stories for a session
  */
-export async function getStarStories(c: Context<Env>) {
+export async function getInterviewStarStories(c: Context<Env>) {
 	const supabase = getSupabase(c);
 	const {
 		data: { user },
@@ -371,38 +469,73 @@ export async function getStarStories(c: Context<Env>) {
 	if (!db) return c.json({ error: 'Database not available' }, 500);
 
 	try {
-		const url = new URL(c.req.url);
-		const resumeId = url.searchParams.get('resumeId');
+		const sessionId = c.req.param('sessionId');
 
-		let stories;
-		if (resumeId) {
-			stories = await db`
-				SELECT * FROM public.star_stories 
-				WHERE user_id = ${user.id} AND resume_id = ${resumeId}
-				ORDER BY confidence_score DESC
-			`;
-		} else {
-			stories = await db`
-				SELECT * FROM public.star_stories 
-				WHERE user_id = ${user.id}
-				ORDER BY confidence_score DESC
-			`;
+		// Verify session belongs to user
+		const session = await db`
+			SELECT id FROM public.interview_sessions 
+			WHERE id = ${sessionId} AND user_id = ${user.id}
+		`;
+
+		if (!session || session.length === 0) {
+			return c.json({ success: false, error: 'Session not found' }, 404);
 		}
+
+		const stories = await db`
+			SELECT * FROM public.interview_star_stories 
+			WHERE session_id = ${sessionId}
+			ORDER BY relevance_score DESC, confidence_score DESC
+		`;
 
 		return c.json({
 			success: true,
 			data: stories || [],
 		});
 	} catch (error: any) {
-		console.error('Unexpected error in getStarStories:', error);
+		console.error('Unexpected error in getInterviewStarStories:', error);
 		return c.json({ success: false, error: 'Internal server error', details: error.message }, 500);
 	}
 }
 
 /**
- * Update STAR story
+ * Get all user's STAR stories across all sessions (for backward compatibility)
  */
-export async function updateStarStory(c: Context<Env>) {
+export async function getAllStarStories(c: Context<Env>) {
+	const supabase = getSupabase(c);
+	const {
+		data: { user },
+		error: authError,
+	} = await supabase.auth.getUser();
+	const db = c.var.db;
+
+	if (authError || !user) return c.json({ error: 'Not authenticated', details: authError?.message }, 401);
+	if (!db) return c.json({ error: 'Database not available' }, 500);
+
+	try {
+		// Get all star stories for user's sessions
+		const stories = await db`
+			SELECT iss.*, is_.session_name, is_.application_id, a.company_name, a.role
+			FROM public.interview_star_stories iss
+			JOIN public.interview_sessions is_ ON iss.session_id = is_.id
+			JOIN public.applications a ON is_.application_id = a.id
+			WHERE is_.user_id = ${user.id}
+			ORDER BY iss.relevance_score DESC, iss.confidence_score DESC
+		`;
+
+		return c.json({
+			success: true,
+			data: stories || [],
+		});
+	} catch (error: any) {
+		console.error('Unexpected error in getAllStarStories:', error);
+		return c.json({ success: false, error: 'Internal server error', details: error.message }, 500);
+	}
+}
+
+/**
+ * Update interview STAR story
+ */
+export async function updateInterviewStarStory(c: Context<Env>) {
 	const supabase = getSupabase(c);
 	const {
 		data: { user },
@@ -416,7 +549,18 @@ export async function updateStarStory(c: Context<Env>) {
 	try {
 		const storyId = c.req.param('storyId');
 		const body = await c.req.json();
-		const { title, situation, task, action, result, skillsDemonstrated, storyCategory } = body;
+		const { title, situation, task, action, result, skillsDemonstrated, storyCategory, usageCount } = body;
+
+		// Verify the story belongs to a session owned by the user
+		const storyCheck = await db`
+			SELECT iss.id FROM public.interview_star_stories iss
+			JOIN public.interview_sessions is_ ON iss.session_id = is_.id
+			WHERE iss.id = ${storyId} AND is_.user_id = ${user.id}
+		`;
+
+		if (!storyCheck || storyCheck.length === 0) {
+			return c.json({ success: false, error: 'STAR story not found or not authorized' }, 404);
+		}
 
 		const updateFields = [];
 		const updateValues = [];
@@ -449,22 +593,26 @@ export async function updateStarStory(c: Context<Env>) {
 			updateFields.push('story_category = $' + (updateValues.length + 2));
 			updateValues.push(storyCategory);
 		}
+		if (usageCount !== undefined) {
+			updateFields.push('usage_count = $' + (updateValues.length + 2));
+			updateValues.push(usageCount);
+		}
 
 		if (updateFields.length === 0) {
 			return c.json({ success: false, error: 'No fields to update' }, 400);
 		}
 
 		const query = `
-			UPDATE public.star_stories 
+			UPDATE public.interview_star_stories 
 			SET ${updateFields.join(', ')}, updated_at = NOW()
-			WHERE id = $1 AND user_id = $${updateValues.length + 2}
+			WHERE id = $1
 			RETURNING *
 		`;
 
-		const story = await db.unsafe(query, [storyId, ...updateValues, user.id]);
+		const story = await db.unsafe(query, [storyId, ...updateValues]);
 
 		if (!story || story.length === 0) {
-			return c.json({ success: false, error: 'STAR story not found or not authorized' }, 404);
+			return c.json({ success: false, error: 'Failed to update STAR story' }, 500);
 		}
 
 		return c.json({
@@ -473,15 +621,15 @@ export async function updateStarStory(c: Context<Env>) {
 			message: 'STAR story updated successfully',
 		});
 	} catch (error: any) {
-		console.error('Unexpected error in updateStarStory:', error);
+		console.error('Unexpected error in updateInterviewStarStory:', error);
 		return c.json({ success: false, error: 'Internal server error', details: error.message }, 500);
 	}
 }
 
 /**
- * Delete STAR story
+ * Delete interview STAR story
  */
-export async function deleteStarStory(c: Context<Env>) {
+export async function deleteInterviewStarStory(c: Context<Env>) {
 	const supabase = getSupabase(c);
 	const {
 		data: { user },
@@ -495,9 +643,20 @@ export async function deleteStarStory(c: Context<Env>) {
 	try {
 		const storyId = c.req.param('storyId');
 
+		// Verify the story belongs to a session owned by the user before deleting
+		const storyCheck = await db`
+			SELECT iss.id FROM public.interview_star_stories iss
+			JOIN public.interview_sessions is_ ON iss.session_id = is_.id
+			WHERE iss.id = ${storyId} AND is_.user_id = ${user.id}
+		`;
+
+		if (!storyCheck || storyCheck.length === 0) {
+			return c.json({ success: false, error: 'STAR story not found or not authorized' }, 404);
+		}
+
 		const result = await db`
-			DELETE FROM public.star_stories 
-			WHERE id = ${storyId} AND user_id = ${user.id}
+			DELETE FROM public.interview_star_stories 
+			WHERE id = ${storyId}
 		`;
 
 		return c.json({
@@ -505,7 +664,7 @@ export async function deleteStarStory(c: Context<Env>) {
 			message: 'STAR story deleted successfully',
 		});
 	} catch (error: any) {
-		console.error('Unexpected error in deleteStarStory:', error);
+		console.error('Unexpected error in deleteInterviewStarStory:', error);
 		return c.json({ success: false, error: 'Internal server error', details: error.message }, 500);
 	}
 }

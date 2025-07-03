@@ -179,6 +179,17 @@ export function revalidateInterviewPrepData() {
   revalidateTag(CACHE_TAGS.RESUMES_DATA);
 }
 
+export function revalidateInterviewSessionData(sessionId: string) {
+  // Invalidate session-specific cache tag
+  revalidateTag(`interview-session-${sessionId}`);
+  // Invalidate general interview prep data
+  revalidateTag(CACHE_TAGS.INTERVIEW_SESSIONS);
+  revalidateTag(CACHE_TAGS.INTERVIEW_QUESTIONS);
+  revalidateTag(CACHE_TAGS.INTERVIEW_BRIEFS);
+  revalidateTag(CACHE_TAGS.INTERVIEW_PREP_DATA);
+  revalidateTag(CACHE_TAGS.INTERVIEW_PREP_PAGE_DATA);
+}
+
 export function revalidateInterviewPrepPages() {
   revalidatePath(CACHE_PATHS.INTERVIEW_PREP);
 }

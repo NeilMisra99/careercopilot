@@ -1,6 +1,11 @@
 "use client";
 
-import { createInterviewSessionAction } from "@/app/(dashboard)/dashboard/interview-prep/_lib/actions/interview-prep-actions";
+import {
+  createInterviewSessionAction,
+  triggerInterviewBriefGenerationAction,
+  triggerInterviewQuestionGenerationAction,
+  triggerStarStoryExtractionAction,
+} from "@/app/(dashboard)/dashboard/interview-prep/_lib/actions/interview-prep-actions";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -21,6 +26,7 @@ import {
 } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 import type {
   Application,
   CreateSessionData,
@@ -80,14 +86,84 @@ export function CreateSessionDialog({
       );
 
       if (result.success && result.data) {
-        onSuccess(result.data as InterviewSession);
-        // Reset form
-        setFormData({
-          sessionName: "",
-          sessionType: "behavioral",
-          applicationId: "",
-          resumeId: "",
-        });
+        // Find the selected application and resume to construct the full session object
+        const selectedApplication = applications.find(
+          (app) => app.id === formData.applicationId,
+        );
+        const selectedResume = resumes.find(
+          (resume) => resume.id === formData.resumeId,
+        );
+
+        if (selectedApplication && selectedResume) {
+          // Construct the full session object with nested data
+          const fullSession: InterviewSession = {
+            ...(result.data as InterviewSession),
+            application_id: selectedApplication.id,
+            resume_id: selectedResume.id,
+            applications: {
+              id: selectedApplication.id,
+              company_name: selectedApplication.company_name,
+              role: selectedApplication.role,
+              job_description: selectedApplication.job_description,
+            },
+            resumes: {
+              id: selectedResume.id,
+              name: selectedResume.name,
+            },
+          };
+
+          onSuccess(fullSession);
+
+          // Show success toast
+          toast.success("Interview session created!", {
+            description:
+              "AI is now generating questions, brief, and STAR stories for your session.",
+          });
+
+          // Automatically trigger generation for new sessions
+          try {
+            const generationPromises = [
+              triggerInterviewQuestionGenerationAction(
+                fullSession.id,
+                fullSession.application_id,
+                fullSession.resume_id,
+                fullSession.session_type,
+                false, // not force refresh since it's a new session
+              ),
+              triggerInterviewBriefGenerationAction(
+                fullSession.id,
+                fullSession.application_id,
+                fullSession.resume_id,
+                false, // not force refresh since it's a new session
+              ),
+              // Always trigger star story extraction for new sessions (session-specific)
+              triggerStarStoryExtractionAction(
+                fullSession.id, // sessionId (required)
+                fullSession.application_id, // applicationId (required for job context)
+                fullSession.resume_id, // resumeId
+                false, // not force refresh
+              ),
+            ];
+
+            await Promise.all(generationPromises);
+          } catch (triggerError) {
+            console.error(
+              "Failed to trigger automatic generation:",
+              triggerError,
+            );
+            // Don't fail the creation process, just log the error
+          }
+
+          // Reset form
+          setFormData({
+            sessionName: "",
+            sessionType: "behavioral",
+            applicationId: "",
+            resumeId: "",
+          });
+        } else {
+          setError("Failed to find selected application or resume");
+        }
       } else {
         setError(result.error || "Failed to create session");
       }

@@ -340,3 +340,64 @@ export async function deleteResume(c: Context<Env>) {
 		);
 	}
 }
+
+// === Get Resume Content for AI Processing ===
+export async function getResumeContent(c: Context<Env>) {
+	try {
+		const supabase = getSupabase(c);
+		const {
+			data: { user },
+			error: authError,
+		} = await supabase.auth.getUser();
+		const db = c.var.db;
+
+		if (authError || !user) {
+			return c.json({ error: 'Authentication required', details: authError?.message }, 401);
+		}
+		if (!db) {
+			return c.json({ error: 'Database not available' }, 500);
+		}
+
+		const resumeId = c.req.param('id');
+		if (!resumeId) {
+			return c.json({ error: 'Resume ID is required' }, 400);
+		}
+
+		// Get resume with parsed_data and verify ownership
+		const resume = await db`
+			SELECT id, parsed_data, parsing_status
+			FROM public.resumes 
+			WHERE id = ${resumeId} AND user_id = ${user.id}
+		`;
+
+		if (resume.length === 0) {
+			return c.json({ error: 'Resume not found' }, 404);
+		}
+
+		const resumeData = resume[0];
+
+		if (resumeData.parsing_status !== 'completed') {
+			return c.json({ error: 'Resume parsing not completed yet' }, 400);
+		}
+
+		if (!resumeData.parsed_data) {
+			return c.json({ error: 'No parsed data available for this resume' }, 400);
+		}
+
+		return c.json({
+			success: true,
+			data: {
+				resumeId: resumeData.id,
+				parsedData: resumeData.parsed_data,
+			},
+		});
+	} catch (error: any) {
+		return c.json(
+			{
+				error: 'Failed to fetch resume content',
+				details: error.message,
+			},
+			500,
+		);
+	}
+}

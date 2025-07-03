@@ -4,6 +4,7 @@ import { getWorkerUrl } from "@/lib/worker-utils";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
+import { InterviewPrepErrorBoundary } from "./_components/error-boundary";
 import { InterviewPrepPageContent } from "./_components/interview-prep-page-content";
 import { InterviewPrepSkeleton } from "./_components/interview-prep-skeleton";
 import type {
@@ -11,7 +12,6 @@ import type {
   InterviewPrepStats,
   InterviewSession,
   Resume,
-  StarStory,
 } from "./_lib/types";
 
 export const metadata = {
@@ -22,13 +22,11 @@ export const metadata = {
 
 async function getInterviewPrepData(cookieString: string): Promise<{
   sessions: InterviewSession[];
-  starStories: StarStory[];
   applications: Application[];
   resumes: Resume[];
   stats: InterviewPrepStats;
   errors: {
     sessions?: string;
-    starStories?: string;
     applications?: string;
     resumes?: string;
     stats?: string;
@@ -39,14 +37,13 @@ async function getInterviewPrepData(cookieString: string): Promise<{
   if (!workerUrl) {
     return {
       sessions: [],
-      starStories: [],
       applications: [],
       resumes: [],
       stats: {
         totalSessions: 0,
         completedSessions: 0,
-        draftSessions: 0,
-        inProgressSessions: 0,
+        preparingSessions: 0,
+        readySessions: 0,
         totalQuestions: 0,
         totalStarStories: 0,
         averageConfidenceScore: 0,
@@ -54,7 +51,6 @@ async function getInterviewPrepData(cookieString: string): Promise<{
       },
       errors: {
         sessions: "Worker URL not configured",
-        starStories: "Worker URL not configured",
         applications: "Worker URL not configured",
         resumes: "Worker URL not configured",
         stats: "Worker URL not configured",
@@ -64,14 +60,13 @@ async function getInterviewPrepData(cookieString: string): Promise<{
 
   const errors: {
     sessions?: string;
-    starStories?: string;
     applications?: string;
     resumes?: string;
     stats?: string;
   } = {};
 
-  // Fetch interview sessions, star stories, applications, and resumes in parallel
-  const [sessionsResult, starStoriesResult, applicationsResult, resumesResult] =
+  // Fetch interview sessions, applications, and resumes in parallel
+  const [sessionsResult, applicationsResult, resumesResult] =
     await Promise.all([
       // Fetch interview sessions
       fetch(`${workerUrl}/api/interview-prep/sessions`, {
@@ -104,40 +99,6 @@ async function getInterviewPrepData(cookieString: string): Promise<{
         })
         .catch((error) => ({
           sessions: [],
-          error: error instanceof Error ? error.message : "Network error",
-        })),
-
-      // Fetch star stories
-      fetch(`${workerUrl}/api/interview-prep/star-stories`, {
-        headers: {
-          "Content-Type": "application/json",
-          Cookie: cookieString,
-        },
-        next: {
-          tags: [CACHE_TAGS.STAR_STORIES, CACHE_TAGS.INTERVIEW_PREP_DATA],
-          revalidate: CACHE_CONFIG.MEDIUM.revalidate,
-        },
-      })
-        .then(async (response) => {
-          if (response.ok) {
-            const data = await response.json();
-            if (data.success && data.data) {
-              return { starStories: data.data, error: null };
-            } else {
-              return {
-                starStories: [],
-                error: data.error || "Failed to fetch STAR stories",
-              };
-            }
-          } else {
-            return {
-              starStories: [],
-              error: `Failed to fetch STAR stories: ${response.status}`,
-            };
-          }
-        })
-        .catch((error) => ({
-          starStories: [],
           error: error instanceof Error ? error.message : "Network error",
         })),
 
@@ -212,13 +173,11 @@ async function getInterviewPrepData(cookieString: string): Promise<{
 
   // Extract results
   const sessions = sessionsResult.sessions;
-  const starStories = starStoriesResult.starStories;
   const applications = applicationsResult.applications;
   const resumes = resumesResult.resumes;
 
   // Set errors
   if (sessionsResult.error) errors.sessions = sessionsResult.error;
-  if (starStoriesResult.error) errors.starStories = starStoriesResult.error;
   if (applicationsResult.error) errors.applications = applicationsResult.error;
   if (resumesResult.error) errors.resumes = resumesResult.error;
 
@@ -227,43 +186,33 @@ async function getInterviewPrepData(cookieString: string): Promise<{
   const completedSessions = sessions.filter(
     (s: InterviewSession) => s.status === "completed",
   ).length;
-  const draftSessions = sessions.filter(
-    (s: InterviewSession) => s.status === "draft",
+  const preparingSessions = sessions.filter(
+    (s: InterviewSession) => s.status === "preparing",
   ).length;
-  const inProgressSessions = sessions.filter(
-    (s: InterviewSession) => s.status === "in_progress",
+  const readySessions = sessions.filter(
+    (s: InterviewSession) => s.status === "ready",
   ).length;
 
   // Calculate recent activity (sessions created in last 7 days)
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-  const recentActivity = sessions.filter(
-    (s: InterviewSession) => new Date(s.created_at) > sevenDaysAgo,
-  ).length;
-
-  // Calculate STAR stories stats
-  const starStoriesCount = starStories.length;
-  let averageConfidenceScore = 0;
-  if (starStories.length > 0) {
-    const totalConfidence = starStories.reduce(
-      (sum: number, story: StarStory) => sum + (story.confidence_score || 0),
-      0,
-    );
-    averageConfidenceScore = totalConfidence / starStories.length;
-  }
+  const now = Date.now();
+  const sevenDaysInMs = 7 * 24 * 60 * 60 * 1000;
+  const recentActivity = sessions.filter((s: InterviewSession) => {
+    const createdTime = new Date(s.created_at).getTime();
+    return now - createdTime < sevenDaysInMs;
+  }).length;
 
   const stats: InterviewPrepStats = {
     totalSessions,
     completedSessions,
-    draftSessions,
-    inProgressSessions,
+    preparingSessions,
+    readySessions,
     totalQuestions: 0, // Will be populated when individual sessions are viewed
-    totalStarStories: starStoriesCount,
-    averageConfidenceScore: Math.round(averageConfidenceScore * 100) / 100,
+    totalStarStories: 0, // Session-specific stories, so aggregate count is not meaningful at page level
+    averageConfidenceScore: 0, // Will be calculated per-session
     recentActivity,
   };
 
-  return { sessions, starStories, applications, resumes, stats, errors };
+  return { sessions, applications, resumes, stats, errors };
 }
 
 export default async function InterviewPrepPage() {
@@ -281,7 +230,7 @@ export default async function InterviewPrepPage() {
   }
 
   try {
-    const { sessions, starStories, applications, resumes, stats, errors } =
+    const { sessions, applications, resumes, stats, errors } =
       await getInterviewPrepData(cookieString);
 
     // Check if there are any critical errors
@@ -294,42 +243,46 @@ export default async function InterviewPrepPage() {
       : undefined;
 
     return (
-      <div className="container mx-auto max-w-6xl px-4 py-6">
-        <Suspense fallback={<InterviewPrepSkeleton />}>
-          <InterviewPrepPageContent
-            initialSessions={sessions}
-            initialStarStories={starStories}
-            initialApplications={applications}
-            initialResumes={resumes}
-            initialStats={stats}
-            error={errorMessage}
-          />
-        </Suspense>
+      <div className="container mx-auto max-w-7xl p-6">
+        <InterviewPrepErrorBoundary>
+          <Suspense fallback={<InterviewPrepSkeleton />}>
+            <InterviewPrepPageContent
+              initialSessions={sessions}
+              initialStarStories={[]}
+              initialApplications={applications}
+              initialResumes={resumes}
+              initialStats={stats}
+              error={errorMessage}
+            />
+          </Suspense>
+        </InterviewPrepErrorBoundary>
       </div>
     );
   } catch (error) {
     console.error("Failed to load interview prep data:", error);
     return (
-      <div className="container mx-auto max-w-6xl px-4 py-6">
-        <Suspense fallback={<InterviewPrepSkeleton />}>
-          <InterviewPrepPageContent
-            initialSessions={[]}
-            initialStarStories={[]}
-            initialApplications={[]}
-            initialResumes={[]}
-            initialStats={{
-              totalSessions: 0,
-              completedSessions: 0,
-              draftSessions: 0,
-              inProgressSessions: 0,
-              totalQuestions: 0,
-              totalStarStories: 0,
-              averageConfidenceScore: 0,
-              recentActivity: 0,
-            }}
-            error={error instanceof Error ? error.message : "Unknown error"}
-          />
-        </Suspense>
+      <div className="container mx-auto max-w-7xl p-6">
+        <InterviewPrepErrorBoundary>
+          <Suspense fallback={<InterviewPrepSkeleton />}>
+            <InterviewPrepPageContent
+              initialSessions={[]}
+              initialStarStories={[]}
+              initialApplications={[]}
+              initialResumes={[]}
+              initialStats={{
+                totalSessions: 0,
+                completedSessions: 0,
+                preparingSessions: 0,
+                readySessions: 0,
+                totalQuestions: 0,
+                totalStarStories: 0,
+                averageConfidenceScore: 0,
+                recentActivity: 0,
+              }}
+              error={error instanceof Error ? error.message : "Unknown error"}
+            />
+          </Suspense>
+        </InterviewPrepErrorBoundary>
       </div>
     );
   }
